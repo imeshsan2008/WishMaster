@@ -1,0 +1,21 @@
+{
+  "name": "wishmaster",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imeshsan2008/WishMaster.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/imeshsan2008/WishMaster/issues"
+  },
+  "homepage": "https://github.com/imeshsan2008/WishMaster#readme"
+}
