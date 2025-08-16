@@ -6,6 +6,7 @@
   <title>WishMaster</title>
   <link rel="icon" href="/assets/img/logo.png" type="image/png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <style>
     body { background-color: #fefaf2; }
     .birthday-card img { width: 70px; height: 70px; object-fit: cover; }
@@ -20,18 +21,15 @@
 <body>
 <div class="container my-4">
 
+  <!-- Status Bar -->
   <div class="status-bar rounded-3 p-3 mb-3 d-flex align-items-center justify-content-between">
     <div class="d-flex align-items-center gap-3">
+  <center class="mb-3"><img src="/assets/img/logo.png" alt="WishMaster" height="120" width="120"></center>
 
       <!-- WhatsApp block -->
       <div id="wa-block" class="d-flex align-items-center gap-2">
         <span class="badge text-bg-success d-none" id="wa-linked">WhatsApp: Linked</span>
         <span class="badge text-bg-warning d-none" id="wa-not-linked">WhatsApp: Not linked</span>
-
-        <!-- Avatar (click to open modal) -->
-        <img id="wa-avatar" class="wa-avatar d-none" src="" alt="WA" title="Open WhatsApp profile"/>
-
-        <!-- Small QR box when not linked -->
         <div id="wa-qr-card" class="card qr-box d-none">
           <div class="card-body p-2 text-center">
             <img id="wa-qr" src="" alt="Scan QR"/>
@@ -45,15 +43,15 @@
         <span class="badge text-bg-info d-none" id="google-linked">Google: Connected</span>
         <span class="badge text-bg-secondary d-none" id="google-not-linked">Google: Not connected</span>
         <button id="btn-logout-google" class="btn btn-sm btn-outline-danger d-none">Log out Google</button>
+        <a href="/contacts" class="btn btn-sm btn-outline-primary d-none" id="btn-contacts-login">Log in google </a>
       </div>
-    </div>
+    </div>        <img id="wa-avatar" class="wa-avatar d-none" src="" alt="WA" title="Open WhatsApp profile"/>
 
-    <!-- Manual refresh -->
-    <button id="btn-refresh" class="btn btn-sm btn-outline-primary">Refresh</button>
   </div>
 
-  <center class="mb-3"><img src="/assets/img/logo.png" alt="WishMaster" height="120" width="120"></center>
+    <button id="btn-refresh" class="btn btn-sm btn-outline-primary">Refresh</button>
 
+  <!-- Birthday Card -->
   <div class="card mt-2">
     <div class="card-header">
       <h4 id="birthday-count" class="m-0">Upcoming Birthdays (0)</h4>
@@ -82,8 +80,16 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-  // ------------------ STATUS + QR ------------------
   const el = (id) => document.getElementById(id);
+
+  // SweetAlert wrapper
+  function showAlert(type, title, text) {
+    return Swal.fire({
+      icon: type, title, text,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33'
+    });
+  }
 
   async function loadStatus() {
     try {
@@ -98,6 +104,7 @@
       } else {
         el('google-linked').classList.add('d-none');
         el('google-not-linked').classList.remove('d-none');
+        el('btn-contacts-login').classList.remove('d-none');
         el('btn-logout-google').classList.add('d-none');
       }
 
@@ -107,33 +114,23 @@
         el('wa-not-linked').classList.add('d-none');
         el('wa-qr-card').classList.add('d-none');
 
-        // avatar
         const avatarUrl = s.whatsapp.profilePicUrl || '/assets/img/logo.png';
         el('wa-avatar').src = avatarUrl;
         el('wa-avatar').classList.remove('d-none');
-
-        // preload profile modal data
         el('wa-modal-photo').src = avatarUrl;
-        el('wa-modal-name').textContent = s.whatsapp.me?.name || 'Me';
-        el('wa-modal-id').textContent = s.whatsapp.me?.id || '';
+        el('wa-modal-name').textContent = s.whatsapp.me || 'Me';
+        el('wa-modal-id').textContent = s.whatsapp.number || '';
       } else {
         el('wa-linked').classList.add('d-none');
         el('wa-not-linked').classList.remove('d-none');
         el('wa-avatar').classList.add('d-none');
-
-        // try to fetch QR
         try {
           const qrRes = await fetch('/api/qr');
           if (qrRes.ok) {
             const { dataUrl } = await qrRes.json();
             el('wa-qr').src = dataUrl;
             el('wa-qr-card').classList.remove('d-none');
-          } else {
-
-            // no QR yet — keep placeholder hidden
-            el('wa-qr-card').classList.add('d-none');
-            return;
-          }
+          } else el('wa-qr-card').classList.add('d-none');
         } catch {
           el('wa-qr-card').classList.add('d-none');
         }
@@ -143,7 +140,7 @@
     }
   }
 
-  // Click avatar -> open modal (and refresh profile details)
+  // Avatar -> modal
   el('wa-avatar').addEventListener('click', async () => {
     try {
       const r = await fetch('/api/status');
@@ -157,48 +154,63 @@
     new bootstrap.Modal('#waProfileModal').show();
   });
 
-  // Logout buttons
+  // Google logout
   el('btn-logout-google').addEventListener('click', async () => {
-    if (!confirm('Log out Google (delete local token)?')) return;
+    const confirm = await Swal.fire({
+      title: 'Log out Google?',
+      text: "This will delete your local token.",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, log out!',
+      cancelButtonText: 'Cancel'
+    });
+    if (!confirm.isConfirmed) return;
+
     const r = await fetch('/api/logout/google', { method: 'POST' });
     if (r.ok) {
-      alert('Google session removed.');
-      await loadStatus();
-      await loadBirthdays(); // will redirect to OAuth on contacts call if needed
+      showAlert('success', 'Success!', 'Google session removed.');
+      await loadStatus(); await loadBirthdays();
     } else {
-      alert('Failed to log out Google.');
+      showAlert('error', 'Error', 'Failed to log out Google.');
     }
   });
 
+  // WhatsApp logout
   el('btn-logout-wa').addEventListener('click', async () => {
-    if (!confirm('Log out WhatsApp on this server?')) return;
+    const confirm = await Swal.fire({
+      title: 'Log out WhatsApp?',
+      text: "This will clear your session and show a new QR.",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, log out!',
+      cancelButtonText: 'Cancel'
+    });
+    if (!confirm.isConfirmed) return;
+
     const r = await fetch('/api/logout/whatsapp', { method: 'POST' });
     if (r.ok) {
-      alert('WhatsApp session removed. A new QR will appear shortly.');
-      // Close modal and refresh status after a short delay so QR can be generated
+      showAlert('success', 'Success!', 'WhatsApp session removed.');
       const m = bootstrap.Modal.getInstance(document.getElementById('waProfileModal'));
       m?.hide();
       setTimeout(loadStatus, 1000);
     } else {
-      alert('Failed to log out WhatsApp.');
+      showAlert('error', 'Error', 'Failed to log out WhatsApp.');
     }
   });
 
   el('btn-refresh').addEventListener('click', async () => {
     await loadStatus();
     await loadBirthdays();
+    showAlert('success', 'Refreshed', 'Status and birthdays updated!');
   });
 
-  // Periodically refresh status to rotate QR if needed
-  setInterval(loadStatus, 5000);
-
-  // ------------------ BIRTHDAYS (your original logic) ------------------
+  // ------------------ BIRTHDAYS ------------------
   async function loadBirthdays() {
     try {
-      const response = await fetch('/contacts');
+      const response = await fetch('http://localhost:3000/contacts');
+      if (!response.ok) return;
       const data = await response.json();
-
-      let contacts = (data.contacts || []).filter(c => c.hasBirthday && c.birthday && c.birthday.month && c.birthday.day);
+      let contacts = (data || []).filter(c =>  c.birthday && c.birthday.month && c.birthday.day);
 
       const today = new Date();
       const currentYear = today.getFullYear();
@@ -277,7 +289,6 @@
     const date = new Date(); date.setMonth(Number(monthNumber) - 1);
     return date.toLocaleString('default', { month: 'short' });
   }
-
   function getNextBirthdayDate(birthday, today) {
     const y = today.getFullYear();
     const m = Number(birthday.month) - 1;
@@ -299,7 +310,6 @@
     return String(str).replace(/[&<>\"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
   }
 
-  // Initial loads
   loadStatus();
   loadBirthdays();
 </script>

@@ -19,11 +19,102 @@ const CREDENTIALS_PATH = 'files/credentials.json';
 const MESSAGE_FILE = 'custom_message.txt';
 const WA_AUTH_DIR = 'whatsapp_auth';
 const PORT = 3000;
+const frame_style_sheet = 'files/frame_style_sheet.json';
+// Load frame styles
+let styles; // Declare styles outside the block
+let wa = { sock: null, latestQRDataURL: null, isLinked: false, number: null, me: null, profilePicUrl: null, starting: false, };
+if (!fs.existsSync(frame_style_sheet)) {
+  console.error("❌ Missing frame_style_sheet.json");
+} else {
+  try {
+    styles = JSON.parse(fs.readFileSync(frame_style_sheet, 'utf-8'));
+    if (!styles.frameStyles || !styles.user_selected_style) {
+      console.error("❌ Invalid frame_style_sheet.json format");
+    } else {
+      console.log("✅ Frame styles loaded successfully");
+    }
+  } catch (err) {
+    console.error("❌ Error parsing frame_style_sheet.json:", err.message);
+  }
+}
+
+let styleId = styles?.user_selected_style || styles?.defaultStyle || '1'; // Default to '1' if not set
 
 const app = express();
 app.use(express.json());
 
 // ======================= Helper Functions =======================
+
+
+async function createFramedImage(profileBuffer, contactName, styleId = null) {
+  // Pick style key
+  const styleKey = styleId || styles.user_selected_style || styles.defaultStyle || '1';
+  const style = styles.frameStyles[styleKey];
+
+  if (!style) {
+    console.error(`❌ Style ID ${styleKey} not found in frame_style_sheet.json`);
+    return profileBuffer;
+  }
+
+  const framePath = path.join(__dirname, style.framePath);
+  if (!fs.existsSync(framePath)) {
+    console.error(`❌ Frame image missing: ${framePath}`);
+    return profileBuffer;
+  }
+
+  try {
+    // Resize profile according to selected style
+    const profileResized = await sharp(profileBuffer)
+      .resize(style.profile.width, style.profile.height, { fit: 'cover' })
+      .toBuffer();
+
+    // Get frame metadata
+    const frameMeta = await sharp(framePath).metadata();
+    contactName = contactName.toUpperCase();
+
+    // SVG for text
+    const svgText = `
+      <svg width="${frameMeta.width}" height="${frameMeta.height}">
+        <style>
+          .title {
+            fill: ${style.text.color};
+            font-family: ${style.text.fontFamily};
+            text-align: center;
+            dominant-baseline: middle;
+            font-size: ${style.text.fontSize};
+            font-weight: bold;
+            text-anchor: middle;
+          }
+        </style>
+        <text x="${style.text.x}" y="${style.text.y}" class="title">${contactName}</text>
+      </svg>
+    `;
+
+    // Composite layers
+    const finalImage = await sharp({
+      create: {
+        width: frameMeta.width,
+        height: frameMeta.height,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0 }
+      }
+    })
+      .composite([
+        { input: profileResized, top: style.profile.top, left: style.profile.left },
+        { input: framePath, top: 0, left: 0 },
+        { input: Buffer.from(svgText), top: 0, left: 0 }
+      ])
+      .png()
+      .toBuffer();
+
+    return finalImage;
+  } catch (err) {
+    console.error(`❌ Error creating framed image for ${contactName}:`, err.message);
+    return profileBuffer;
+  }
+}
+
+
 function isGoogleDefaultLetterImage(url) {
   return typeof url === 'string' && url.includes('googleusercontent.com') && url.includes('photo.jpg');
 }
@@ -97,7 +188,7 @@ async function getTodayBirthdays(auth) {
 function getCustomMessage() {
   if (fs.existsSync(MESSAGE_FILE)) {
     return fs.readFileSync(MESSAGE_FILE, 'utf8').trim();
-    
+
   }
   return '🎉 Happy Birthday! 🎂 Wishing you a fantastic year ahead!';
 }
@@ -118,7 +209,7 @@ async function getValidProfilePicUrl(sock, jid, googlePhotoUrl) {
   }
 
   if (profilePicUrl.includes('googleusercontent.com')) {
-  profilePicUrl = profilePicUrl.replace(/=s\d+/, '=s10000'); // Ensure high resolution   
+    profilePicUrl = profilePicUrl.replace(/=s\d+/, '=s10000'); // Ensure high resolution   
   }
 
   if (!profilePicUrl) {
@@ -167,15 +258,16 @@ async function fetchProfilePicBuffer(profilePicUrl, contactName) {
     return fs.readFileSync(defaultAvatar);
   }
 }
-
-// ======================= WhatsApp Bot =======================
-
-
-
 // ======================= WhatsApp Bot =======================
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(WA_AUTH_DIR);
-  const sock = makeWASocket({ auth: state });
+  const sock = makeWASocket({ auth: state,  shouldSyncHistoryMessage: false,  // do not request chat history
+  markOnlineOnConnect: false,       // do not show online status
+  printQRInTerminal: true,          // still show QR for login
+  // ===== Disable auto "read" receipts =====
+  syncFullHistory: false,           // prevents downloading full history
+  generateHighQualityLinkPreview: false, });
+
   sock.ev.on('creds.update', saveCreds);
 
   sock.ev.on('connection.update', async ({ connection }) => {
@@ -191,25 +283,37 @@ async function startBot() {
           return;
         }
 
+        wa.isLinked = true;
+        wa.number = sock.user.id.split('@')[0].split(`:`)[0];
 
-       for (const contact of birthdays) {
-    // Get a fresh copy every time
-    let message = getCustomMessage();
+        wa.me = await sock.user.name;
+        wa.profilePicUrl = await sock.profilePictureUrl(sock.user.id, 'image').catch(() => null);
+        
+        wa.sock = sock;
+        wa.latestQRDataURL = null; // Reset QR data URL
+        wa.starting = false;
+        
 
-    // Replace placeholder
-    message = message.replace('${name}', contact.name);
+        for (const contact of birthdays) {
+          // Get a fresh copy every time
+          let message = getCustomMessage();
 
-    console.log(message);
+          // Replace placeholder
+          message = message.replace('${name}', contact.name);
 
-    let number = contact.phone.replace(/\D/g, '');
-    const jid = number + '@s.whatsapp.net';
+          console.log(message);
 
-    const profilePicUrl = await getValidProfilePicUrl(sock, jid, contact.photo);
-    const profileBuffer = await fetchProfilePicBuffer(profilePicUrl, contact.name);
+          let number = contact.phone.replace(/\D/g, '');
+          const jid = number + '@s.whatsapp.net';
 
-    await sock.sendMessage(jid, { image: profileBuffer, caption: message });
-    console.log(`✅ Sent profile photo to ${contact.name} (${contact.phone})`);
-}
+          const profilePicUrl = await getValidProfilePicUrl(sock, jid, contact.photo);
+          const profileBuffer = await fetchProfilePicBuffer(profilePicUrl, contact.name);
+          const framedImage = await createFramedImage(profileBuffer, contact.name, styleId);
+
+          await sock.sendMessage(jid, { image: framedImage, caption: message });
+
+          console.log(`✅ Sent profile photo to ${contact.name} (${contact.phone})`);
+        }
 
       } catch (err) {
         console.error('❌ Error in birthday process:', err.message);
@@ -219,7 +323,50 @@ async function startBot() {
 }
 
 // ======================= API Routes =======================
+
+app.get('/api/status', (req, res) => {
+  const googleLinked = fs.existsSync(TOKEN_PATH);
+  res.json({
+    google: { linked: googleLinked },
+    whatsapp: {
+      linked: wa.isLinked,
+      number: wa.number,
+      me: wa.me,
+      profilePicUrl: wa.profilePicUrl || null
+    }
+  });
+});
+
+app.get('/api/qr', (req, res) => {
+  if (wa.isLinked || !wa.latestQRDataURL) {
+    return res.status(404).json({ error: 'No QR available' });
+  }
+  res.json({ dataUrl: wa.latestQRDataURL });
+});
+
+app.post('/api/logout/google', async (req, res) => {
+  try {
+    if (fs.existsSync(TOKEN_PATH)) fs.unlinkSync(TOKEN_PATH);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'Failed to delete Google token' });
+  }
+});
+
+app.post('/api/logout/whatsapp', async (req, res) => {
+  try {
+    await clearWhatsAppSession();
+    // restart so a new QR becomes available immediately
+    await startWhatsApp();
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'Failed to logout WhatsApp' });
+  }
+});
+
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'templates', 'index.html')));
+app.get('/home', (req, res) => res.sendFile(path.join(__dirname, 'templates', 'index.html')));
+
 app.get('/contacts', async (req, res) => {
   try {
     const auth = await getAuthClient(req, res);
@@ -237,11 +384,18 @@ app.get('/oauth2callback', async (req, res) => {
     oAuth2Client.setCredentials(tokens);
     fs.mkdirSync(path.dirname(TOKEN_PATH), { recursive: true });
     fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens));
-    res.send('Authorization successful! Go to /contacts');
+    // res.send('Authorization successful! ');
+    res.redirect('/home?success=true'); // Redirect to contacts page
+    // res.send('Authorization successful!');
   } catch (err) {
     res.status(500).send('Error retrieving access token');
   }
 });
+
+app.get('/assets/img/logo.png', (req, res) => {
+  res.sendFile( path.join(__dirname, 'assets', 'img', 'logo.png'));
+});
+
 
 // ======================= Start Server =======================
 app.listen(PORT, () => {
