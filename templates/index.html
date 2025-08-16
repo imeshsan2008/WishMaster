@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WishMaster</title>
+  <link rel="icon" href="/assets/img/logo.png" type="image/png">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #fefaf2; }
+    .birthday-card img { width: 70px; height: 70px; object-fit: cover; }
+    .today-pill { font-size:.75rem; padding:.25rem .5rem; border-radius:999px; }
+    .section-header { position: sticky; top: 0; z-index: 1; }
+    .status-bar { position: sticky; top: 0; z-index: 5; background: #fffbe9; border: 1px solid rgba(0,0,0,.05); }
+    .wa-avatar { width: 42px; height: 42px; object-fit: cover; border-radius: 50%; cursor: pointer; }
+    .qr-box img { width: 140px; height: 140px; }
+    .small-note { font-size: .8rem; color: #6c757d; }
+  </style>
+</head>
+<body>
+<div class="container my-4">
+
+  <div class="status-bar rounded-3 p-3 mb-3 d-flex align-items-center justify-content-between">
+    <div class="d-flex align-items-center gap-3">
+
+      <!-- WhatsApp block -->
+      <div id="wa-block" class="d-flex align-items-center gap-2">
+        <span class="badge text-bg-success d-none" id="wa-linked">WhatsApp: Linked</span>
+        <span class="badge text-bg-warning d-none" id="wa-not-linked">WhatsApp: Not linked</span>
+
+        <!-- Avatar (click to open modal) -->
+        <img id="wa-avatar" class="wa-avatar d-none" src="" alt="WA" title="Open WhatsApp profile"/>
+
+        <!-- Small QR box when not linked -->
+        <div id="wa-qr-card" class="card qr-box d-none">
+          <div class="card-body p-2 text-center">
+            <img id="wa-qr" src="" alt="Scan QR"/>
+            <div class="small-note mt-1">Scan with WhatsApp to link</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Google block -->
+      <div id="google-block" class="d-flex align-items-center gap-2">
+        <span class="badge text-bg-info d-none" id="google-linked">Google: Connected</span>
+        <span class="badge text-bg-secondary d-none" id="google-not-linked">Google: Not connected</span>
+        <button id="btn-logout-google" class="btn btn-sm btn-outline-danger d-none">Log out Google</button>
+      </div>
+    </div>
+
+    <!-- Manual refresh -->
+    <button id="btn-refresh" class="btn btn-sm btn-outline-primary">Refresh</button>
+  </div>
+
+  <center class="mb-3"><img src="/assets/img/logo.png" alt="WishMaster" height="120" width="120"></center>
+
+  <div class="card mt-2">
+    <div class="card-header">
+      <h4 id="birthday-count" class="m-0">Upcoming Birthdays (0)</h4>
+    </div>
+    <ul class="list-group list-group-flush" id="birthday-list"></ul>
+  </div>
+</div>
+
+<!-- WhatsApp Profile Modal -->
+<div class="modal fade" id="waProfileModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body text-center p-4">
+        <img id="wa-modal-photo" src="" class="rounded-circle mb-3" alt="WhatsApp Profile" style="width:140px;height:140px;object-fit:cover;">
+        <h5 id="wa-modal-name">Me</h5>
+        <p class="text-muted" id="wa-modal-id"></p>
+        <div class="d-grid gap-2 mt-3">
+          <button id="btn-logout-wa" class="btn btn-outline-danger">Log out WhatsApp</button>
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+        <div class="small-note mt-2">Logging out clears the local WhatsApp session and shows a new QR.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // ------------------ STATUS + QR ------------------
+  const el = (id) => document.getElementById(id);
+
+  async function loadStatus() {
+    try {
+      const res = await fetch('/api/status');
+      const s = await res.json();
+
+      // Google
+      if (s.google?.linked) {
+        el('google-linked').classList.remove('d-none');
+        el('google-not-linked').classList.add('d-none');
+        el('btn-logout-google').classList.remove('d-none');
+      } else {
+        el('google-linked').classList.add('d-none');
+        el('google-not-linked').classList.remove('d-none');
+        el('btn-logout-google').classList.add('d-none');
+      }
+
+      // WhatsApp
+      if (s.whatsapp?.linked) {
+        el('wa-linked').classList.remove('d-none');
+        el('wa-not-linked').classList.add('d-none');
+        el('wa-qr-card').classList.add('d-none');
+
+        // avatar
+        const avatarUrl = s.whatsapp.profilePicUrl || '/assets/img/logo.png';
+        el('wa-avatar').src = avatarUrl;
+        el('wa-avatar').classList.remove('d-none');
+
+        // preload profile modal data
+        el('wa-modal-photo').src = avatarUrl;
+        el('wa-modal-name').textContent = s.whatsapp.me?.name || 'Me';
+        el('wa-modal-id').textContent = s.whatsapp.me?.id || '';
+      } else {
+        el('wa-linked').classList.add('d-none');
+        el('wa-not-linked').classList.remove('d-none');
+        el('wa-avatar').classList.add('d-none');
+
+        // try to fetch QR
+        try {
+          const qrRes = await fetch('/api/qr');
+          if (qrRes.ok) {
+            const { dataUrl } = await qrRes.json();
+            el('wa-qr').src = dataUrl;
+            el('wa-qr-card').classList.remove('d-none');
+          } else {
+
+            // no QR yet — keep placeholder hidden
+            el('wa-qr-card').classList.add('d-none');
+            return;
+          }
+        } catch {
+          el('wa-qr-card').classList.add('d-none');
+        }
+      }
+    } catch (e) {
+      console.error('status error', e);
+    }
+  }
+
+  // Click avatar -> open modal (and refresh profile details)
+  el('wa-avatar').addEventListener('click', async () => {
+    try {
+      const r = await fetch('/api/status');
+      if (r.ok) {
+        const p = await r.json();
+        el('wa-modal-photo').src = p.profilePicUrl || '/assets/img/logo.png';
+        el('wa-modal-name').textContent = p.name || 'Me';
+        el('wa-modal-id').textContent = p.id || '';
+      }
+    } catch {}
+    new bootstrap.Modal('#waProfileModal').show();
+  });
+
+  // Logout buttons
+  el('btn-logout-google').addEventListener('click', async () => {
+    if (!confirm('Log out Google (delete local token)?')) return;
+    const r = await fetch('/api/logout/google', { method: 'POST' });
+    if (r.ok) {
+      alert('Google session removed.');
+      await loadStatus();
+      await loadBirthdays(); // will redirect to OAuth on contacts call if needed
+    } else {
+      alert('Failed to log out Google.');
+    }
+  });
+
+  el('btn-logout-wa').addEventListener('click', async () => {
+    if (!confirm('Log out WhatsApp on this server?')) return;
+    const r = await fetch('/api/logout/whatsapp', { method: 'POST' });
+    if (r.ok) {
+      alert('WhatsApp session removed. A new QR will appear shortly.');
+      // Close modal and refresh status after a short delay so QR can be generated
+      const m = bootstrap.Modal.getInstance(document.getElementById('waProfileModal'));
+      m?.hide();
+      setTimeout(loadStatus, 1000);
+    } else {
+      alert('Failed to log out WhatsApp.');
+    }
+  });
+
+  el('btn-refresh').addEventListener('click', async () => {
+    await loadStatus();
+    await loadBirthdays();
+  });
+
+  // Periodically refresh status to rotate QR if needed
+  setInterval(loadStatus, 5000);
+
+  // ------------------ BIRTHDAYS (your original logic) ------------------
+  async function loadBirthdays() {
+    try {
+      const response = await fetch('/contacts');
+      const data = await response.json();
+
+      let contacts = (data.contacts || []).filter(c => c.hasBirthday && c.birthday && c.birthday.month && c.birthday.day);
+
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const todayMonth = today.getMonth() + 1;
+      const todayDay = today.getDate();
+
+      contacts = contacts.map(c => {
+        const next = getNextBirthdayDate(c.birthday, today);
+        const isToday = Number(c.birthday.month) === todayMonth && Number(c.birthday.day) === todayDay;
+        return { ...c, _nextDate: next, _nextYear: next.getFullYear(), _isToday: isToday };
+      });
+
+      contacts.sort((a, b) => a._nextDate - b._nextDate);
+
+      const todayCurrentYear = contacts.filter(c => c._isToday && c._nextYear === currentYear);
+      const yearCurrent = contacts.filter(c => c._nextYear === currentYear && !c._isToday);
+      const yearNext = contacts.filter(c => c._nextYear === currentYear + 1);
+
+      const list = document.getElementById('birthday-list');
+      const count = document.getElementById('birthday-count');
+      count.textContent = `Upcoming Birthdays (${contacts.length})`;
+      list.innerHTML = '';
+
+      if (todayCurrentYear.length) {
+        addSectionHeader(list, `🎉 Today — ${formatFullDate(today)}`);
+        todayCurrentYear.forEach(c => list.appendChild(renderItem(c, { highlight: true })));
+      }
+
+      addSectionHeader(list, `${currentYear}`);
+      yearCurrent.forEach(c => list.appendChild(renderItem(c, { highlight: false })));
+
+      addSectionHeader(list, `${currentYear + 1}`);
+      yearNext.forEach(c => list.appendChild(renderItem(c, { highlight: false })));
+
+    } catch (error) {
+      console.error('Error loading birthdays:', error);
+    }
+  }
+
+  function addSectionHeader(ul, title) {
+    const li = document.createElement('li');
+    li.className = 'list-group-item list-group-item-secondary fw-semibold section-header';
+    li.textContent = title;
+    ul.appendChild(li);
+  }
+
+  function renderItem(contact, { highlight = false } = {}) {
+    const li = document.createElement('li');
+    li.className = 'list-group-item d-flex align-items-center birthday-card';
+    if (highlight) li.classList.add('list-group-item-warning');
+
+    let largePhoto = 'https://via.placeholder.com/70?text=User';
+    if (contact.photo && contact.photo.startsWith('https://lh3.googleusercontent.com')) {
+      largePhoto = contact.photo.replace(/=s\\d+$/, '=s8000');
+    }
+
+    const name = escapeHTML(contact.name || 'Unknown');
+    const monthName = getMonthName(contact.birthday.month);
+    const day = contact.birthday.day;
+    const whenText = `${monthName} ${day}`;
+
+    li.innerHTML = `
+      <img src="${largePhoto}" class="rounded-circle me-3" alt="${name}">
+      <div class="flex-grow-1">
+        <div class="d-flex align-items-center gap-2">
+          <strong>${name}</strong>
+          ${highlight ? `<span class="badge bg-danger today-pill">TODAY</span>` : ''}
+        </div>
+        <div class="text-muted">Birthday: ${whenText}</div>
+      </div>
+    `;
+    return li;
+  }
+
+  function getMonthName(monthNumber) {
+    const date = new Date(); date.setMonth(Number(monthNumber) - 1);
+    return date.toLocaleString('default', { month: 'short' });
+  }
+
+  function getNextBirthdayDate(birthday, today) {
+    const y = today.getFullYear();
+    const m = Number(birthday.month) - 1;
+    const d = Number(birthday.day);
+    let next = safeDate(y, m, d);
+    if (stripTime(next) < stripTime(today)) next = safeDate(y + 1, m, d);
+    return next;
+  }
+  function safeDate(year, monthIndex, day) {
+    const dt = new Date(year, monthIndex, day);
+    if (dt.getMonth() !== monthIndex) return new Date(year, monthIndex, 28);
+    return dt;
+  }
+  function stripTime(dt) { return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()); }
+  function formatFullDate(dt) {
+    return dt.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  }
+  function escapeHTML(str) {
+    return String(str).replace(/[&<>\"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+  }
+
+  // Initial loads
+  loadStatus();
+  loadBirthdays();
+</script>
+</body>
+</html>
