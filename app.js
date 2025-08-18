@@ -7,6 +7,9 @@ const axios = require('axios');
 const sharp = require('sharp');
 const os = require('os');
 const QRCode = require('qrcode');
+const { Server } = require('socket.io');
+const http = require('http');
+
 const {
   default: makeWASocket,
   useMultiFileAuthState
@@ -22,8 +25,17 @@ const PORT = 3000;
 const frame_style_sheet = 'files/frame_style_sheet.json';
 // Load frame styles
 let styles; // Declare styles outside the block
-let wa = { sock: null, latestQRDataURL: null, isLinked: false, number: null, me: null, profilePicUrl: null, starting: false, };
-if (!fs.existsSync(frame_style_sheet)) {
+let wa = {
+  sock: null,
+  latestQRDataURL: null,
+  isLinked: false,
+  number: null,
+  me: null,
+  profilePicUrl: null,
+  starting: false,
+  qrCount: 0,
+  maxQr: 5
+};if (!fs.existsSync(frame_style_sheet)) {
   console.error("❌ Missing frame_style_sheet.json");
 } else {
   try {
@@ -40,11 +52,38 @@ if (!fs.existsSync(frame_style_sheet)) {
 
 let styleId = styles?.user_selected_style || styles?.defaultStyle || '1'; // Default to '1' if not set
 
+// ======================= Express Setup =======================
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: "*", methods: ["GET", "POST"] }
+});
 app.use(express.json());
 
-// ======================= Helper Functions =======================
 
+// ======================= Helper Functions =======================
+// Endpoint to update user_selected_style
+app.post('/update-style', (req, res) => {
+  const { style } = req.body; // expect { "style": "2" }
+
+  if (!style) {
+    return res.status(400).json({ error: 'Style parameter is required' });
+  }
+
+  try {
+    const data = fs.readFileSync(frameStyleSheetPath, 'utf-8');
+    const json = JSON.parse(data);
+
+    json.user_selected_style = style;
+
+    fs.writeFileSync(frameStyleSheetPath, JSON.stringify(json, null, 2), 'utf-8');
+
+    return res.json({ message: `user_selected_style updated to ${style}` });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to update style' });
+  }
+});
 
 async function createFramedImage(profileBuffer, contactName, styleId = null) {
   // Pick style key
@@ -112,8 +151,48 @@ async function createFramedImage(profileBuffer, contactName, styleId = null) {
     console.error(`❌ Error creating framed image for ${contactName}:`, err.message);
     return profileBuffer;
   }
+
 }
 
+// ========== GET all styles + current ==========
+app.get("/api/user-style", (req, res) => {
+  try {
+    if (!fs.existsSync(frame_style_sheet)) {
+      return res.json({ frameStyles: {}, user_selected_style: "1" });
+    }
+
+    const raw = fs.readFileSync(frame_style_sheet, "utf8");
+    const data = JSON.parse(raw);
+
+    res.json(data); // returns { frameStyles: {...}, user_selected_style: "1" }
+  } catch (err) {
+    console.error("❌ Error reading style file:", err);
+    res.status(500).json({ error: "Failed to load styles" });
+  }
+});
+
+// ========== POST update selected style ==========
+app.post("/api/user-style", (req, res) => {
+  try {
+    const { user_selected_style } = req.body;
+    if (!user_selected_style) {
+      return res.status(400).json({ error: "Missing style id" });
+    }
+
+    const raw = fs.readFileSync(frame_style_sheet, "utf8");
+    const data = JSON.parse(raw);
+
+    // update current selection
+    data.user_selected_style = user_selected_style;
+
+    fs.writeFileSync(frame_style_sheet, JSON.stringify(data, null, 2), "utf8");
+
+    res.json({ success: true, user_selected_style });
+  } catch (err) {
+    console.error("❌ Error saving style:", err);
+    res.status(500).json({ error: "Failed to save style" });
+  }
+});
 
 function isGoogleDefaultLetterImage(url) {
   return typeof url === 'string' && url.includes('googleusercontent.com') && url.includes('photo.jpg');
@@ -258,69 +337,111 @@ async function fetchProfilePicBuffer(profilePicUrl, contactName) {
     return fs.readFileSync(defaultAvatar);
   }
 }
+async function sendTodaysBirthdays(sock) {
+  try {
+    const auth = await getAuthClient();
+    if (!auth) return;
+
+    const birthdays = await getTodayBirthdays(auth);
+    if (!birthdays.length) {
+      console.log('🎉 No birthdays today.');
+      return;
+    }
+
+    for (const contact of birthdays) {
+      // Get a fresh custom message
+      let message = getCustomMessage();
+
+      // Replace placeholder with contact name
+      message = message.replace('${name}', contact.name);
+
+      // Format WhatsApp JID
+      let number = contact.phone.replace(/\D/g, '');
+      const jid = number + '@s.whatsapp.net';
+
+      // Get profile picture
+      const profilePicUrl = await getValidProfilePicUrl(sock, jid, contact.photo);
+      const profileBuffer = await fetchProfilePicBuffer(profilePicUrl, contact.name);
+
+      // Create framed image
+      const framedImage = await createFramedImage(profileBuffer, contact.name, styleId);
+
+      // Send message
+      await sock.sendMessage(jid, { image: framedImage, caption: message });
+
+      console.log(`✅ Sent birthday wishes to ${contact.name} (${contact.phone})`);
+    }
+  } catch (err) {
+    console.error('❌ Error sending birthdays:', err.message);
+  }
+}
+
 // ======================= WhatsApp Bot =======================
 async function startBot() {
-  const { state, saveCreds } = await useMultiFileAuthState(WA_AUTH_DIR);
-  const sock = makeWASocket({ auth: state,  shouldSyncHistoryMessage: false,  // do not request chat history
-  markOnlineOnConnect: false,       // do not show online status
-  printQRInTerminal: true,          // still show QR for login
-  // ===== Disable auto "read" receipts =====
-  syncFullHistory: false,           // prevents downloading full history
-  generateHighQualityLinkPreview: false, });
+    const { state, saveCreds } = await useMultiFileAuthState(WA_AUTH_DIR);
 
-  sock.ev.on('creds.update', saveCreds);
+    const sock = makeWASocket({ 
+    auth: state,
+    shouldSyncHistoryMessage: false,
+    markOnlineOnConnect: false,
+    printQRInTerminal: true,
+    syncFullHistory: false,
+    generateHighQualityLinkPreview: false,
+    });
 
-  sock.ev.on('connection.update', async ({ connection }) => {
-    if (connection === 'open') {
-      console.log('✅ WhatsApp connected! Checking birthdays...');
-      try {
-        const auth = await getAuthClient();
-        if (!auth) return;
+    sock.ev.on('creds.update', saveCreds);
 
-        const birthdays = await getTodayBirthdays(auth);
-        if (!birthdays.length) {
-          console.log('No birthdays today.');
-          return;
-        }
 
-        wa.isLinked = true;
-        wa.number = sock.user.id.split('@')[0].split(`:`)[0];
+    sock.ev.on('connection.update', async (update) => {
+        const { connection, qr } = update;
 
-        wa.me = await sock.user.name;
-        wa.profilePicUrl = await sock.profilePictureUrl(sock.user.id, 'image').catch(() => null);
-        
-        wa.sock = sock;
-        wa.latestQRDataURL = null; // Reset QR data URL
-        wa.starting = false;
-        
+if (qr) {
+  wa.latestQRDataURL = await QRCode.toDataURL(qr);
+  wa.qrCount = 0;
+  
+  wa.qrCount ++; // Increment QR count
+  console.log("📷 New QR code generated");
+  console.log("QR Data URL length:", wa.latestQRDataURL.length); // useful for checking if QR was generated
+  console.log("QR Count reset to:", wa.qrCount);
 
-        for (const contact of birthdays) {
-          // Get a fresh copy every time
-          let message = getCustomMessage();
-
-          // Replace placeholder
-          message = message.replace('${name}', contact.name);
-
-          console.log(message);
-
-          let number = contact.phone.replace(/\D/g, '');
-          const jid = number + '@s.whatsapp.net';
-
-          const profilePicUrl = await getValidProfilePicUrl(sock, jid, contact.photo);
-          const profileBuffer = await fetchProfilePicBuffer(profilePicUrl, contact.name);
-          const framedImage = await createFramedImage(profileBuffer, contact.name, styleId);
-
-          await sock.sendMessage(jid, { image: framedImage, caption: message });
-
-          console.log(`✅ Sent profile photo to ${contact.name} (${contact.phone})`);
-        }
-
-      } catch (err) {
-        console.error('❌ Error in birthday process:', err.message);
-      }
-    }
-  });
+  io.emit('qr', { dataUrl: wa.latestQRDataURL, count: wa.qrCount });
+  console.log("📡 QR code emitted via Socket.IO");
 }
+
+
+        if (connection === 'open') {
+  
+    io.emit('connected');   
+    console.log("✅ WhatsApp connected!");
+            wa.sock = sock;
+            wa.isLinked = true;
+            wa.number = sock.user.id.split('@')[0].split(':')[0];
+            wa.me = sock.user.name || null;
+            wa.latestQRDataURL = null; // Reset QR data URL on successful connection
+
+            try {
+                wa.profilePicUrl = await sock.profilePictureUrl("me", 'image');
+                console.log(`✅ Profile picture URL: ${wa.profilePicUrl}`);
+            } catch {
+                wa.profilePicUrl = null;
+                console.log("⚠️ No profile picture found");
+            }
+
+            wa.starting = false;
+
+            // Send birthday wishes
+            if (typeof sendTodaysBirthdays === "function") {
+                await sendTodaysBirthdays(sock);
+            }
+        }  if (connection === 'close') {
+    wa.isLinked = false;
+    io.emit('disconnected');  // 🔥 notify frontend
+    console.log("⚠️ WhatsApp disconnected!");
+  }
+    });
+
+}
+
 
 // ======================= API Routes =======================
 
@@ -329,20 +450,34 @@ app.get('/api/status', (req, res) => {
   res.json({
     google: { linked: googleLinked },
     whatsapp: {
+
       linked: wa.isLinked,
       number: wa.number,
       me: wa.me,
       profilePicUrl: wa.profilePicUrl || null
     }
+    
   });
+          // console.log(wa);
+
 });
 
+
 app.get('/api/qr', (req, res) => {
-  if (wa.isLinked || !wa.latestQRDataURL) {
-    return res.status(404).json({ error: 'No QR available' });
+  if (wa.latestQRDataURL) {
+    if (wa.qrCount < wa.maxQr) {
+      wa.qrCount++;
+      console.log(`QR Generated #${wa.qrCount}`);
+      res.json({ dataUrl: wa.latestQRDataURL, count: wa.qrCount });
+    } else {
+      io.emit('qr_limit', { message: 'QR attempts exceeded, please refresh page' });
+      res.status(429).json({ error: 'QR attempts exceeded' });
+    }
+  } else {
+    res.status(404).json({ error: 'No QR available' });
   }
-  res.json({ dataUrl: wa.latestQRDataURL });
 });
+
 
 app.post('/api/logout/google', async (req, res) => {
   try {
@@ -391,14 +526,62 @@ app.get('/oauth2callback', async (req, res) => {
     res.status(500).send('Error retrieving access token');
   }
 });
-
-app.get('/assets/img/logo.png', (req, res) => {
-  res.sendFile( path.join(__dirname, 'assets', 'img', 'logo.png'));
+// serve assets
+app.get('/assets/img/:file', (req, res) => {
+  res.sendFile(path.join(__dirname, 'assets', 'img', req.params.file));
 });
 
 
+const deleteFolderRecursive = (folderPath) => {
+  if (fs.existsSync(folderPath)) {
+    fs.readdirSync(folderPath).forEach(file => {
+      const curPath = path.join(folderPath, file);
+      if (fs.lstatSync(curPath).isDirectory()) {
+        deleteFolderRecursive(curPath);
+      } else {
+        fs.unlinkSync(curPath);
+      }
+    });
+  }
+};
+ 
+const deleteFilesRecursive = (filePath) => {
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+};
+
+
+app.get('/api/reset', (req, res) => {
+  if (WA_AUTH_DIR && fs.existsSync(WA_AUTH_DIR)) {
+    const filesBefore = fs.readdirSync(WA_AUTH_DIR);
+
+    if (filesBefore.length > 0 || fs.existsSync(TOKEN_PATH)) {
+      deleteFolderRecursive(WA_AUTH_DIR); // delete all files and subfolders
+      deleteFilesRecursive(TOKEN_PATH); // delete token file
+      res.json({ deleted: true, filesDeleted: filesBefore });
+
+      console.log('All WhatsApp auth files deleted. Restarting server...');
+      process.exit(0); // Only restart if files were deleted
+      return;
+    }
+  }
+
+  // If no files to delete
+  res.json({ deleted: false });
+});
+
+// Socket.IO
+io.on('connection', (socket) => {
+    io.emit('qr', { dataUrl: wa.latestQRDataURL, count: wa.qrCount });
+
+  console.log('Client connected');
+  socket.on('disconnect', () => console.log('Client disconnected'));
+});
+
 // ======================= Start Server =======================
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running: http://localhost:${PORT}`);
   startBot();
 });
+
