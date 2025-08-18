@@ -17,6 +17,7 @@ const {
   default: makeWASocket,
   useMultiFileAuthState
 } = require('@whiskeysockets/baileys');
+const { start } = require('pm2');
 
 // ======================= Config ========================
 const SCOPES = ['https://www.googleapis.com/auth/contacts.readonly'];
@@ -24,7 +25,7 @@ const TOKEN_PATH = 'files/token.json';
 const CREDENTIALS_PATH = 'files/credentials.json';
 const MESSAGE_FILE = 'custom_message.txt';
 const WA_AUTH_DIR = 'whatsapp_auth';
-const PORT = 3000;
+const PORT = 8000;
 const frame_style_sheet = 'files/frame_style_sheet.json';
 // Load frame styles
 let styles; // Declare styles outside the block
@@ -510,6 +511,7 @@ async function startBot() {
             wa.isLinked = false;
             io.emit('disconnected');
             console.log("⚠️ WhatsApp disconnected!");
+            startBot();
         }
     });
 
