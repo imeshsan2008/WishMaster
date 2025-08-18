@@ -5,13 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "npm install pm2 -g && pm2 start app.js --name WishMaster --watch --ignore-watch=\"node_modules\" && pm2 save && pm2 startup",
-    "stop": "pm2 stop WishMaster",
-    "restart": "pm2 restart WishMaster",
-    "logs": "pm2 logs WishMaster",
-    "status": "pm2 status WishMaster",
-    "delete": "pm2 delete WishMaster",
-    "update": "git pull && npm install && pm2 restart WishMaster"
+  "dev": "pm2 start app.js --watch --log logs/app.log",
+  "start": "pm2-runtime app.js"
   },
   "repository": {
     "type": "git",
