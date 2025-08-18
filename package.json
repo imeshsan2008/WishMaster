@@ -6,6 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "pm2 start app.js --watch --log logs/app.log",
+    
     "start": "pm2-runtime app.js"
   },
   "repository": {

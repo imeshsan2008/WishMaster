@@ -10,6 +10,7 @@ const QRCode = require('qrcode');
 const { Server } = require('socket.io');
 const http = require('http');
 const cron = require('node-cron');
+let birthdaysSentToday = false;
 
 
 const {
@@ -155,7 +156,18 @@ async function createFramedImage(profileBuffer, contactName, styleId = null) {
   }
 
 }
-
+async function addReaction(sock, messageKey, reactionEmoji) {
+  try {
+    if (messageKey) {
+      await sock.sendMessage(messageKey.remoteJid, {
+        react: { text: reactionEmoji, key: messageKey },
+      });
+      console.log("Reaction added successfully!");
+    }
+  } catch (error) {
+    console.error("Error adding reaction:", error);
+  }
+}
 // ========== GET all styles + current ==========
 app.get("/api/user-style", (req, res) => {
   try {
@@ -339,6 +351,53 @@ async function fetchProfilePicBuffer(profilePicUrl, contactName) {
     return fs.readFileSync(defaultAvatar);
   }
 }
+const now = new Date();
+const dateTime = now.toLocaleString(); // Converts to local date & time
+// Get tomorrow's date
+const today = new Date();
+const tomorrow = new Date(today);
+tomorrow.setDate(today.getDate() + 1);
+const tomorrowMonth = tomorrow.getMonth() + 1; // JavaScript months: 0-11
+const tomorrowDay = tomorrow.getDate();
+
+
+async function getContacts() {
+  try {
+    const response = await fetch('https://wispy-annabella-imeshboy-d00e5586.koyeb.app/contacts'); // /contacts endpoint
+    const contacts = await response.json();
+
+    // Get tomorrow's date
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowMonth = tomorrow.getMonth() + 1; // JS months are 0-indexed
+    const tomorrowDay = tomorrow.getDate();
+
+    // Filter contacts whose birthday is tomorrow
+    const tomorrowBirthdays = contacts.filter(contact => 
+      contact.birthday &&
+      contact.birthday.month === tomorrowMonth &&
+      contact.birthday.day === tomorrowDay
+    );
+
+    if (tomorrowBirthdays.length === 0) {
+      return 'No contacts have a birthday tomorrow.';
+    }
+
+    // Convert all birthdays to a numbered string
+    const birthdayListString = tomorrowBirthdays
+      .map((contact, index) => `${index + 1}. ${contact.name}`)
+      .join('\n');
+
+    return birthdayListString;
+
+  } catch (err) {
+    console.error('Error fetching contacts:', err);
+    return 'Error fetching contacts.';
+  }
+}
+
+
+
 async function sendTodaysBirthdays(sock) {
   try {
     const auth = await getAuthClient();
@@ -350,111 +409,243 @@ async function sendTodaysBirthdays(sock) {
       return;
     }
 
+    const allContacts = await getContacts(); // For tomorrow's list
+
     for (const contact of birthdays) {
-      // Get a fresh custom message
-      let message = getCustomMessage();
+      let attempts = 0;
+      const maxRetries = 5;
+      const delay = 2000; // 2 seconds
 
-      // Replace placeholder with contact name
-      message = message.replace('${name}', contact.name);
+      // Retry logic per contact
+      while (attempts < maxRetries) {
+        try {
+          // Prepare message
+          let message = getCustomMessage().replace(/\$\{name\}/g, contact.name);
 
-      // Format WhatsApp JID
-      let number = contact.phone.replace(/\D/g, '');
-      const jid = number + '@s.whatsapp.net';
+          // Format JID
+          const number = contact.phone.replace(/\D/g, '');
+          const jid = number + '@s.whatsapp.net';
 
-      // Get profile picture
-      const profilePicUrl = await getValidProfilePicUrl(sock, jid, contact.photo);
-      const profileBuffer = await fetchProfilePicBuffer(profilePicUrl, contact.name);
+          // Get profile picture and framed image
+          const profilePicUrl = await getValidProfilePicUrl(sock, jid, contact.photo);
+          const profileBuffer = await fetchProfilePicBuffer(profilePicUrl, contact.name);
+          const framedImage = await createFramedImage(profileBuffer, contact.name, styleId);
 
-      // Create framed image
-      const framedImage = await createFramedImage(profileBuffer, contact.name, styleId);
+         
+          // Debug / log messages
+          await sock.sendMessage(sock.user.id, { text: `✅ Sent birthday wishes to ${contact.name} (${contact.phone})` });
+          await sock.sendMessage(sock.user.id, { text: `*Tomorrow Birthday wishes will be sent to*\n${allContacts}` });
+ // Send birthday message
+          await sock.sendMessage(jid, { image: framedImage, caption: message });
 
-      // Send message
-      await sock.sendMessage(jid, { image: framedImage, caption: message });
-
-      console.log(`✅ Sent birthday wishes to ${contact.name} (${contact.phone})`);
+          console.log(`✅ Sent birthday wishes to ${contact.name} (${contact.phone})`);
+          break; // Success, exit retry loop
+        } catch (err) {
+          attempts++;
+          console.error(`❌ Failed to send message to ${contact.name}. Attempt ${attempts} of ${maxRetries}:`, err.message);
+          if (attempts < maxRetries) {
+            console.log(`⏳ Retrying in ${delay / 1000} seconds...`);
+            await new Promise(res => setTimeout(res, delay));
+          } else {
+            console.error(`❌ Giving up sending message to ${contact.name}`);
+          }
+        }
+      }
     }
   } catch (err) {
     console.error('❌ Error sending birthdays:', err.message);
   }
 }
 
+
 // ======================= WhatsApp Bot =======================
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState(WA_AUTH_DIR);
 
     const sock = makeWASocket({ 
-    auth: state,
-    shouldSyncHistoryMessage: false,
-    markOnlineOnConnect: false,
-    printQRInTerminal: false,
-    syncFullHistory: false,
-    generateHighQualityLinkPreview: false,
+        auth: state,
+      shouldSyncHistoryMessage: true,
+        markOnlineOnConnect: false,
+        printQRInTerminal: false,
+        syncFullHistory: true,
+        generateHighQualityLinkPreview: false,
+
     });
 
     sock.ev.on('creds.update', saveCreds);
 
-
+    // ✅ QR + Connection Handling
     sock.ev.on('connection.update', async (update) => {
         const { connection, qr } = update;
 
-if (qr) {
-  wa.latestQRDataURL = await QRCode.toDataURL(qr);
-  wa.qrCount = 0;
-  
-  wa.qrCount ++; // Increment QR count
-  console.log("📷 New QR code generated");
-  console.log("QR Data URL length:", wa.latestQRDataURL.length); // useful for checking if QR was generated
-  console.log("QR Count reset to:", wa.qrCount);
-
-  io.emit('qr', { dataUrl: wa.latestQRDataURL, count: wa.qrCount });
-  console.log("📡 QR code emitted via Socket.IO");
-}
-
+        if (qr) {
+            wa.latestQRDataURL = await QRCode.toDataURL(qr);
+            wa.qrCount = (wa.qrCount || 0) + 1;
+            console.log("📷 New QR code generated");
+            io.emit('qr', { dataUrl: wa.latestQRDataURL, count: wa.qrCount });
+        }
 
         if (connection === 'open') {
-  
-    io.emit('connected');   
-    console.log("✅ WhatsApp connected!");
+            io.emit('connected');   
+            console.log("✅ WhatsApp connected!");
+
             wa.sock = sock;
             wa.isLinked = true;
             wa.number = sock.user.id.split('@')[0].split(':')[0];
             wa.me = sock.user.name || null;
-            wa.latestQRDataURL = null; // Reset QR data URL on successful connection
-
-            try {
-                wa.profilePicUrl = await sock.profilePictureUrl("me", 'image');
-                console.log(`✅ Profile picture URL: ${wa.profilePicUrl}`);
-            } catch {
-                wa.profilePicUrl = null;
-                console.log("⚠️ No profile picture found");
-            }
-
+            wa.latestQRDataURL = null;
             wa.starting = false;
+            wa.startTime = Date.now();
 
-cron.schedule('0 0 * * *', async () => {  // Make the callback async
-    try {
-        console.log('Running birthday check at midnight (Sri Lanka time)');
-        
-        // Send birthday wishes (if function exists)
-        if (typeof sendTodaysBirthdays === "function") {
-            await sendTodaysBirthdays(sock);  // Now await works properly
+            // try {
+            //     wa.profilePicUrl = await sock.profilePictureUrl("me", 'image');
+            //     console.log(`✅ Profile picture URL: ${wa.profilePicUrl}`);
+            // } catch {
+            //     wa.profilePicUrl = null;
+            //     console.log("⚠️ No profile picture found");
+            // }
+        } 
+
+        if (connection === 'close') {
+            wa.isLinked = false;
+            io.emit('disconnected');
+            console.log("⚠️ WhatsApp disconnected!");
         }
-    } catch (error) {
-        console.error('Error in birthday cron job:', error);
+    });
+
+// ✅ Messages listener with better safety + more commands
+sock.ev.on("messages.upsert", async (msgData) => {
+  try {
+    const message = msgData.messages?.[0];
+    if (!message?.message || message.key.fromMe) return;
+
+    const sender = message.key.remoteJid;
+
+    // Extract text safely
+    const text =
+      message.message.conversation ||
+      message.message.extendedTextMessage?.text ||
+      message.message.imageMessage?.caption ||
+      message.message.videoMessage?.caption ||
+      message.message.buttonsResponseMessage?.selectedButtonId ||
+      message.message.listResponseMessage?.singleSelectReply?.selectedRowId ||
+      "";
+
+    if (!text) return; // skip empty messages
+
+    const command = text.trim().toLowerCase();
+    console.log(`👉 From: ${sender} | Text: ${command}`);
+
+    // Uptime for alive/ping
+    const uptimeMs = Date.now() - (wa.startTime || Date.now());
+    const hours = Math.floor(uptimeMs / 3600000);
+    const minutes = Math.floor((uptimeMs % 3600000) / 60000);
+    const seconds = Math.floor((uptimeMs % 60000) / 1000);
+
+    // ================= Commands =================
+    switch (command) {
+      case ".alive":
+        await sock.sendMessage(sender, {
+          text:
+            `✅ Bot is Active!\n\n` +
+            `⏱ Uptime: ${hours}h ${minutes}m ${seconds}s\n\n` +
+            `> WishMaster v1.0`,
+        });
+        addReaction(sock, message.key, "👽");
+        break;
+
+     
+
+      case ".help":
+      case ".menu":
+        await sock.sendMessage(sender, {
+          text:
+            `📖 *WishMaster Bot Commands:*\n\n` +
+            `.alive - Check bot status\n` +
+           
+            `.Dev - Get Developer contact\n\n` +
+
+`*This bot is only for one task: to send birthday wishes to a person.*\n\n`+
+      `> WishMaster v1.0`
+        });
+                addReaction(sock, message.key, "📃");
+
+        break;
+ 
+
+case ".dev":
+    await sock.sendMessage(sender, {
+        text: ` 👨‍💻 *Developer:*  
+
+====================================     
+│   
+│ 👨‍💻 *Name:*  
+│    💻 *Imesh Sandeepa (Dark Venom)*  
+│
+│ 📱 *WhatsApp:*  
+│    📲 *+94768902513*  
+│
+│ 📧 *Email:*  
+│    ✉️ *imeshsan2008@gmail.com*  
+│
+│ 🌐 *Website:*  
+│    🔗 *https://imeshsan2008.github.io/*  
+|
+> WishMaster v1.0
+====================================
+`, 
+        
+    });
+    addReaction(sock, message.key, "👨‍💻");
+    break;
+
+
+  
+
+
+
+      default:
+        // Optionally log unknown commands
+        console.log("⚠️ Unrecognized command:", command);
+        break;
+    }
+  } catch (err) {
+    console.error("⚠️ Message processing error:", err);
+  }
+});
+
+
+
+    // ✅ Birthday cron example
+cron.schedule('0 * * * *', async () => { // every hour
+    const now = new Date();
+    const hours = now.getHours();
+
+    // Only run after midnight and if not sent yet
+    if (!birthdaysSentToday && hours >= 0) {
+        try {
+            console.log('Running birthday check...');
+            await sendTodaysBirthdays(sock);
+            birthdaysSentToday = true;
+            console.log('Birthday check completed successfully.');
+        } catch (err) {
+            console.error('Birthday check failed, will retry in next hour:', err);
+        }
+    }
+
+    // Reset flag at end of the day (23:59)
+    if (hours === 23 && now.getMinutes() === 59) {
+        birthdaysSentToday = false;
+        console.log('Reset birthdaysSentToday flag for next day.');
     }
 }, {
     scheduled: true,
-    timezone: "Asia/Colombo"  // Sri Lanka's timezone
+    timezone: "Asia/Colombo"
 });
 
-        }  if (connection === 'close') {
-    wa.isLinked = false;
-    io.emit('disconnected');  // 🔥 notify frontend
-    console.log("⚠️ WhatsApp disconnected!");
-  }
-    });
 
 }
+
 
 
 // ======================= API Routes =======================
@@ -592,6 +783,10 @@ io.on('connection', (socket) => {
   console.log('Client connected');
   socket.on('disconnect', () => console.log('Client disconnected'));
 });
+
+
+
+
 
 // ======================= Start Server =======================
 server.listen(PORT, () => {
