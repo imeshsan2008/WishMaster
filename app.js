@@ -9,6 +9,8 @@ const os = require('os');
 const QRCode = require('qrcode');
 const { Server } = require('socket.io');
 const http = require('http');
+const cron = require('node-cron');
+
 
 const {
   default: makeWASocket,
@@ -384,7 +386,7 @@ async function startBot() {
     auth: state,
     shouldSyncHistoryMessage: false,
     markOnlineOnConnect: false,
-    printQRInTerminal: true,
+    printQRInTerminal: false,
     syncFullHistory: false,
     generateHighQualityLinkPreview: false,
     });
@@ -429,10 +431,22 @@ if (qr) {
 
             wa.starting = false;
 
-            // Send birthday wishes
-            if (typeof sendTodaysBirthdays === "function") {
-                await sendTodaysBirthdays(sock);
-            }
+cron.schedule('0 0 * * *', async () => {  // Make the callback async
+    try {
+        console.log('Running birthday check at midnight (Sri Lanka time)');
+        
+        // Send birthday wishes (if function exists)
+        if (typeof sendTodaysBirthdays === "function") {
+            await sendTodaysBirthdays(sock);  // Now await works properly
+        }
+    } catch (error) {
+        console.error('Error in birthday cron job:', error);
+    }
+}, {
+    scheduled: true,
+    timezone: "Asia/Colombo"  // Sri Lanka's timezone
+});
+
         }  if (connection === 'close') {
     wa.isLinked = false;
     io.emit('disconnected');  // 🔥 notify frontend
@@ -582,6 +596,10 @@ io.on('connection', (socket) => {
 // ======================= Start Server =======================
 server.listen(PORT, () => {
   console.log(`Server running: http://localhost:${PORT}`);
+
   startBot();
+
+
+
 });
 
