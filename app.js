@@ -465,10 +465,10 @@ async function startBot() {
 
     const sock = makeWASocket({ 
         auth: state,
-      shouldSyncHistoryMessage: true,
+      shouldSyncHistoryMessage: false,
         markOnlineOnConnect: false,
         printQRInTerminal: false,
-        syncFullHistory: true,
+        syncFullHistory: false,
         generateHighQualityLinkPreview: false,
 
     });
@@ -498,13 +498,41 @@ async function startBot() {
             wa.starting = false;
             wa.startTime = Date.now();
 
-            // try {
-            //     wa.profilePicUrl = await sock.profilePictureUrl("me", 'image');
-            //     console.log(`✅ Profile picture URL: ${wa.profilePicUrl}`);
-            // } catch {
-            //     wa.profilePicUrl = null;
-            //     console.log("⚠️ No profile picture found");
-            // }
+            try {
+                wa.profilePicUrl = await sock.profilePictureUrl("me", 'image');
+                console.log(`✅ Profile picture URL: ${wa.profilePicUrl}`);
+            } catch {
+                wa.profilePicUrl = null;
+                console.log("⚠️ No profile picture found");
+            }
+
+                // ✅ Birthday cron example
+cron.schedule('0 * * * *', async () => { // every hour
+    const now = new Date();
+    const hours = now.getHours();
+
+    // Only run after midnight and if not sent yet
+    if (!birthdaysSentToday && hours >= 0) {
+        try {
+            console.log('Running birthday check...');
+            await sendTodaysBirthdays(sock);
+            birthdaysSentToday = true;
+            console.log('Birthday check completed successfully.');
+        } catch (err) {
+            console.error('Birthday check failed, will retry in next hour:', err);
+        }
+    }
+
+    // Reset flag at end of the day (23:59)
+    if (hours === 23 && now.getMinutes() === 59) {
+        birthdaysSentToday = false;
+        console.log('Reset birthdaysSentToday flag for next day.');
+    }
+}, {
+    scheduled: true,
+    timezone: "Asia/Colombo"
+});
+
         } 
 
         if (connection === 'close') {
@@ -519,9 +547,11 @@ async function startBot() {
 sock.ev.on("messages.upsert", async (msgData) => {
   try {
     const message = msgData.messages?.[0];
-    if (!message?.message || message.key.fromMe) return;
+    const sender = message?.key?.remoteJid;
 
-    const sender = message.key.remoteJid;
+    if (!message?.message || sender.includes("g.us") || sender.includes("status@broadcast")) return;
+
+
 
     // Extract text safely
     const text =
@@ -606,10 +636,6 @@ case ".dev":
 
 
 
-      default:
-        // Optionally log unknown commands
-        console.log("⚠️ Unrecognized command:", command);
-        break;
     }
   } catch (err) {
     console.error("⚠️ Message processing error:", err);
@@ -618,32 +644,6 @@ case ".dev":
 
 
 
-    // ✅ Birthday cron example
-cron.schedule('0 * * * *', async () => { // every hour
-    const now = new Date();
-    const hours = now.getHours();
-
-    // Only run after midnight and if not sent yet
-    if (!birthdaysSentToday && hours >= 0) {
-        try {
-            console.log('Running birthday check...');
-            await sendTodaysBirthdays(sock);
-            birthdaysSentToday = true;
-            console.log('Birthday check completed successfully.');
-        } catch (err) {
-            console.error('Birthday check failed, will retry in next hour:', err);
-        }
-    }
-
-    // Reset flag at end of the day (23:59)
-    if (hours === 23 && now.getMinutes() === 59) {
-        birthdaysSentToday = false;
-        console.log('Reset birthdaysSentToday flag for next day.');
-    }
-}, {
-    scheduled: true,
-    timezone: "Asia/Colombo"
-});
 
 
 }
