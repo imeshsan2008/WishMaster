@@ -19,19 +19,23 @@
     "2": {
       "framePath": "assets/img/birthday_frame2.png",
       "profile": {
-        "width": 380,
-        "height": 400,
-        "left": 300,
+        "width": 879,
+        "height": 1399,
+        "left": 200,
         "top": 280
       },
       "text": {
-        "x": "50%",
-        "y": "740",
-        "fontSize": "36pt",
-        "color": "white",
-        "fontFamily": "Arial Black, sans-serif"
+        "x": "535.50",
+        "y": "1198.65",
+        "fontSize": "70pt",
+        "color": "#8a1817",
+        "fontFamily": "Gotham, sans-serif",
+  
+        "transform": "rotate(-90deg, 535.50, 1198.65)"
+        
+
       }
     }
   },
-  "user_selected_style": "1"
+  "user_selected_style": "2"
 }

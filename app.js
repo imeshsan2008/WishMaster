@@ -364,7 +364,7 @@ const tomorrowDay = tomorrow.getDate();
 
 async function getContacts() {
   try {
-    const response = await fetch('https://wispy-annabella-imeshboy-d00e5586.koyeb.app/contacts'); // /contacts endpoint
+    const response = await fetch('http://localhost:8000/contacts'); // /contacts endpoint
     const contacts = await response.json();
 
     // Get tomorrow's date
@@ -498,15 +498,9 @@ async function startBot() {
             wa.starting = false;
             wa.startTime = Date.now();
 
-            try {
-                wa.profilePicUrl = await sock.profilePictureUrl("me", 'image');
-                console.log(`✅ Profile picture URL: ${wa.profilePicUrl}`);
-            } catch {
-                wa.profilePicUrl = null;
-                console.log("⚠️ No profile picture found");
-            }
+           
 
-                // ✅ Birthday cron example
+// ✅ Birthday cron example
 cron.schedule('0 * * * *', async () => { // every hour
     const now = new Date();
     const hours = now.getHours();
@@ -523,17 +517,13 @@ cron.schedule('0 * * * *', async () => { // every hour
         }
     }
 
-    // Reset flag at end of the day (23:59)
-    if (hours === 23 && now.getMinutes() === 59) {
-        birthdaysSentToday = false;
-        console.log('Reset birthdaysSentToday flag for next day.');
-    }
+
 }, {
     scheduled: true,
     timezone: "Asia/Colombo"
 });
 
-        } 
+}
 
         if (connection === 'close') {
             wa.isLinked = false;
@@ -631,10 +621,11 @@ case ".dev":
     addReaction(sock, message.key, "👨‍💻");
     break;
 
-
-  
-
-
+ case command.includes("thanks"):
+  case command.includes("thank you"):
+  case command.includes("thank you so much"):
+    addReaction(sock, message.key, "❤️");
+    break;
 
     }
   } catch (err) {
