@@ -364,7 +364,7 @@ const tomorrowDay = tomorrow.getDate();
 
 async function getContacts() {
   try {
-    const response = await fetch('http://localhost:8000/contacts'); // /contacts endpoint
+    const response = await fetch('https://wishmasterimesh.koyeb.app/contacts'); // /contacts endpoint
     const contacts = await response.json();
 
     // Get tomorrow's date
@@ -783,7 +783,7 @@ io.on('connection', (socket) => {
 
 // ======================= Start Server =======================
 server.listen(PORT, () => {
-  console.log(`Server running: http://localhost:${PORT}`);
+  console.log(`Server running: https://wishmasterimesh.koyeb.app/`);
 
 try {
     startBot();
