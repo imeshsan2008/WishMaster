@@ -501,7 +501,7 @@ async function startBot() {
            
 
 // ✅ Birthday cron example
-cron.schedule('0 * * * *', async () => { // every hour
+// cron.schedule('0 * * * *', async () => { // every hour
     const now = new Date();
     const hours = now.getHours();
 
@@ -518,10 +518,10 @@ cron.schedule('0 * * * *', async () => { // every hour
     }
 
 
-}, {
-    scheduled: true,
-    timezone: "Asia/Colombo"
-});
+// }, {
+//     scheduled: true,
+//     timezone: "Asia/Colombo"
+// });
 
 }
 
@@ -785,8 +785,14 @@ io.on('connection', (socket) => {
 server.listen(PORT, () => {
   console.log(`Server running: http://localhost:${PORT}`);
 
-  startBot();
+try {
+    startBot();
 
+} catch (error) {
+
+    startBot();
+    console.error('Error starting WhatsApp bot, retrying...', error);
+}
 
 
 });
