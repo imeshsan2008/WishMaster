@@ -399,13 +399,14 @@ async function getContacts() {
 
 
 
-async function sendTodaysBirthdays(sock) {
+async function sendTodaysBirthdays(sock , sender) {
   try {
     const auth = await getAuthClient();
     if (!auth) return;
 
     const birthdays = await getTodayBirthdays(auth);
     if (!birthdays.length) {
+      sock.sendMessage( sender, { text: '🎉 No birthdays today.' });
       console.log('🎉 No birthdays today.');
       return;
     }
@@ -470,6 +471,7 @@ async function startBot() {
         printQRInTerminal: false,
         syncFullHistory: false,
         generateHighQualityLinkPreview: false,
+        
 
     });
 
@@ -499,9 +501,8 @@ async function startBot() {
             wa.startTime = Date.now();
 
            
-
 // ✅ Birthday cron example
-// cron.schedule('0 * * * *', async () => { // every hour
+cron.schedule('0 * * * *', async () => { // every hour
     const now = new Date();
     const hours = now.getHours();
 
@@ -518,10 +519,10 @@ async function startBot() {
     }
 
 
-// }, {
-//     scheduled: true,
-//     timezone: "Asia/Colombo"
-// });
+}, {
+    scheduled: true,
+    timezone: "Asia/Colombo"
+});
 
 }
 
@@ -532,7 +533,23 @@ async function startBot() {
             startBot();
         }
     });
+    
+app.get('/sendbirthday', (req, res) => {
 
+  if (wa.isLinked && sock) {
+    sock.sendMessage( sock.user.id, { text: `⏳ Checking for today\'s birthdays...  
+      
+      > webEndpoint` });
+    sendTodaysBirthdays(sock , sock.user.id); // sender can be passed in body for custom responses
+    res.json({ ok: true, message: 'Birthday check initiated' });
+
+  } else {
+    res.status(503).json({ ok: false, error: 'WhatsApp not connected' });
+  }
+ 
+        
+
+});
 // ✅ Messages listener with better safety + more commands
 sock.ev.on("messages.upsert", async (msgData) => {
   try {
@@ -563,6 +580,10 @@ sock.ev.on("messages.upsert", async (msgData) => {
     const hours = Math.floor(uptimeMs / 3600000);
     const minutes = Math.floor((uptimeMs % 3600000) / 60000);
     const seconds = Math.floor((uptimeMs % 60000) / 1000);
+    
+    // ================= Manual Birthday Check =================
+
+
 
     // ================= Commands =================
     switch (command) {
@@ -576,7 +597,16 @@ sock.ev.on("messages.upsert", async (msgData) => {
         addReaction(sock, message.key, "👽");
         break;
 
-     
+     case ".send":
+        await sock.sendMessage(sender, { text: `⏳ Checking for today's birthdays...   
+          
+          > Wish Master V1.0 | Command` });
+           await sock.sendMessage(sender, { text: `✅ Birthday check completed.
+            
+            > Wish Master V1.0 | Command` });
+     await sendTodaysBirthdays(sock ,sender);
+        addReaction(sock, message.key, "✅");
+        break;
 
       case ".help":
       case ".menu":
