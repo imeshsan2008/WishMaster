@@ -30,12 +30,25 @@
         "fontSize": "70pt",
         "color": "#8a1817",
         "fontFamily": "Gotham, sans-serif",
-  
         "transform": "rotate(-90deg, 535.50, 1198.65)"
-        
-
+      }
+    },
+    "3": {
+      "framePath": "assets/img/birthday_frame3.png",
+      "profile": {
+        "width": 710,
+        "height": 710,
+        "left": 271,
+        "top": 556 
+      },
+      "text": {
+        "x": "624 ",
+        "y": "1263",
+        "fontSize": "75pt",
+        "color": "#8a1817",
+        "fontFamily": "Magnolia Script, sans-serif"
       }
     }
   },
-  "user_selected_style": "2"
+  "user_selected_style": "3"
 }

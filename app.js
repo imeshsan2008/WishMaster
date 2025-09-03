@@ -290,21 +290,20 @@ function getCustomMessage() {
 async function getValidProfilePicUrl(sock, jid, googlePhotoUrl) {
   let profilePicUrl = null;
 
-  try {
-    profilePicUrl = await sock.profilePictureUrl(jid, 'image');
-    console.log(`✅ Got WhatsApp photo: ${profilePicUrl}`);
-  } catch {
-    console.log(`⚠ No WhatsApp photo for ${jid}`);
-  }
 
-  if (!profilePicUrl && googlePhotoUrl && !isGoogleDefaultLetterImage(googlePhotoUrl)) {
+
+  if ( googlePhotoUrl && !isGoogleDefaultLetterImage(googlePhotoUrl)) {
     profilePicUrl = googlePhotoUrl;
     console.log(`✅ Using Google contact photo`);
   }
 
   if (profilePicUrl.includes('googleusercontent.com')) {
     profilePicUrl = profilePicUrl.replace(/=s\d+/, '=s10000'); // Ensure high resolution   
-  }
+  } else if (profilePicUrl && profilePicUrl.startsWith('http')) {
+    profilePicUrl = await sock.profilePictureUrl(jid, 'image');
+    console.log(`✅ Got WhatsApp photo: ${profilePicUrl}`);
+  } 
+  
 
   if (!profilePicUrl) {
     profilePicUrl = path.join(__dirname, 'assets', 'img', 'default_avatar.png');
@@ -322,7 +321,7 @@ const WA_HEADERS = {
   'Sec-Fetch-Mode': 'no-cors'
 };
 // ======================= Create Framed Image =======================// ======================= Download or Fetch Profile Picture =======================
-async function fetchProfilePicBuffer(profilePicUrl, contactName) {
+async function fetchProfilePicBuffer(profilePicUrl, contactName, maxRetries = 5, retryDelay = 5000) {
   const defaultAvatar = path.join(__dirname, 'assets', 'img', 'default_avatar.png');
 
   // If no valid URL, return default
@@ -331,27 +330,44 @@ async function fetchProfilePicBuffer(profilePicUrl, contactName) {
     return fs.readFileSync(defaultAvatar);
   }
 
-  try {
-    const res = await axios.get(profilePicUrl, { responseType: 'arraybuffer', headers: WA_HEADERS });
-    if (res.status !== 200 || !res.headers['content-type']?.startsWith('image/')) {
-      console.log(`⚠ Failed to download image for ${contactName}, using default avatar`);
-      return fs.readFileSync(defaultAvatar);
+  let attempt = 0;
+  while (attempt < maxRetries) {
+    try {
+      const res = await axios.get(profilePicUrl, {
+        responseType: 'arraybuffer',
+        headers: WA_HEADERS,
+        timeout: 5000, // prevent hanging
+      });
+
+      if (res.status !== 200 || !res.headers['content-type']?.startsWith('image/')) {
+        throw new Error(`Invalid response: ${res.status}`);
+      }
+
+      // Convert to PNG buffer if needed
+      const buffer = await sharp(res.data)
+        .resize(300, 300, { fit: 'cover' })
+        .ensureAlpha()
+        .png()
+        .toBuffer();
+
+      console.log(`✅ Profile picture fetched successfully for ${contactName} (attempt ${attempt + 1})`);
+      return buffer;
+
+    } catch (err) {
+      attempt++;
+      console.error(`❌ Attempt ${attempt} failed for ${contactName}: ${err.message}`);
+
+      if (attempt < maxRetries) {
+        console.log(`🔄 Retrying in ${retryDelay}ms...`);
+        await new Promise(r => setTimeout(r, retryDelay));
+      }
     }
-
-    // Convert to PNG buffer if needed
-    const buffer = await sharp(res.data)
-      .resize(300, 300, { fit: 'cover' })
-      .ensureAlpha()
-      .png()
-      .toBuffer();
-
-    return buffer;
-
-  } catch (err) {
-    console.error(`❌ Error fetching profile pic for ${contactName}:`, err.message);
-    return fs.readFileSync(defaultAvatar);
   }
+
+  console.log(`⚠ All ${maxRetries} attempts failed for ${contactName}, using default avatar`);
+  return fs.readFileSync(defaultAvatar);
 }
+
 const now = new Date();
 const dateTime = now.toLocaleString(); // Converts to local date & time
 // Get tomorrow's date
@@ -499,6 +515,7 @@ async function startBot() {
             wa.latestQRDataURL = null;
             wa.starting = false;
             wa.startTime = Date.now();
+            birthdaysSentToday = false; // Reset daily flag on reconnect
 
            
 // ✅ Birthday cron example
@@ -542,9 +559,13 @@ app.get('/sendbirthday', (req, res) => {
       > webEndpoint` });
     sendTodaysBirthdays(sock , sock.user.id); // sender can be passed in body for custom responses
     res.json({ ok: true, message: 'Birthday check initiated' });
+            birthdaysSentToday = true;
 
-  } else {
-    res.status(503).json({ ok: false, error: 'WhatsApp not connected' });
+  } else  if (birthdaysSentToday === true) {
+      sock.sendMessage( sock.user.id, { text: `⏳ Birthday check skipped, already sent today. 
+      
+      > webEndpoint` }); 
+    res.status(503).json({ ok: false, error: 'Birthdays already sent today' });
   }
  
         
