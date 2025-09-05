@@ -517,7 +517,17 @@ async function startBot() {
             wa.startTime = Date.now();
             birthdaysSentToday = false; // Reset daily flag on reconnect
 
-           
+               console.log(birthdaysSentToday);
+               
+cron.schedule('0 23 * * *', async () => { // every hour
+            birthdaysSentToday = false;
+
+  
+}, {
+    scheduled: true,
+    timezone: "Asia/Colombo"
+});
+
 // ✅ Birthday cron example
 // cron.schedule('0 * * * *', async () => { // every hour
 //     const now = new Date();
@@ -550,10 +560,15 @@ async function startBot() {
             startBot();
         }
     });
-    
+
 app.get('/sendbirthday', (req, res) => {
 
-  if (wa.isLinked && sock) {
+if (birthdaysSentToday === true) {
+      sock.sendMessage( sock.user.id, { text: `⏳ Birthday check skipped, already sent today. 
+      
+      > webEndpoint` }); 
+    res.status(503).json({ ok: false, error: 'Birthdays already sent today' });
+  } else  if (wa.isLinked && sock) {
     sock.sendMessage( sock.user.id, { text: `⏳ Checking for today\'s birthdays...  
       
       > webEndpoint` });
@@ -561,14 +576,15 @@ app.get('/sendbirthday', (req, res) => {
     res.json({ ok: true, message: 'Birthday check initiated' });
             birthdaysSentToday = true;
 
-  } else  if (birthdaysSentToday === true) {
-      sock.sendMessage( sock.user.id, { text: `⏳ Birthday check skipped, already sent today. 
-      
-      > webEndpoint` }); 
-    res.status(503).json({ ok: false, error: 'Birthdays already sent today' });
-  }
+  }   
  
         
+
+});
+
+app.get('/birthdaysSentToday', (req, res) => {
+            birthdaysSentToday = false;
+    res.json({ birthdaysSentToday });
 
 });
 // ✅ Messages listener with better safety + more commands
