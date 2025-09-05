@@ -519,27 +519,27 @@ async function startBot() {
 
            
 // ✅ Birthday cron example
-cron.schedule('0 * * * *', async () => { // every hour
-    const now = new Date();
-    const hours = now.getHours();
+// cron.schedule('0 * * * *', async () => { // every hour
+//     const now = new Date();
+//     const hours = now.getHours();
 
-    // Only run after midnight and if not sent yet
-    if (!birthdaysSentToday && hours >= 0) {
-        try {
-            console.log('Running birthday check...');
-            await sendTodaysBirthdays(sock);
-            birthdaysSentToday = true;
-            console.log('Birthday check completed successfully.');
-        } catch (err) {
-            console.error('Birthday check failed, will retry in next hour:', err);
-        }
-    }
+//     // Only run after midnight and if not sent yet
+//     if (!birthdaysSentToday && hours >= 0) {
+//         try {
+//             console.log('Running birthday check...');
+//             await sendTodaysBirthdays(sock);
+//             birthdaysSentToday = true;
+//             console.log('Birthday check completed successfully.');
+//         } catch (err) {
+//             console.error('Birthday check failed, will retry in next hour:', err);
+//         }
+//     }
 
 
-}, {
-    scheduled: true,
-    timezone: "Asia/Colombo"
-});
+// }, {
+//     scheduled: true,
+//     timezone: "Asia/Colombo"
+// });
 
 }
 
