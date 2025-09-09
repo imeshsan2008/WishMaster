@@ -1,3 +1,6 @@
+// wishmaster-fixed.js
+// Fixed and cleaned version of the original WishMaster bot application
+
 // ======================= Imports =======================
 const fs = require('fs');
 const path = require('path');
@@ -5,205 +8,101 @@ const express = require('express');
 const { google } = require('googleapis');
 const axios = require('axios');
 const sharp = require('sharp');
-const os = require('os');
 const QRCode = require('qrcode');
 const { Server } = require('socket.io');
 const http = require('http');
 const cron = require('node-cron');
-let birthdaysSentToday = false;
-let birthdayRetryMap = new Map();
-
 
 const {
   default: makeWASocket,
   useMultiFileAuthState
 } = require('@whiskeysockets/baileys');
-const { start } = require('pm2');
 
 // ======================= Config ========================
 const SCOPES = ['https://www.googleapis.com/auth/contacts.readonly'];
-const TOKEN_PATH = 'files/token.json';
-const CREDENTIALS_PATH = 'files/credentials.json';
-const MESSAGE_FILE = 'custom_message.txt';
-const WA_AUTH_DIR = 'whatsapp_auth';
-const PORT = 8000;
-const frame_style_sheet = 'files/frame_style_sheet.json';
-// Load frame styles
-let styles; // Declare styles outside the block
-let wa = {
-  sock: null,
-  latestQRDataURL: null,
-  isLinked: false,
-  number: null,
-  me: null,
-  profilePicUrl: null,
-  starting: false,
-  qrCount: 0,
-  maxQr: 5
-};if (!fs.existsSync(frame_style_sheet)) {
-  console.error("❌ Missing frame_style_sheet.json");
+const TOKEN_PATH = path.join(__dirname, 'files', 'token.json');
+const CREDENTIALS_PATH = path.join(__dirname, 'files', 'credentials.json');
+const MESSAGE_FILE = path.join(__dirname, 'custom_message.txt');
+const WA_AUTH_DIR = path.join(__dirname, 'whatsapp_auth');
+const PORT = process.env.PORT || 8000;
+const frame_style_sheet = path.join(__dirname, 'files', 'frame_style_sheet.json');
+const LOG_FILE = path.join(__dirname, 'birthday_log.json');
+
+let birthdaysSentToday = false;
+let birthdayRetryMap = new Map();
+let styles = null;
+let styleId = '1';
+
+// Global socket reference so routes can use it
+let sockInstance = null;
+
+// ======================= Load frame styles =======================
+if (!fs.existsSync(frame_style_sheet)) {
+  console.error("❌ Missing frame_style_sheet.json (expected at: " + frame_style_sheet + ")");
 } else {
   try {
     styles = JSON.parse(fs.readFileSync(frame_style_sheet, 'utf-8'));
-    if (!styles.frameStyles || !styles.user_selected_style) {
-      console.error("❌ Invalid frame_style_sheet.json format");
+    if (!styles.frameStyles) {
+      console.error("❌ frame_style_sheet.json missing 'frameStyles' property");
     } else {
-      console.log("✅ Frame styles loaded successfully");
+      styleId = styles.user_selected_style || styles.defaultStyle || Object.keys(styles.frameStyles)[0] || '1';
+      console.log("✅ Frame styles loaded successfully. Selected style:", styleId);
     }
   } catch (err) {
     console.error("❌ Error parsing frame_style_sheet.json:", err.message);
   }
 }
 
-let styleId = styles?.user_selected_style || styles?.defaultStyle || '1'; // Default to '1' if not set
-
 // ======================= Express Setup =======================
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: "*", methods: ["GET", "POST"] }
-});
+const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
 app.use(express.json());
 
-
-// ======================= Helper Functions =======================
-// Endpoint to update user_selected_style
-app.post('/update-style', (req, res) => {
-  const { style } = req.body; // expect { "style": "2" }
-
-  if (!style) {
-    return res.status(400).json({ error: 'Style parameter is required' });
-  }
-
+// Helper to safely read JSON file
+function safeReadJson(filePath, defaultValue = null) {
   try {
-    const data = fs.readFileSync(frameStyleSheetPath, 'utf-8');
-    const json = JSON.parse(data);
-
-    json.user_selected_style = style;
-
-    fs.writeFileSync(frameStyleSheetPath, JSON.stringify(json, null, 2), 'utf-8');
-
-    return res.json({ message: `user_selected_style updated to ${style}` });
+    if (!fs.existsSync(filePath)) return defaultValue;
+    const raw = fs.readFileSync(filePath, 'utf8');
+    return JSON.parse(raw);
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: 'Failed to update style' });
-  }
-});
-
-async function createFramedImage(profileBuffer, contactName, styleId = null) {
-  // Pick style key
-  const styleKey = styleId || styles.user_selected_style || styles.defaultStyle || '1';
-  const style = styles.frameStyles[styleKey];
-
-  if (!style) {
-    console.error(`❌ Style ID ${styleKey} not found in frame_style_sheet.json`);
-    return profileBuffer;
-  }
-
-  const framePath = path.join(__dirname, style.framePath);
-  if (!fs.existsSync(framePath)) {
-    console.error(`❌ Frame image missing: ${framePath}`);
-    return profileBuffer;
-  }
-
-  try {
-    // Resize profile according to selected style
-    const profileResized = await sharp(profileBuffer)
-      .resize(style.profile.width, style.profile.height, { fit: 'cover' })
-      .toBuffer();
-
-    // Get frame metadata
-    const frameMeta = await sharp(framePath).metadata();
-    contactName = contactName.toUpperCase();
-
-    // SVG for text
-    const svgText = `
-      <svg width="${frameMeta.width}" height="${frameMeta.height}">
-        <style>
-          .title {
-            fill: ${style.text.color};
-            font-family: ${style.text.fontFamily};
-            text-align: center;
-            dominant-baseline: middle;
-            font-size: ${style.text.fontSize};
-            font-weight: bold;
-            text-anchor: middle;
-          }
-        </style>
-        <text x="${style.text.x}" y="${style.text.y}" class="title">${contactName}</text>
-      </svg>
-    `;
-
-    // Composite layers
-    const finalImage = await sharp({
-      create: {
-        width: frameMeta.width,
-        height: frameMeta.height,
-        channels: 4,
-        background: { r: 0, g: 0, b: 0, alpha: 0 }
-      }
-    })
-      .composite([
-        { input: profileResized, top: style.profile.top, left: style.profile.left },
-        { input: framePath, top: 0, left: 0 },
-        { input: Buffer.from(svgText), top: 0, left: 0 }
-      ])
-      .png()
-      .toBuffer();
-
-    return finalImage;
-  } catch (err) {
-    console.error(`❌ Error creating framed image for ${contactName}:`, err.message);
-    return profileBuffer;
-  }
-
-}
-async function addReaction(sock, messageKey, reactionEmoji) {
-  try {
-    if (messageKey) {
-      await sock.sendMessage(messageKey.remoteJid, {
-        react: { text: reactionEmoji, key: messageKey },
-      });
-      console.log("Reaction added successfully!");
-    }
-  } catch (error) {
-    console.error("Error adding reaction:", error);
+    console.error(`⚠️ safeReadJson error (${filePath}):`, err.message);
+    return defaultValue;
   }
 }
-// ========== GET all styles + current ==========
-app.get("/api/user-style", (req, res) => {
-  try {
-    if (!fs.existsSync(frame_style_sheet)) {
-      return res.json({ frameStyles: {}, user_selected_style: "1" });
-    }
 
-    const raw = fs.readFileSync(frame_style_sheet, "utf8");
+function safeWriteJson(filePath, data) {
+  try {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (err) {
+    console.error(`⚠️ safeWriteJson error (${filePath}):`, err.message);
+    return false;
+  }
+}
+
+// ======================= Frame style endpoints =======================
+app.get('/api/user-style', (req, res) => {
+  try {
+    if (!fs.existsSync(frame_style_sheet)) return res.json({ frameStyles: {}, user_selected_style: styleId });
+    const raw = fs.readFileSync(frame_style_sheet, 'utf8');
     const data = JSON.parse(raw);
-
-    res.json(data); // returns { frameStyles: {...}, user_selected_style: "1" }
+    res.json(data);
   } catch (err) {
     console.error("❌ Error reading style file:", err);
     res.status(500).json({ error: "Failed to load styles" });
   }
 });
 
-
-// ========== POST update selected style ==========
-app.post("/api/user-style", (req, res) => {
+app.post('/api/user-style', (req, res) => {
   try {
     const { user_selected_style } = req.body;
-    if (!user_selected_style) {
-      return res.status(400).json({ error: "Missing style id" });
-    }
-
-    const raw = fs.readFileSync(frame_style_sheet, "utf8");
-    const data = JSON.parse(raw);
-
-    // update current selection
+    if (!user_selected_style) return res.status(400).json({ error: 'Missing style id' });
+    const data = safeReadJson(frame_style_sheet, {});
     data.user_selected_style = user_selected_style;
-
-    fs.writeFileSync(frame_style_sheet, JSON.stringify(data, null, 2), "utf8");
-
+    if (!safeWriteJson(frame_style_sheet, data)) return res.status(500).json({ error: 'Failed to save style' });
+    styleId = user_selected_style;
     res.json({ success: true, user_selected_style });
   } catch (err) {
     console.error("❌ Error saving style:", err);
@@ -211,17 +110,17 @@ app.post("/api/user-style", (req, res) => {
   }
 });
 
-function isGoogleDefaultLetterImage(url) {
-  return typeof url === 'string' && url.includes('googleusercontent.com') && url.includes('photo.jpg');
-}
-
+// ======================= Google OAuth helpers =======================
 function loadCredentials() {
+  if (!fs.existsSync(CREDENTIALS_PATH)) throw new Error('Missing credentials.json');
   return JSON.parse(fs.readFileSync(CREDENTIALS_PATH));
 }
 
 function createOAuthClient() {
-  const { client_id, client_secret, redirect_uris } = loadCredentials().installed;
-  return new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+  const creds = loadCredentials();
+  const { client_id, client_secret, redirect_uris } = creds.installed || creds.web || {};
+  if (!client_id) throw new Error('Invalid credentials.json format');
+  return new google.auth.OAuth2(client_id, client_secret, (redirect_uris && redirect_uris[0]) || 'http://localhost');
 }
 
 async function getAuthClient(req, res) {
@@ -231,23 +130,16 @@ async function getAuthClient(req, res) {
     oAuth2Client.setCredentials(token);
     return oAuth2Client;
   } else if (res) {
-    const authUrl = oAuth2Client.generateAuthUrl({
-      access_type: 'offline',
-      scope: SCOPES,
-    });
+    const authUrl = oAuth2Client.generateAuthUrl({ access_type: 'offline', scope: SCOPES });
     res.redirect(authUrl);
   }
   return null;
 }
 
+// ======================= People API helpers =======================
 async function listContacts(auth) {
   const service = google.people({ version: 'v1', auth });
-  const res = await service.people.connections.list({
-    resourceName: 'people/me',
-    pageSize: 1000,
-    personFields: 'names,emailAddresses,phoneNumbers,birthdays,photos',
-  });
-
+  const res = await service.people.connections.list({ resourceName: 'people/me', pageSize: 2000, personFields: 'names,emailAddresses,phoneNumbers,birthdays,photos' });
   return (res.data.connections || [])
     .filter(p => p.birthdays && p.birthdays.length > 0)
     .map(p => ({
@@ -261,16 +153,10 @@ async function listContacts(auth) {
 
 async function getTodayBirthdays(auth) {
   const service = google.people({ version: 'v1', auth });
-  const res = await service.people.connections.list({
-    resourceName: 'people/me',
-    pageSize: 2000,
-    personFields: 'names,phoneNumbers,birthdays,photos',
-  });
-
+  const res = await service.people.connections.list({ resourceName: 'people/me', pageSize: 2000, personFields: 'names,phoneNumbers,birthdays,photos' });
   const today = new Date();
   const month = today.getMonth() + 1;
   const day = today.getDate();
-
   return (res.data.connections || [])
     .filter(p => p.birthdays && p.birthdays.some(b => b.date && b.date.month === month && b.date.day === day))
     .map(p => ({
@@ -282,52 +168,52 @@ async function getTodayBirthdays(auth) {
 }
 
 function getCustomMessage() {
-  if (fs.existsSync(MESSAGE_FILE)) {
-    return fs.readFileSync(MESSAGE_FILE, 'utf8').trim();
-
+  try {
+    if (fs.existsSync(MESSAGE_FILE)) return fs.readFileSync(MESSAGE_FILE, 'utf8').trim();
+  } catch (err) {
+    console.error('⚠️ getCustomMessage error:', err.message);
   }
   return '🎉 Happy Birthday! 🎂 Wishing you a fantastic year ahead!';
 }
 
-async function getValidProfilePicUrl(sock, jid, googlePhotoUrl) {
-  let profilePicUrl = null;
-
-
-
-  if ( googlePhotoUrl && !isGoogleDefaultLetterImage(googlePhotoUrl)) {
-    profilePicUrl = googlePhotoUrl;
-    console.log(`✅ Using Google contact photo`);
-  }
-
-  if (profilePicUrl.includes('googleusercontent.com')) {
-    profilePicUrl = profilePicUrl.replace(/=s\d+/, '=s10000'); // Ensure high resolution   
-  } else if (profilePicUrl && profilePicUrl.startsWith('http')) {
-    profilePicUrl = await sock.profilePictureUrl(jid, 'image');
-    console.log(`✅ Got WhatsApp photo: ${profilePicUrl}`);
-  } 
-  
-
-  if (!profilePicUrl) {
-    profilePicUrl = path.join(__dirname, 'assets', 'img', 'default_avatar.png');
-    console.log(`ℹ Using default avatar`);
-  }
-
-  return profilePicUrl;
-
+function isGoogleDefaultLetterImage(url) {
+  return typeof url === 'string' && url.includes('googleusercontent.com') && url.includes('photo.jpg');
 }
-// Mimic WhatsApp Web headers for profile picture downloads
+
+// ======================= Profile picture utilities =======================
 const WA_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-  'Referer': 'https://web.whatsapp.com/',
-  'Accept': 'image/*',
-  'Sec-Fetch-Mode': 'no-cors'
+  Referer: 'https://web.whatsapp.com/',
+  Accept: 'image/*'
 };
-// ======================= Create Framed Image =======================// ======================= Download or Fetch Profile Picture =======================
-async function fetchProfilePicBuffer(profilePicUrl, contactName, maxRetries = 5, retryDelay = 5000) {
-  const defaultAvatar = path.join(__dirname, 'assets', 'img', 'default_avatar.png');
 
-  // If no valid URL, return default
-  if (!profilePicUrl || !profilePicUrl.startsWith('http')) {
+async function getValidProfilePicUrl(sock, jid, googlePhotoUrl) {
+  // Prefer WhatsApp profile if available, else use googlePhotoUrl if valid, otherwise default avatar
+  try {
+    // try whatsapp profile first
+    if (sock && typeof sock.profilePictureUrl === 'function') {
+      try {
+        const waUrl = await sock.profilePictureUrl(jid, 'image').catch(() => null);
+        if (waUrl) return waUrl.replace(/=s\d+/, '=s10000');
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (googlePhotoUrl && !isGoogleDefaultLetterImage(googlePhotoUrl)) {
+      return googlePhotoUrl.replace(/=s\d+/, '=s10000');
+    }
+  } catch (err) {
+    console.error('⚠️ getValidProfilePicUrl error:', err.message);
+  }
+
+  // fallback to default avatar file
+  return path.join(__dirname, 'assets', 'img', 'default_avatar.png');
+}
+
+async function fetchProfilePicBuffer(profilePicUrl, contactName, maxRetries = 3, retryDelay = 2000) {
+  const defaultAvatar = path.join(__dirname, 'assets', 'img', 'default_avatar.png');
+  if (!profilePicUrl || typeof profilePicUrl !== 'string' || !profilePicUrl.startsWith('http')) {
     console.log(`⚠ No valid profile picture for ${contactName}, using default avatar`);
     return fs.readFileSync(defaultAvatar);
   }
@@ -335,34 +221,15 @@ async function fetchProfilePicBuffer(profilePicUrl, contactName, maxRetries = 5,
   let attempt = 0;
   while (attempt < maxRetries) {
     try {
-      const res = await axios.get(profilePicUrl, {
-        responseType: 'arraybuffer',
-        headers: WA_HEADERS,
-        timeout: 5000, // prevent hanging
-      });
-
-      if (res.status !== 200 || !res.headers['content-type']?.startsWith('image/')) {
-        throw new Error(`Invalid response: ${res.status}`);
-      }
-
-      // Convert to PNG buffer if needed
-      const buffer = await sharp(res.data)
-        .resize(300, 300, { fit: 'cover' })
-        .ensureAlpha()
-        .png()
-        .toBuffer();
-
-      console.log(`✅ Profile picture fetched successfully for ${contactName} (attempt ${attempt + 1})`);
+      const res = await axios.get(profilePicUrl, { responseType: 'arraybuffer', headers: WA_HEADERS, timeout: 8000 });
+      if (res.status !== 200 || !res.headers['content-type']?.startsWith('image/')) throw new Error(`Invalid response: ${res.status}`);
+      const buffer = await sharp(res.data).resize(300, 300, { fit: 'cover' }).ensureAlpha().png().toBuffer();
+      console.log(`✅ Profile picture fetched for ${contactName} (attempt ${attempt + 1})`);
       return buffer;
-
     } catch (err) {
       attempt++;
-      console.error(`❌ Attempt ${attempt} failed for ${contactName}: ${err.message}`);
-
-      if (attempt < maxRetries) {
-        console.log(`🔄 Retrying in ${retryDelay}ms...`);
-        await new Promise(r => setTimeout(r, retryDelay));
-      }
+      console.error(`❌ Attempt ${attempt} failed for ${contactName}:`, err.message);
+      if (attempt < maxRetries) await new Promise(r => setTimeout(r, retryDelay));
     }
   }
 
@@ -370,473 +237,272 @@ async function fetchProfilePicBuffer(profilePicUrl, contactName, maxRetries = 5,
   return fs.readFileSync(defaultAvatar);
 }
 
-const now = new Date();
-const dateTime = now.toLocaleString(); // Converts to local date & time
-// Get tomorrow's date
-const today = new Date();
-const tomorrow = new Date(today);
-tomorrow.setDate(today.getDate() + 1);
-const tomorrowMonth = tomorrow.getMonth() + 1; // JavaScript months: 0-11
-const tomorrowDay = tomorrow.getDate();
+async function createFramedImage(profileBuffer, contactName, styleKey = null) {
+  const styleSelected = styleKey || styleId || (styles && styles.user_selected_style) || (styles && styles.defaultStyle) || '1';
+  const style = styles && styles.frameStyles ? styles.frameStyles[styleSelected] : null;
+  if (!style) return profileBuffer; // nothing to do
 
+  const framePath = path.join(__dirname, style.framePath || '');
+  if (!fs.existsSync(framePath)) return profileBuffer;
 
-async function getContacts() {
   try {
-    const response = await fetch('https://wishmasterimesh.koyeb.app/contacts'); // /contacts endpoint
-    const contacts = await response.json();
+    const profileResized = await sharp(profileBuffer).resize(style.profile.width, style.profile.height, { fit: 'cover' }).toBuffer();
+    const frameMeta = await sharp(framePath).metadata();
+    const contactUpper = (contactName || '').toUpperCase();
 
-    // Get tomorrow's date
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowMonth = tomorrow.getMonth() + 1; // JS months are 0-indexed
-    const tomorrowDay = tomorrow.getDate();
+    const svgText = `\n      <svg width="${frameMeta.width}" height="${frameMeta.height}">\n        <style>\n          .title { fill: ${style.text.color}; 
+    
+     font-family: ${style.text.fontFamily};
+     font-size: ${style.text.fontSize}; font-weight: bold; text-anchor: middle; dominant-baseline: middle; }\n        </style>\n        <text x="${style.text.x}" y="${style.text.y}" class="title">${contactUpper}</text>\n      </svg>\n    `;
 
-    // Filter contacts whose birthday is tomorrow
-    const tomorrowBirthdays = contacts.filter(contact => 
-      contact.birthday &&
-      contact.birthday.month === tomorrowMonth &&
-      contact.birthday.day === tomorrowDay
-    );
+    const finalImage = await sharp({ create: { width: frameMeta.width, height: frameMeta.height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+      .composite([
+        { input: profileResized, top: style.profile.top, left: style.profile.left },
+        { input: framePath, top: 0, left: 0 },
+        { input: Buffer.from(svgText), top: 0, left: 0 }
+      ])
+      .png()
+      .toBuffer();
 
-    if (tomorrowBirthdays.length === 0) {
-      return 'No contacts have a birthday tomorrow.';
-    }
-
-    // Convert all birthdays to a numbered string
-    const birthdayListString = tomorrowBirthdays
-      .map((contact, index) => `${index + 1}. ${contact.name}`)
-      .join('\n');
-
-    return birthdayListString;
-
+    return finalImage;
   } catch (err) {
-    console.error('Error fetching contacts:', err);
-    return 'Error fetching contacts.';
+    console.error(`❌ Error creating framed image for ${contactName}:`, err.message);
+    return profileBuffer;
   }
 }
 
+// ======================= Birthday Logging & Retry =======================
+function logBirthdayEvent(jid, name, status, attempt) {
+  let logs = [];
+  try {
+    if (fs.existsSync(LOG_FILE)) logs = JSON.parse(fs.readFileSync(LOG_FILE));
+  } catch (err) {
+    console.error("⚠️ Could not read log file:", err.message);
+  }
 
+  logs.push({ jid, name, status, attempt, timestamp: new Date().toISOString() });
+  try {
+    fs.writeFileSync(LOG_FILE, JSON.stringify(logs, null, 2));
+  } catch (err) {
+    console.error("⚠️ Could not write log file:", err.message);
+  }
+}
 
-async function sendTodaysBirthdays(sock , sender) {
+// cleanup old retry entries (used by route)
+app.get('/clear_list', (req, res) => {
+  const now = Date.now();
+  let removed = 0;
+  for (const [jid, data] of birthdayRetryMap.entries()) {
+    if (now - data.timestamp > 24 * 60 * 60 * 1000) {
+      birthdayRetryMap.delete(jid);
+      removed++;
+    }
+  }
+  res.json({ removed });
+});
+
+// ======================= Contacts endpoint (uses Google OAuth) =======================
+app.get('/contacts', async (req, res) => {
+  try {
+    const auth = await getAuthClient(req, res);
+    if (!auth) return; // getAuthClient handled redirect
+    res.json(await listContacts(auth));
+  } catch (err) {
+    console.error('Error retrieving contacts:', err.message);
+    res.status(500).send('Error retrieving contacts');
+  }
+});
+
+// ======================= Get tomorrow's contacts from external endpoint =======================
+app.get('/api/tomorrow-contacts', async (req, res) => {
+  try {
+    const response = await axios.get('https://wishmasterimesh.koyeb.app/contacts');
+    const contacts = response.data || [];
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowMonth = tomorrow.getMonth() + 1;
+    const tomorrowDay = tomorrow.getDate();
+
+    const tomorrowBirthdays = contacts.filter(contact => contact.birthday && contact.birthday.month === tomorrowMonth && contact.birthday.day === tomorrowDay);
+    if (!tomorrowBirthdays.length) return res.json({ message: 'No contacts have a birthday tomorrow.' });
+
+    const birthdayListString = tomorrowBirthdays.map((c, i) => `${i + 1}. ${c.name}`).join('\n');
+    res.json({ list: birthdayListString });
+  } catch (err) {
+    console.error('Error fetching contacts:', err.message);
+    res.status(500).json({ error: 'Error fetching contacts.' });
+  }
+});
+
+// ======================= Sending birthdays =======================
+async function sendTodaysBirthdays(sock, senderId) {
   try {
     const auth = await getAuthClient();
     if (!auth) return;
 
     const birthdays = await getTodayBirthdays(auth);
     if (!birthdays.length) {
-      sock.sendMessage( sender, { text: '🎉 No birthdays today.' });
+      if (senderId) await sock.sendMessage(senderId, { text: '🎉 No birthdays today.' });
       console.log('🎉 No birthdays today.');
       return;
     }
 
-    const allContacts = await getContacts(); // For tomorrow's list
+    // Optionally get tomorrow's list to notify the owner
+    let allTomorrow = null;
+    try {
+      const resp = await axios.get('https://wishmasterimesh.koyeb.app/contacts');
+      allTomorrow = resp.data;
+    } catch (err) {
+      allTomorrow = null;
+    }
 
     for (const contact of birthdays) {
       let attempts = 0;
       const maxRetries = 5;
-      const delay = 2000; // 2 seconds
+      const delay = 2000;
 
-      // Retry logic per contact
       while (attempts < maxRetries) {
         try {
-          // Prepare message
-          let message = getCustomMessage().replace(/\$\{name\}/g, contact.name);
-
-          // Format JID
+          const message = getCustomMessage().replace(/\$\{name\}/g, contact.name);
           const number = contact.phone.replace(/\D/g, '');
           const jid = number + '@s.whatsapp.net';
 
-          // Get profile picture and framed image
           const profilePicUrl = await getValidProfilePicUrl(sock, jid, contact.photo);
           const profileBuffer = await fetchProfilePicBuffer(profilePicUrl, contact.name);
           const framedImage = await createFramedImage(profileBuffer, contact.name, styleId);
 
-         
-          // Debug / log messages
-          await sock.sendMessage(sock.user.id, { text: `✅ Sent birthday wishes to ${contact.name} (${contact.phone})` });
-          await sock.sendMessage(sock.user.id, { text: `*Tomorrow Birthday wishes will be sent to*\n${allContacts}` });
-// Send birthday message
-await sock.sendMessage(jid, { image: framedImage, caption: message });
+          // Send message
+          await sock.sendMessage(jid, { image: framedImage, caption: message });
 
-// ✅ Track retry info
-birthdayRetryMap.set(jid, {
-    message: { image: framedImage, caption: message },
-    attempts: 1,
-    timestamp: Date.now(),
-    name: contact.name
-});
+          // record retry info so we can retry later if needed
+          birthdayRetryMap.set(jid, { message: { image: framedImage, caption: message }, attempts: 1, timestamp: Date.now(), name: contact.name });
 
-// ✅ Log
-logBirthdayEvent(jid, contact.name, "sent", 1); 
-await sock.sendMessage(sock.user.id, { 
-    text: `✅ Birthday message successfully sent to ${contact.name} (${contact.phone})` 
-});
-console.log(`✅ Sent birthday wishes to ${contact.name} (${contact.phone})`);
+          logBirthdayEvent(jid, contact.name, 'sent', 1);
+          if (senderId) await sock.sendMessage(senderId, { text: `✅ Birthday message successfully sent to ${contact.name} (${contact.phone})` });
+          console.log(`✅ Sent birthday wishes to ${contact.name} (${contact.phone})`);
+          break; // success, move to next contact
         } catch (err) {
           attempts++;
-          console.error(`❌ Failed to send message to ${contact.name}. Attempt ${attempts} of ${maxRetries}:`, err.message);
-          if (attempts < maxRetries) {
-            console.log(`⏳ Retrying in ${delay / 1000} seconds...`);
-            await new Promise(res => setTimeout(res, delay));
-          } else {
-            console.error(`❌ Giving up sending message to ${contact.name}`);
-          }
+          console.error(`❌ Failed to send message to ${contact.name}. Attempt ${attempts} of ${maxRetries}:`, err.message || err);
+          if (attempts < maxRetries) await new Promise(res => setTimeout(res, delay));
+          else logBirthdayEvent(contact.phone || 'unknown', contact.name, 'failed', attempts);
         }
       }
     }
   } catch (err) {
-    console.error('❌ Error sending birthdays:', err.message);
+    console.error('❌ Error sending birthdays:', err.message || err);
   }
 }
-
 
 // ======================= WhatsApp Bot =======================
 async function startBot() {
+  try {
     const { state, saveCreds } = await useMultiFileAuthState(WA_AUTH_DIR);
 
-    const sock = makeWASocket({ 
-        auth: state,
-      shouldSyncHistoryMessage: false,
-        markOnlineOnConnect: false,
-        printQRInTerminal: false,
-        syncFullHistory: false,
-        generateHighQualityLinkPreview: false,
-        
-
-    });
+    const sock = makeWASocket({ auth: state, shouldSyncHistoryMessage: false, markOnlineOnConnect: false, printQRInTerminal: false, syncFullHistory: false });
+    sockInstance = sock; // set global reference for routes
 
     sock.ev.on('creds.update', saveCreds);
 
-    // ✅ QR + Connection Handling
     sock.ev.on('connection.update', async (update) => {
-        const { connection, qr } = update;
+      const { connection, qr, lastDisconnect, isNewLogin } = update;
 
-        if (qr) {
-            wa.latestQRDataURL = await QRCode.toDataURL(qr);
-            wa.qrCount = (wa.qrCount || 0) + 1;
-            console.log("📷 New QR code generated");
-            io.emit('qr', { dataUrl: wa.latestQRDataURL, count: wa.qrCount });
-        }
+      if (qr) {
+        const qrData = await QRCode.toDataURL(qr);
+        io.emit('qr', { dataUrl: qrData });
+      }
 
-        if (connection === 'open') {
-            io.emit('connected');   
-            console.log("✅ WhatsApp connected!");
+      if (connection === 'open') {
+        io.emit('connected');
+        console.log('✅ WhatsApp connected!');
+        birthdaysSentToday = false; // reset daily flag on reconnect
+      }
 
-            wa.sock = sock;
-            wa.isLinked = true;
-            wa.number = sock.user.id.split('@')[0].split(':')[0];
-            wa.me = sock.user.name || null;
-            wa.latestQRDataURL = null;
-            wa.starting = false;
-            wa.startTime = Date.now();
-            birthdaysSentToday = false; // Reset daily flag on reconnect
-
-               console.log(birthdaysSentToday);
-               // ⚠️ Detect undecryptable / waiting messages
-if (!message.message || message.message.protocolMessage) {
-    console.log("⚠️ Undecryptable / Waiting for this message from:", sender);
-
-    if (birthdayRetryMap.has(sender)) {
-        const retryData = birthdayRetryMap.get(sender);
-
-        if (retryData.attempts < 3) {
-            console.log(`🔄 Scheduling retry for ${sender} in 10s (Attempt ${retryData.attempts + 1})`);
-
-            setTimeout(async () => {
-                try {
-                    await sock.sendMessage(sender, retryData.message);
-                    retryData.attempts++;
-                    retryData.timestamp = Date.now();
-                    birthdayRetryMap.set(sender, retryData);
-
-                    logBirthdayEvent(sender, retryData.name || sender, "retry", retryData.attempts);
-                    console.log(`✅ Retried birthday message to ${sender} (Attempt ${retryData.attempts})`);
-                } catch (err) {
-                    console.error("❌ Retry failed:", err.message);
-                    logBirthdayEvent(sender, retryData.name || sender, "failed", retryData.attempts + 1);
-                }
-            }, 10000);
-        } else {
-            console.error(`❌ Max retries reached for ${sender}, giving up.`);
-            logBirthdayEvent(sender, retryData.name || sender, "max_retries", retryData.attempts);
-            birthdayRetryMap.delete(sender);
-        }
-    }
-    return; // stop further processing
-}
-app.get("/api/birthday-logs", (req, res) => {
-    try {
-        if (!fs.existsSync(LOG_FILE)) {
-            return res.json([]);
-        }
-        const logs = JSON.parse(fs.readFileSync(LOG_FILE));
-        res.json(logs);
-    } catch (err) {
-        res.status(500).json({ error: "Failed to read log file" });
-    }
-});
-
-cron.schedule('0 23 * * *', async () => { // every hour
-            birthdaysSentToday = false;
-
-  
-}, {
-    scheduled: true,
-    timezone: "Asia/Colombo"
-});
-
-// ✅ Birthday cron example
-// cron.schedule('0 * * * *', async () => { // every hour
-//     const now = new Date();
-//     const hours = now.getHours();
-
-//     // Only run after midnight and if not sent yet
-//     if (!birthdaysSentToday && hours >= 0) {
-//         try {
-//             console.log('Running birthday check...');
-//             await sendTodaysBirthdays(sock);
-//             birthdaysSentToday = true;
-//             console.log('Birthday check completed successfully.');
-//         } catch (err) {
-//             console.error('Birthday check failed, will retry in next hour:', err);
-//         }
-//     }
-
-
-// }, {
-//     scheduled: true,
-//     timezone: "Asia/Colombo"
-// });
-
-}
-
-        if (connection === 'close') {
-            wa.isLinked = false;
-            io.emit('disconnected');
-            console.log("⚠️ WhatsApp disconnected!");
-            startBot();
-        }
+      if (connection === 'close') {
+        io.emit('disconnected');
+        console.log('⚠️ WhatsApp disconnected!');
+        // Attempt reconnect after a short delay
+        setTimeout(() => startBot().catch(e => console.error('Failed to restart bot:', e.message)), 3000);
+      }
     });
 
-app.get('/sendbirthday', (req, res) => {
+    // messages listener
+    sock.ev.on('messages.upsert', async (msgData) => {
+      try {
+        const message = msgData.messages?.[0];
+        if (!message) return;
+        const sender = message?.key?.remoteJid;
+        if (!message?.message || !sender || sender.includes('g.us') || sender.includes('status@broadcast')) return;
 
-if (birthdaysSentToday === true) {
-      sock.sendMessage( sock.user.id, { text: `⏳ Birthday check skipped, already sent today. 
-      
-      > webEndpoint` }); 
-    res.status(503).json({ ok: false, error: 'Birthdays already sent today' });
-  } else  if (wa.isLinked && sock) {
-    sock.sendMessage( sock.user.id, { text: `⏳ Checking for today\'s birthdays...  
-      
-      > webEndpoint` });
-    sendTodaysBirthdays(sock , sock.user.id); // sender can be passed in body for custom responses
-    res.json({ ok: true, message: 'Birthday check initiated' });
-            birthdaysSentToday = true;
+        // Extract text safely
+        const text = message.message.conversation || message.message.extendedTextMessage?.text || message.message.imageMessage?.caption || message.message.videoMessage?.caption || message.message.buttonsResponseMessage?.selectedButtonId || message.message.listResponseMessage?.singleSelectReply?.selectedRowId || "";
+        if (!text) return;
+        const command = text.trim().toLowerCase();
 
-  }   
- 
-        
+        console.log(`👉 From: ${sender} | Text: ${command}`);
 
-});
+        // uptime
+        const uptimeMs = Date.now() - (global.startTime || Date.now());
+        const hours = Math.floor(uptimeMs / 3600000);
+        const minutes = Math.floor((uptimeMs % 3600000) / 60000);
+        const seconds = Math.floor((uptimeMs % 60000) / 1000);
 
-app.get('/birthdaysSentToday', (req, res) => {
-            birthdaysSentToday = false;
-    res.json({ birthdaysSentToday });
+        // helper reaction
+        async function addReactionLocal(messageKey, reactionEmoji) {
+          try { if (messageKey) await sock.sendMessage(messageKey.remoteJid, { react: { text: reactionEmoji, key: messageKey } }); } catch (err) { /* ignore */ }
+        }
 
-});
-// ✅ Messages listener with better safety + more commands
-sock.ev.on("messages.upsert", async (msgData) => {
-  try {
-    const message = msgData.messages?.[0];
-    const sender = message?.key?.remoteJid;
+        switch (true) {
+          case command === '.alive':
+            await sock.sendMessage(sender, { text: `✅ Bot is Active!\n\n⏱ Uptime: ${hours}h ${minutes}m ${seconds}s\n\n> WishMaster v1.0` });
+            await addReactionLocal(message.key, '👽');
+            break;
 
-    if (!message?.message || sender.includes("g.us") || sender.includes("status@broadcast")) return;
+          case command === '.send':
+            await sock.sendMessage(sender, { text: `⏳ Checking for today's birthdays...   > Wish Master V1.0 | Command` });
+            await sendTodaysBirthdays(sock, sender);
+            await sock.sendMessage(sender, { text: `✅ Birthday check completed. > Wish Master V1.0 | Command` });
+            await addReactionLocal(message.key, '✅');
+            break;
 
+          case command === '.help' || command === '.menu':
+            await sock.sendMessage(sender, { text: `📖 *WishMaster Bot Commands:*\n\n.alive - Check bot status\n.send - Run birthday check now\n.dev - Get Developer contact\n\n*This bot is only for one task: to send birthday wishes to a person.*\n\n> WishMaster v1.0` });
+            await addReactionLocal(message.key, '📃');
+            break;
 
+          case command === '.dev':
+            await sock.sendMessage(sender, { text: `👨‍💻 Developer:\nName: Imesh Sandeepa (Dark Venom)\nWhatsApp: +94768902513\nEmail: imeshsan2008@gmail.com\nWebsite: https://imeshsan2008.github.io/\n> WishMaster v1.0` });
+            await addReactionLocal(message.key, '👨‍💻');
+            break;
 
-    // Extract text safely
-    const text =
-      message.message.conversation ||
-      message.message.extendedTextMessage?.text ||
-      message.message.imageMessage?.caption ||
-      message.message.videoMessage?.caption ||
-      message.message.buttonsResponseMessage?.selectedButtonId ||
-      message.message.listResponseMessage?.singleSelectReply?.selectedRowId ||
-      "";
-
-    if (!text) return; // skip empty messages
-
-    const command = text.trim().toLowerCase();
-    console.log(`👉 From: ${sender} | Text: ${command}`);
-
-    // Uptime for alive/ping
-    const uptimeMs = Date.now() - (wa.startTime || Date.now());
-    const hours = Math.floor(uptimeMs / 3600000);
-    const minutes = Math.floor((uptimeMs % 3600000) / 60000);
-    const seconds = Math.floor((uptimeMs % 60000) / 1000);
-    
-    // ================= Manual Birthday Check =================
-
-
-
-    // ================= Commands =================
-    switch (command) {
-      case ".alive":
-        await sock.sendMessage(sender, {
-          text:
-            `✅ Bot is Active!\n\n` +
-            `⏱ Uptime: ${hours}h ${minutes}m ${seconds}s\n\n` +
-            `> WishMaster v1.0`,
-        });
-        addReaction(sock, message.key, "👽");
-        break;
-
-     case ".send":
-        await sock.sendMessage(sender, { text: `⏳ Checking for today's birthdays...   
-          
-          > Wish Master V1.0 | Command` });
-           await sock.sendMessage(sender, { text: `✅ Birthday check completed.
-            
-            > Wish Master V1.0 | Command` });
-     await sendTodaysBirthdays(sock ,sender);
-        addReaction(sock, message.key, "✅");
-        break;
-
-      case ".help":
-      case ".menu":
-        await sock.sendMessage(sender, {
-          text:
-            `📖 *WishMaster Bot Commands:*\n\n` +
-            `.alive - Check bot status\n` +
-           
-            `.Dev - Get Developer contact\n\n` +
-
-`*This bot is only for one task: to send birthday wishes to a person.*\n\n`+
-      `> WishMaster v1.0`
-        });
-                addReaction(sock, message.key, "📃");
-
-        break;
- 
-
-case ".dev":
-    await sock.sendMessage(sender, {
-        text: ` 👨‍💻 *Developer:*  
-
-====================================     
-│   
-│ 👨‍💻 *Name:*  
-│    💻 *Imesh Sandeepa (Dark Venom)*  
-│
-│ 📱 *WhatsApp:*  
-│    📲 *+94768902513*  
-│
-│ 📧 *Email:*  
-│    ✉️ *imeshsan2008@gmail.com*  
-│
-│ 🌐 *Website:*  
-│    🔗 *https://imeshsan2008.github.io/*  
-|
-> WishMaster v1.0
-====================================
-`, 
-        
+          default:
+            // simple thanks reaction
+            if (/thank(s| you)/i.test(command)) await addReactionLocal(message.key, '❤️');
+            break;
+        }
+      } catch (err) {
+        console.error('⚠️ Message processing error:', err.message || err);
+      }
     });
-    addReaction(sock, message.key, "👨‍💻");
-    break;
 
- case command.includes("thanks"):
-  case command.includes("thank you"):
-  case command.includes("thank you so much"):
-    addReaction(sock, message.key, "❤️");
-    break;
-
-    }
+    global.startTime = Date.now();
+    return sock;
   } catch (err) {
-    console.error("⚠️ Message processing error:", err);
+    console.error('❌ startBot error:', err.message || err);
+    throw err;
   }
-});
-
-
-
-
-
 }
 
-// ======================= Birthday Retry & Logging =======================
-const LOG_FILE = "./birthday_log.json";
-let birthdayRetryMap = new Map();
-
-// log helper
-function logBirthdayEvent(jid, name, status, attempt) {
-    let logs = [];
-    try {
-        if (fs.existsSync(LOG_FILE)) {
-            logs = JSON.parse(fs.readFileSync(LOG_FILE));
-        }
-    } catch (err) {
-        console.error("⚠️ Could not read log file:", err.message);
-    }
-
-    logs.push({
-        jid,
-        name,
-        status,
-        attempt,
-        timestamp: new Date().toISOString()
-    });
-
-    try {
-        fs.writeFileSync(LOG_FILE, JSON.stringify(logs, null, 2));
-    } catch (err) {
-        console.error("⚠️ Could not write log file:", err.message);
-    }
-}
-
-app.get("/clear_list", (req,res)=> {
-  const now = Date.now();
-    for (const [jid, data] of birthdayRetryMap.entries()) {
-        if (now - data.timestamp > 24 * 60 * 60 * 1000) {
-            console.log(`🧹 Cleaning old retry entry for ${jid}`);
-            birthdayRetryMap.delete(jid);
-        }
-    }
-});
-// ======================= API Routes =======================
-
+// Provide endpoints that interact with the running socket
 app.get('/api/status', (req, res) => {
   const googleLinked = fs.existsSync(TOKEN_PATH);
-  res.json({
-    google: { linked: googleLinked },
-    whatsapp: {
-
-      linked: wa.isLinked,
-      number: wa.number,
-      me: wa.me,
-      profilePicUrl: wa.profilePicUrl || null
-    }
-    
-  });
-          // console.log(wa);
-
+  res.json({ google: { linked: googleLinked }, whatsapp: { linked: !!sockInstance, number: sockInstance?.user?.id || null, me: sockInstance?.user?.name || null } });
 });
-
 
 app.get('/api/qr', (req, res) => {
-  if (wa.latestQRDataURL) {
-    if (wa.qrCount < wa.maxQr) {
-      wa.qrCount++;
-      console.log(`QR Generated #${wa.qrCount}`);
-      res.json({ dataUrl: wa.latestQRDataURL, count: wa.qrCount });
-    } else {
-      io.emit('qr_limit', { message: 'QR attempts exceeded, please refresh page' });
-      res.status(429).json({ error: 'QR attempts exceeded' });
-    }
-  } else {
-    res.status(404).json({ error: 'No QR available' });
-  }
+  // emit last-known QR via socket.io if any client requests
+  res.json({ message: 'QR served via socket.io events' });
 });
-
 
 app.post('/api/logout/google', async (req, res) => {
   try {
@@ -847,114 +513,82 @@ app.post('/api/logout/google', async (req, res) => {
   }
 });
 
+// clear WhatsApp session helper
+function clearWhatsAppSession() {
+  try {
+    if (fs.existsSync(WA_AUTH_DIR)) {
+      fs.rmSync(WA_AUTH_DIR, { recursive: true, force: true });
+    }
+  } catch (err) {
+    console.error('⚠️ clearWhatsAppSession error:', err.message);
+  }
+}
+
 app.post('/api/logout/whatsapp', async (req, res) => {
   try {
-    await clearWhatsAppSession();
-    // restart so a new QR becomes available immediately
-    await startWhatsApp();
+    clearWhatsAppSession();
+    // attempt to restart bot will occur by start failure or manual restart
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: 'Failed to logout WhatsApp' });
   }
 });
 
+app.get('/sendbirthday', async (req, res) => {
+  if (!sockInstance) return res.status(503).json({ ok: false, error: 'WhatsApp not connected' });
+  if (birthdaysSentToday) return res.status(429).json({ ok: false, error: 'Birthdays already sent today' });
+
+  try {
+    await sockInstance.sendMessage(sockInstance.user.id, { text: `⏳ Checking for today's birthdays... > webEndpoint` });
+    await sendTodaysBirthdays(sockInstance, sockInstance.user.id);
+    birthdaysSentToday = true;
+    res.json({ ok: true, message: 'Birthday check initiated' });
+  } catch (err) {
+    console.error('sendbirthday endpoint error:', err.message || err);
+    res.status(500).json({ ok: false, error: 'Failed to initiate birthday check' });
+  }
+});
+
+app.get('/birthdaysSentToday', (req, res) => res.json({ birthdaysSentToday }));
+
+app.get('/api/birthday-logs', (req, res) => {
+  try {
+    if (!fs.existsSync(LOG_FILE)) return res.json([]);
+    const logs = JSON.parse(fs.readFileSync(LOG_FILE, 'utf8'));
+    res.json(logs);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to read log file' });
+  }
+});1
+
+// ======================= Cron jobs =======================
+// Reset flag just before midnight Colombo
+cron.schedule('0 23 * * *', () => {
+  birthdaysSentToday = false;
+}, { scheduled: true, timezone: 'Asia/Colombo' });
+
+// ======================= Static & assets =======================
+app.use('/assets/img', express.static(path.join(__dirname, 'assets', 'img')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'templates', 'index.html')));
 app.get('/home', (req, res) => res.sendFile(path.join(__dirname, 'templates', 'index.html')));
 
-app.get('/contacts', async (req, res) => {
-  try {
-    const auth = await getAuthClient(req, res);
-    if (!auth) return;
-    res.json(await listContacts(auth));
-  } catch (err) {
-    res.status(500).send('Error retrieving contacts');
-  }
-});
-app.get('/oauth2callback', async (req, res) => {
-  const code = req.query.code;
-  const oAuth2Client = createOAuthClient();
-  try {
-    const { tokens } = await oAuth2Client.getToken(code);
-    oAuth2Client.setCredentials(tokens);
-    fs.mkdirSync(path.dirname(TOKEN_PATH), { recursive: true });
-    fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens));
-    // res.send('Authorization successful! ');
-    res.redirect('/home?success=true'); // Redirect to contacts page
-    // res.send('Authorization successful!');
-  } catch (err) {
-    res.status(500).send('Error retrieving access token');
-  }
-});
-// serve assets
-app.get('/assets/img/:file', (req, res) => {
-  res.sendFile(path.join(__dirname, 'assets', 'img', req.params.file));
-});
-
-
-const deleteFolderRecursive = (folderPath) => {
-  if (fs.existsSync(folderPath)) {
-    fs.readdirSync(folderPath).forEach(file => {
-      const curPath = path.join(folderPath, file);
-      if (fs.lstatSync(curPath).isDirectory()) {
-        deleteFolderRecursive(curPath);
-      } else {
-        fs.unlinkSync(curPath);
-      }
-    });
-  }
-};
- 
-const deleteFilesRecursive = (filePath) => {
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
-  }
-};
-
-
-app.get('/api/reset', (req, res) => {
-  if (WA_AUTH_DIR && fs.existsSync(WA_AUTH_DIR)) {
-    const filesBefore = fs.readdirSync(WA_AUTH_DIR);
-
-    if (filesBefore.length > 0 || fs.existsSync(TOKEN_PATH)) {
-      deleteFolderRecursive(WA_AUTH_DIR); // delete all files and subfolders
-      deleteFilesRecursive(TOKEN_PATH); // delete token file
-      res.json({ deleted: true, filesDeleted: filesBefore });
-
-      console.log('All WhatsApp auth files deleted. Restarting server...');
-      process.exit(0); // Only restart if files were deleted
-      return;
-    }
-  }
-
-  // If no files to delete
-  res.json({ deleted: false });
-});
-
-// Socket.IO
+// ======================= Socket.IO =======================
 io.on('connection', (socket) => {
-    io.emit('qr', { dataUrl: wa.latestQRDataURL, count: wa.qrCount });
-
   console.log('Client connected');
   socket.on('disconnect', () => console.log('Client disconnected'));
 });
 
-
-
-
-
 // ======================= Start Server =======================
-server.listen(PORT, () => {
-  console.log(`Server running: https://wishmasterimesh.koyeb.app/`);
-
-try {
-    startBot();
-
-} catch (error) {
-
-    startBot();
-    console.error('Error starting WhatsApp bot, retrying...', error);
-}
-
-
+server.listen(PORT, async () => {
+  console.log(`Server running on port ${PORT}`);
+  try {
+    await startBot();
+    console.log('WhatsApp bot started');
+  } catch (err) {
+    console.error('Failed to start WhatsApp bot on server start:', err.message || err);
+  }
 });
 
+// Graceful shutdown
+process.on('SIGINT', () => { console.log('Shutting down...'); process.exit(0); });
+process.on('SIGTERM', () => { console.log('Shutting down...'); process.exit(0); });
