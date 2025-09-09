@@ -11,7 +11,6 @@ const { Server } = require('socket.io');
 const http = require('http');
 const cron = require('node-cron');
 let birthdaysSentToday = false;
-let birthdayRetryMap = new Map();
 
 
 const {
@@ -186,7 +185,6 @@ app.get("/api/user-style", (req, res) => {
     res.status(500).json({ error: "Failed to load styles" });
   }
 });
-
 
 // ========== POST update selected style ==========
 app.post("/api/user-style", (req, res) => {
@@ -455,23 +453,11 @@ async function sendTodaysBirthdays(sock , sender) {
           // Debug / log messages
           await sock.sendMessage(sock.user.id, { text: `✅ Sent birthday wishes to ${contact.name} (${contact.phone})` });
           await sock.sendMessage(sock.user.id, { text: `*Tomorrow Birthday wishes will be sent to*\n${allContacts}` });
-// Send birthday message
-await sock.sendMessage(jid, { image: framedImage, caption: message });
+ // Send birthday message
+          await sock.sendMessage(jid, { image: framedImage, caption: message });
 
-// ✅ Track retry info
-birthdayRetryMap.set(jid, {
-    message: { image: framedImage, caption: message },
-    attempts: 1,
-    timestamp: Date.now(),
-    name: contact.name
-});
-
-// ✅ Log
-logBirthdayEvent(jid, contact.name, "sent", 1); 
-await sock.sendMessage(sock.user.id, { 
-    text: `✅ Birthday message successfully sent to ${contact.name} (${contact.phone})` 
-});
-console.log(`✅ Sent birthday wishes to ${contact.name} (${contact.phone})`);
+          console.log(`✅ Sent birthday wishes to ${contact.name} (${contact.phone})`);
+          break; // Success, exit retry loop
         } catch (err) {
           attempts++;
           console.error(`❌ Failed to send message to ${contact.name}. Attempt ${attempts} of ${maxRetries}:`, err.message);
@@ -532,50 +518,7 @@ async function startBot() {
             birthdaysSentToday = false; // Reset daily flag on reconnect
 
                console.log(birthdaysSentToday);
-               // ⚠️ Detect undecryptable / waiting messages
-if (!message.message || message.message.protocolMessage) {
-    console.log("⚠️ Undecryptable / Waiting for this message from:", sender);
-
-    if (birthdayRetryMap.has(sender)) {
-        const retryData = birthdayRetryMap.get(sender);
-
-        if (retryData.attempts < 3) {
-            console.log(`🔄 Scheduling retry for ${sender} in 10s (Attempt ${retryData.attempts + 1})`);
-
-            setTimeout(async () => {
-                try {
-                    await sock.sendMessage(sender, retryData.message);
-                    retryData.attempts++;
-                    retryData.timestamp = Date.now();
-                    birthdayRetryMap.set(sender, retryData);
-
-                    logBirthdayEvent(sender, retryData.name || sender, "retry", retryData.attempts);
-                    console.log(`✅ Retried birthday message to ${sender} (Attempt ${retryData.attempts})`);
-                } catch (err) {
-                    console.error("❌ Retry failed:", err.message);
-                    logBirthdayEvent(sender, retryData.name || sender, "failed", retryData.attempts + 1);
-                }
-            }, 10000);
-        } else {
-            console.error(`❌ Max retries reached for ${sender}, giving up.`);
-            logBirthdayEvent(sender, retryData.name || sender, "max_retries", retryData.attempts);
-            birthdayRetryMap.delete(sender);
-        }
-    }
-    return; // stop further processing
-}
-app.get("/api/birthday-logs", (req, res) => {
-    try {
-        if (!fs.existsSync(LOG_FILE)) {
-            return res.json([]);
-        }
-        const logs = JSON.parse(fs.readFileSync(LOG_FILE));
-        res.json(logs);
-    } catch (err) {
-        res.status(500).json({ error: "Failed to read log file" });
-    }
-});
-
+               
 cron.schedule('0 23 * * *', async () => { // every hour
             birthdaysSentToday = false;
 
@@ -763,45 +706,8 @@ case ".dev":
 
 }
 
-// ======================= Birthday Retry & Logging =======================
-const LOG_FILE = "./birthday_log.json";
-let birthdayRetryMap = new Map();
 
-// log helper
-function logBirthdayEvent(jid, name, status, attempt) {
-    let logs = [];
-    try {
-        if (fs.existsSync(LOG_FILE)) {
-            logs = JSON.parse(fs.readFileSync(LOG_FILE));
-        }
-    } catch (err) {
-        console.error("⚠️ Could not read log file:", err.message);
-    }
 
-    logs.push({
-        jid,
-        name,
-        status,
-        attempt,
-        timestamp: new Date().toISOString()
-    });
-
-    try {
-        fs.writeFileSync(LOG_FILE, JSON.stringify(logs, null, 2));
-    } catch (err) {
-        console.error("⚠️ Could not write log file:", err.message);
-    }
-}
-
-app.get("/clear_list", (req,res)=> {
-  const now = Date.now();
-    for (const [jid, data] of birthdayRetryMap.entries()) {
-        if (now - data.timestamp > 24 * 60 * 60 * 1000) {
-            console.log(`🧹 Cleaning old retry entry for ${jid}`);
-            birthdayRetryMap.delete(jid);
-        }
-    }
-});
 // ======================= API Routes =======================
 
 app.get('/api/status', (req, res) => {
