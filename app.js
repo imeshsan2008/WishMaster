@@ -1,5 +1,3 @@
-// wishmaster-fixed.js
-// Fixed and cleaned version of the original WishMaster bot application
 
 // ======================= Imports =======================
 const fs = require('fs');
@@ -399,7 +397,8 @@ async function startBot() {
   try {
     const { state, saveCreds } = await useMultiFileAuthState(WA_AUTH_DIR);
 
-    const sock = makeWASocket({ auth: state, shouldSyncHistoryMessage: false, markOnlineOnConnect: false, printQRInTerminal: false, syncFullHistory: false });
+    const sock = makeWASocket({ auth: state, 
+       markOnlineOnConnect: false, printQRInTerminal: false, syncFullHistory: false });
     sockInstance = sock; // set global reference for routes
 
     sock.ev.on('creds.update', saveCreds);
@@ -413,13 +412,13 @@ async function startBot() {
       }
 
       if (connection === 'open') {
-        io.emit('connected');
+        // io.emit('connected');
         console.log('✅ WhatsApp connected!');
         birthdaysSentToday = false; // reset daily flag on reconnect
       }
 
       if (connection === 'close') {
-        io.emit('disconnected');
+        // io.emit('disconnected');
         console.log('⚠️ WhatsApp disconnected!');
         // Attempt reconnect after a short delay
         setTimeout(() => startBot().catch(e => console.error('Failed to restart bot:', e.message)), 3000);
@@ -559,13 +558,13 @@ app.get('/api/birthday-logs', (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Failed to read log file' });
   }
-});1
+});
 
 // ======================= Cron jobs =======================
 // Reset flag just before midnight Colombo
-cron.schedule('0 23 * * *', () => {
-  birthdaysSentToday = false;
-}, { scheduled: true, timezone: 'Asia/Colombo' });
+// cron.schedule('0 23 * * *', () => {
+//   birthdaysSentToday = false;
+// }, { scheduled: true, timezone: 'Asia/Colombo' });
 
 // ======================= Static & assets =======================
 app.use('/assets/img', express.static(path.join(__dirname, 'assets', 'img')));
@@ -579,15 +578,17 @@ io.on('connection', (socket) => {
 });
 
 // ======================= Start Server =======================
-server.listen(PORT, async () => {
-  console.log(`Server running on port ${PORT}`);
-  try {
-    await startBot();
-    console.log('WhatsApp bot started');
-  } catch (err) {
-    console.error('Failed to start WhatsApp bot on server start:', err.message || err);
-  }
-});
+    startBot();
+
+// server.listen(PORT, async () => {
+//   console.log(`Server running on port ${PORT}`);
+//   try {
+//     await startBot();
+//     console.log('WhatsApp bot started');
+//   } catch (err) {
+//     console.error('Failed to start WhatsApp bot on server start:', err.message || err);
+//   }
+// });
 
 // Graceful shutdown
 process.on('SIGINT', () => { console.log('Shutting down...'); process.exit(0); });
