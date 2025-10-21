@@ -6,15 +6,14 @@ const express = require('express');
 const { google } = require('googleapis');
 const axios = require('axios');
 const sharp = require('sharp');
-const QRCode = require('qrcode');
+const qrcode  = require('qrcode');
 const { Server } = require('socket.io');
 const http = require('http');
 const cron = require('node-cron');
+const Boom =  require('@hapi/boom'); 
 
-const {
-  default: makeWASocket,
-  useMultiFileAuthState
-} = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys");
+
 
 // ======================= Config ========================
 const SCOPES = ['https://www.googleapis.com/auth/contacts.readonly'];
@@ -30,10 +29,21 @@ let birthdaysSentToday = false;
 let birthdayRetryMap = new Map();
 let styles = null;
 let styleId = '1';
-
+let pairingStatus = "idle";
+let linkedNumber = null;
 // Global socket reference so routes can use it
 let sockInstance = null;
-
+let wa = {
+  sock: null,
+  latestQRDataURL: null,
+  isLinked: false,
+  number: null,
+  me: null,
+  profilePicUrl: null,
+  starting: false,
+  qrCount: 0,
+  maxQr: 5
+};
 // ======================= Load frame styles =======================
 if (!fs.existsSync(frame_style_sheet)) {
   console.error("❌ Missing frame_style_sheet.json (expected at: " + frame_style_sheet + ")");
@@ -113,6 +123,22 @@ function loadCredentials() {
   if (!fs.existsSync(CREDENTIALS_PATH)) throw new Error('Missing credentials.json');
   return JSON.parse(fs.readFileSync(CREDENTIALS_PATH));
 }
+
+app.get('/oauth2callback', async (req, res) => {
+  const code = req.query.code;
+  const oAuth2Client = createOAuthClient();
+  try {
+    const { tokens } = await oAuth2Client.getToken(code);
+    oAuth2Client.setCredentials(tokens);
+    fs.mkdirSync(path.dirname(TOKEN_PATH), { recursive: true });
+    fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens));
+    // res.send('Authorization successful! ');
+    res.redirect('/home?success=true'); // Redirect to contacts page
+    // res.send('Authorization successful!');
+  } catch (err) {
+    res.status(500).send('Error retrieving access token');
+  }
+});
 
 function createOAuthClient() {
   const creds = loadCredentials();
@@ -314,7 +340,7 @@ app.get('/contacts', async (req, res) => {
 // ======================= Get tomorrow's contacts from external endpoint =======================
 app.get('/api/tomorrow-contacts', async (req, res) => {
   try {
-    const response = await axios.get('https://wishmasterimesh.koyeb.app/contacts');
+    const response = await axios.get('http://localhost:8000/contacts');
     const contacts = response.data || [];
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -348,7 +374,7 @@ async function sendTodaysBirthdays(sock, senderId) {
     // Optionally get tomorrow's list to notify the owner
     let allTomorrow = null;
     try {
-      const resp = await axios.get('https://wishmasterimesh.koyeb.app/contacts');
+      const resp = await axios.get('http://localhost:8000/contacts');
       allTomorrow = resp.data;
     } catch (err) {
       allTomorrow = null;
@@ -392,103 +418,239 @@ async function sendTodaysBirthdays(sock, senderId) {
   }
 }
 
+// ======================= QrCode generator =======================
+let latestQR = null;
+app.get("/qr-img", async (req, res) => {
+  if (!latestQR) return res.status(404).send("No QR yet");
+  try {
+    const dataUrl = await qrcode.toDataURL(latestQR, { errorCorrectionLevel: "H" });
+    const img = Buffer.from(dataUrl.split(",")[1], "base64");
+    res.writeHead(200, { "Content-Type": "image/png", "Content-Length": img.length });
+    res.end(img);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+app.get("/status", (req, res) => {
+  res.json({ status: pairingStatus, linked: linkedNumber });
+});
+
+app.get("/send-test", async (req, res) => {
+  if (pairingStatus !== "paired" || !linkedNumber) {
+    return res.json({ ok: false, message: "Not paired yet" });
+  }
+  try {
+    await sockInstance.sendMessage(linkedNumber, {
+      text: "✅ successfully Connected Wish Master bot ",
+    });
+    res.json({ ok: true, message: "Test message sent successfully!" });
+  } catch (err) {
+    res.json({ ok: false, message: "Failed to send test: " + err.message });
+  }
+});
+
+async function addReaction(sock, messageKey, reactionEmoji) {
+  try {
+    if (messageKey) {
+      await sock.sendMessage(messageKey.remoteJid, {
+        react: { text: reactionEmoji, key: messageKey },
+      });
+      console.log("Reaction added successfully!");
+    }
+  } catch (error) {
+    console.error("Error adding reaction:", error);
+  }
+}
 // ======================= WhatsApp Bot =======================
 async function startBot() {
   try {
-    const { state, saveCreds } = await useMultiFileAuthState(WA_AUTH_DIR);
+    const { state, saveCreds } = await useMultiFileAuthState("./whatsapp_auth");
+    const { version } = await fetchLatestBaileysVersion();
 
-    const sock = makeWASocket({ auth: state, 
-       markOnlineOnConnect: false, printQRInTerminal: false, syncFullHistory: false });
-    sockInstance = sock; // set global reference for routes
-
-    sock.ev.on('creds.update', saveCreds);
-
-    sock.ev.on('connection.update', async (update) => {
-      const { connection, qr, lastDisconnect, isNewLogin } = update;
-
-      if (qr) {
-        const qrData = await QRCode.toDataURL(qr);
-        io.emit('qr', { dataUrl: qrData });
-      }
-
-      if (connection === 'open') {
-        // io.emit('connected');
-        console.log('✅ WhatsApp connected!');
-        birthdaysSentToday = false; // reset daily flag on reconnect
-      }
-
-      if (connection === 'close') {
-        // io.emit('disconnected');
-        console.log('⚠️ WhatsApp disconnected!');
-        // Attempt reconnect after a short delay
-        setTimeout(() => startBot().catch(e => console.error('Failed to restart bot:', e.message)), 3000);
-      }
+    const sock = makeWASocket({
+      version,
+      auth: state,
+      markOnlineOnConnect: false,
+      printQRInTerminal: false,
+      syncFullHistory: false,
+      browser: ["WishMaster", "Chrome", "1.0"]
     });
 
-    // messages listener
-    sock.ev.on('messages.upsert', async (msgData) => {
+    sock.ev.on("creds.update", saveCreds);
+
+    sock.ev.on("connection.update", async (update) => {
+      const { connection, qr, lastDisconnect } = update;
+
+  if (qr) {
+        latestQR = qr;
+        pairingStatus = "qr-received";
+        console.log("📱 Scan the QR to link WhatsApp");
+      }
+
+      if (connection === "open") {
+        console.log("✅ WhatsApp connected!");
+        birthdaysSentToday = false;
+        sockInstance = sock;
+          wa.sock = sock;
+                    wa.isLinked = true;
+                    wa.number = sock.user.id.split('@')[0].split(':')[0];
+                    wa.me = sock.user.name || null;
+                    wa.latestQRDataURL = null;
+                    wa.starting = false;
+                    wa.startTime = Date.now();
+                    birthdaysSentToday = false; // Reset daily flag on reconnect
+        
+                       console.log(birthdaysSentToday);
+                       
+
+      }
+
+      if (connection === "close") {
+        // const reason = new Boom(lastDisconnect?.error)?.output?.statusCode;
+        console.log("⚠️ Disconnected. Reason:", lastDisconnect?.error);
+                    wa.isLinked = false;
+
+
+        // Handle each disconnect reason properly
+        // switch (reason) {
+        //   case DisconnectReason.badSession:
+        //     console.log("❌ Bad Session File. Deleting...");
+        //     fs.rmSync("./whatsapp_auth", { recursive: true, force: true });
+        //     return startBot();
+
+        //   case DisconnectReason.connectionClosed:
+        //   case DisconnectReason.connectionLost:
+        //   case DisconnectReason.restartRequired:
+        //   case DisconnectReason.timedOut:
+        //     console.log("🔄 Reconnecting...");
+        //     return startBot();
+
+        //   case DisconnectReason.loggedOut:
+        //     console.log("🚫 Logged out. Need to scan QR again.");
+        //     fs.rmSync("./whatsapp_auth", { recursive: true, force: true });
+        //     return startBot();
+
+        //   default:
+        //     console.log("❗Unknown reason, reconnecting...");
+        //     return startBot();
+        // }
+      }
+    });
+    // ✅ Messages listener with better safety + more commands
+    sock.ev.on("messages.upsert", async (msgData) => {
       try {
         const message = msgData.messages?.[0];
-        if (!message) return;
         const sender = message?.key?.remoteJid;
-        if (!message?.message || !sender || sender.includes('g.us') || sender.includes('status@broadcast')) return;
-
+    
+        if (!message?.message || sender.includes("g.us") || sender.includes("status@broadcast")) return;
+    
+    
+    
         // Extract text safely
-        const text = message.message.conversation || message.message.extendedTextMessage?.text || message.message.imageMessage?.caption || message.message.videoMessage?.caption || message.message.buttonsResponseMessage?.selectedButtonId || message.message.listResponseMessage?.singleSelectReply?.selectedRowId || "";
-        if (!text) return;
+        const text =
+          message.message.conversation ||
+          message.message.extendedTextMessage?.text ||
+          message.message.imageMessage?.caption ||
+          message.message.videoMessage?.caption ||
+          message.message.buttonsResponseMessage?.selectedButtonId ||
+          message.message.listResponseMessage?.singleSelectReply?.selectedRowId ||
+          "";
+    
+        if (!text) return; // skip empty messages
+    
         const command = text.trim().toLowerCase();
-
         console.log(`👉 From: ${sender} | Text: ${command}`);
-
-        // uptime
-        const uptimeMs = Date.now() - (global.startTime || Date.now());
+    
+        // Uptime for alive/ping
+        const uptimeMs = Date.now() - (wa.startTime || Date.now());
         const hours = Math.floor(uptimeMs / 3600000);
         const minutes = Math.floor((uptimeMs % 3600000) / 60000);
         const seconds = Math.floor((uptimeMs % 60000) / 1000);
-
-        // helper reaction
-        async function addReactionLocal(messageKey, reactionEmoji) {
-          try { if (messageKey) await sock.sendMessage(messageKey.remoteJid, { react: { text: reactionEmoji, key: messageKey } }); } catch (err) { /* ignore */ }
+        
+        // ================= Manual Birthday Check =================
+    
+    
+    
+        // ================= Commands =================
+        switch (command) {
+          case ".alive":
+            await sock.sendMessage(sender, {
+              text:
+                `✅ Bot is Active!\n\n` +
+                `⏱ Uptime: ${hours}h ${minutes}m ${seconds}s\n\n` +
+                `> WishMaster v1.0`,
+            });
+            addReaction(sock, message.key, "👽");
+            break;
+    
+         case ".send":
+            await sock.sendMessage(sender, { text: `⏳ Checking for today's birthdays...   
+              
+              > Wish Master V1.0 | Command` });
+               await sock.sendMessage(sender, { text: `✅ Birthday check completed.
+                
+                > Wish Master V1.0 | Command` });
+         await sendTodaysBirthdays(sock ,sender);
+            addReaction(sock, message.key, "✅");
+            break;
+    
+          case ".help":
+          case ".menu":
+            await sock.sendMessage(sender, {
+              text:
+                `📖 *WishMaster Bot Commands:*\n\n` +
+                `.alive - Check bot status\n` +
+               
+                `.Dev - Get Developer contact\n\n` +
+    
+    `*This bot is only for one task: to send birthday wishes to a person.*\n\n`+
+          `> WishMaster v1.0`
+            });
+                    addReaction(sock, message.key, "📃");
+    
+            break;
+     
+    
+    case ".dev":
+        await sock.sendMessage(sender, {
+            text: ` 👨‍💻 *Developer:*  
+    
+    ====================================     
+    │   
+    │ 👨‍💻 *Name:*  
+    │    💻 *Imesh Sandeepa (Dark Venom)*  
+    │
+    │ 📱 *WhatsApp:*  
+    │    📲 *+94768902513*  
+    │
+    │ 📧 *Email:*  
+    │    ✉️ *imeshsan2008@gmail.com*  
+    │
+    │ 🌐 *Website:*  
+    │    🔗 *https://imeshsan2008.github.io/*  
+    |
+    > WishMaster v1.0
+    ====================================
+    `, 
+            
+        });
+        addReaction(sock, message.key, "👨‍💻");
+        break;
+    
+     case command.includes("thanks"):
+      case command.includes("thank you"):
+      case command.includes("thank you so much"):
+        addReaction(sock, message.key, "❤️");
+        break;
+    
         }
-
-        switch (true) {
-          case command === '.alive':
-            await sock.sendMessage(sender, { text: `✅ Bot is Active!\n\n⏱ Uptime: ${hours}h ${minutes}m ${seconds}s\n\n> WishMaster v1.0` });
-            await addReactionLocal(message.key, '👽');
-            break;
-
-          case command === '.send':
-            await sock.sendMessage(sender, { text: `⏳ Checking for today's birthdays...   > Wish Master V1.0 | Command` });
-            await sendTodaysBirthdays(sock, sender);
-            await sock.sendMessage(sender, { text: `✅ Birthday check completed. > Wish Master V1.0 | Command` });
-            await addReactionLocal(message.key, '✅');
-            break;
-
-          case command === '.help' || command === '.menu':
-            await sock.sendMessage(sender, { text: `📖 *WishMaster Bot Commands:*\n\n.alive - Check bot status\n.send - Run birthday check now\n.dev - Get Developer contact\n\n*This bot is only for one task: to send birthday wishes to a person.*\n\n> WishMaster v1.0` });
-            await addReactionLocal(message.key, '📃');
-            break;
-
-          case command === '.dev':
-            await sock.sendMessage(sender, { text: `👨‍💻 Developer:\nName: Imesh Sandeepa (Dark Venom)\nWhatsApp: +94768902513\nEmail: imeshsan2008@gmail.com\nWebsite: https://imeshsan2008.github.io/\n> WishMaster v1.0` });
-            await addReactionLocal(message.key, '👨‍💻');
-            break;
-
-          default:
-            // simple thanks reaction
-            if (/thank(s| you)/i.test(command)) await addReactionLocal(message.key, '❤️');
-            break;
-        }
-      } catch (err) {
-        console.error('⚠️ Message processing error:', err.message || err);
+   } catch (err) {
+        console.error("❌ messages.upsert error:", err);
       }
     });
 
-    global.startTime = Date.now();
-    return sock;
   } catch (err) {
-    console.error('❌ startBot error:', err.message || err);
-    throw err;
+    console.error("❌ startBot error:", err);
   }
 }
 
@@ -562,9 +724,9 @@ app.get('/api/birthday-logs', (req, res) => {
 
 // ======================= Cron jobs =======================
 // Reset flag just before midnight Colombo
-// cron.schedule('0 23 * * *', () => {
-//   birthdaysSentToday = false;
-// }, { scheduled: true, timezone: 'Asia/Colombo' });
+cron.schedule('0 23 * * *', () => {
+  birthdaysSentToday = false;
+}, { scheduled: true, timezone: 'Asia/Colombo' });
 
 // ======================= Static & assets =======================
 app.use('/assets/img', express.static(path.join(__dirname, 'assets', 'img')));
@@ -572,23 +734,23 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'templates', 'index
 app.get('/home', (req, res) => res.sendFile(path.join(__dirname, 'templates', 'index.html')));
 
 // ======================= Socket.IO =======================
-io.on('connection', (socket) => {
-  console.log('Client connected');
-  socket.on('disconnect', () => console.log('Client disconnected'));
-});
+// io.on('connection', (socket) => {
+//   console.log('Client connected');
+//   socket.on('disconnect', () => console.log('Client disconnected'));
+// });
 
 // ======================= Start Server =======================
-    startBot();
+    // startBot();
 
-// server.listen(PORT, async () => {
-//   console.log(`Server running on port ${PORT}`);
-//   try {
-//     await startBot();
-//     console.log('WhatsApp bot started');
-//   } catch (err) {
-//     console.error('Failed to start WhatsApp bot on server start:', err.message || err);
-//   }
-// });
+server.listen(PORT, async () => {
+  console.log(`Server running on port ${PORT}`);
+  try {
+    await startBot();
+    console.log('WhatsApp bot started');
+  } catch (err) {
+    console.error('Failed to start WhatsApp bot on server start:', err.message || err);
+  }
+});
 
 // Graceful shutdown
 process.on('SIGINT', () => { console.log('Shutting down...'); process.exit(0); });

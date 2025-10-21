@@ -17,9 +17,60 @@
     .wa-avatar { width: 100px; height: 100px; object-fit: cover; border-radius: 50%; cursor: pointer; }
     .qr-box img { width: 140px; height: 140px; }
     .small-note { font-size: .8rem; color: #6c757d; }
+    .container{
+      display: none;
+    }
+    .container_setup{
+      display: block;
+      margin:0 auto ;
+      width:fit-content;
+      
+      
+    }
+    .setup_img{
+      width:150px;
+      height:150px;
+      
+position: relative;
+    
+margin: 0 auto;
+}
+.img_div{
+  text-align: center;
+}
+#gogle_sta{
+  color: #fff;
+  font-size: 15px;
+  font-weight: bold;
+background-color: green;
+}
   </style>
 </head>
-<body>
+<body><div class="container_setup my-4">
+<div class="card" style="width: 600px; ">
+  <div class="card-body">
+    <h5 class="img_div"><img class="setup_img" src="./assets/img/logo.png" alt=""></h5>
+  </div>
+<center class="card-body">
+  <div class="step_1">  <h3 >Welcome to WishMaster!</h3>
+    <p >To get started, please log in to your Google account to access your contacts and birthdays.</p>
+    <a href="/contacts" class="btn btn-primary btn-lg">Log in with Google</a></div>
+    <div class="step_2">  <h3 >Welcome to WishMaster!</h3>
+          <p>Google Account : <span id="gogle_sta"></span></p>
+
+    <p >To get started, please Link in to your Whatsapp account </p>
+      <p>Status: <span id="status">loading...</span></p>
+        <p>Linked: <span id="linknum">none</span></p>
+ 
+   
+          <img id="qr" src="" width="300" alt="QR Code will appear here" />
+          </div>
+          <br>
+  </div>
+  </center>
+  
+</div>
+</div>
 <div class="container my-4">
 
   <!-- Status Bar -->
@@ -28,7 +79,9 @@
   <center class="mb-3"><img src="/assets/img/logo.png" alt="WishMaster" style="width: 100px; height: 100px;"></center>
 
       <!-- WhatsApp block -->
+
       <div id="wa-block" class="d-flex align-items-center gap-2">
+        <a href="/sendbirthday" class="btn btn-primary">Send Birthday</a>
         <span class="badge text-bg-success d-none" id="wa-linked">WhatsApp: Linked</span>
         <span class="badge text-bg-warning d-none" id="wa-not-linked">WhatsApp: Not linked</span>
              <span class="badge text-bg-warning " ><a href="/api/birthday-logs" target="_blank">sent list Json</a></span>
@@ -110,8 +163,64 @@
 
 <script>
   const el = (id) => document.getElementById(id);
+function first_step() {
+  
+    document.querySelector('.step_1').style.display = 'block';
+    document.querySelector('.step_2').style.display = 'none'; 
 
 
+}
+function second_step() {
+    document.querySelector('.step_1').style.display = 'none';
+    document.querySelector('.step_2').style.display = 'block';
+            document.getElementById('gogle_sta').innerText = "Connected";
+
+}
+function initial_setup() {
+   fetch('api/status')
+    .then(response => response.json())
+    .then(data => {
+      if (!data.google.linked) {
+        first_step();
+      } else if (data.whatsapp.linked) {
+                    document.querySelector('.container_setup').style.display = 'none';
+
+            document.querySelector('.step_1').style.display = 'none';
+    document.querySelector('.step_2').style.display = 'none';
+    document.querySelector('.container').style.display = 'block';
+      }else{
+        second_step();
+      }
+    })
+    .catch(error => {
+      console.error('Error fetching status:', error);
+    });
+}
+initial_setup();
+ async function sendTest() {
+          const res = await fetch('/send-test');
+          const data = await res.json();
+          alert(data.message);
+        }    async function refresh() {
+          const qrImg = document.getElementById('qr');
+          const res = await fetch('/status');
+          const data = await res.json();
+          document.getElementById('status').innerText = data.status;
+          if (data.status === 'qr-received') {
+            const qrRes = await fetch('/qr-img');
+            const blob = await qrRes.blob();
+            qrImg.src = URL.createObjectURL(blob);
+            qrImg.style.display = 'block';
+          } else if (data.status === 'paired') {
+            sendTest();
+            qrImg.style.display = 'none';
+            showAlert('success', 'Paired', 'WhatsApp has been successfully paired!');
+            document.getElementById('linknum').innerText = data.linked || 'Unknown';
+          }
+        }
+       
+        refresh();
+        setInterval(refresh, 2000);
 
 el('styleSelect').addEventListener('change', (e) => {
   const style = e.target.value;

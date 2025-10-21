@@ -39,10 +39,7 @@ let wa = {
   starting: false,
   qrCount: 0,
   maxQr: 5
-};
-
-
-if (!fs.existsSync(frame_style_sheet)) {
+};if (!fs.existsSync(frame_style_sheet)) {
   console.error("❌ Missing frame_style_sheet.json");
 } else {
   try {
