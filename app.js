@@ -340,7 +340,7 @@ app.get('/contacts', async (req, res) => {
 // ======================= Get tomorrow's contacts from external endpoint =======================
 app.get('/api/tomorrow-contacts', async (req, res) => {
   try {
-    const response = await axios.get('http://localhost:8000/contacts');
+    const response = await axios.get('https://wishmasterimesh.koyeb.app/contacts');
     const contacts = response.data || [];
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -374,7 +374,7 @@ async function sendTodaysBirthdays(sock, senderId) {
     // Optionally get tomorrow's list to notify the owner
     let allTomorrow = null;
     try {
-      const resp = await axios.get('http://localhost:8000/contacts');
+      const resp = await axios.get('https://wishmasterimesh.koyeb.app/contacts');
       allTomorrow = resp.data;
     } catch (err) {
       allTomorrow = null;
