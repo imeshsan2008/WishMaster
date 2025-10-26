@@ -363,7 +363,7 @@ async function sendTodaysBirthdays(sock, senderId) {
   try {
     const auth = await getAuthClient();
     if (!auth) return;
-
+    
     const birthdays = await getTodayBirthdays(auth);
     if (!birthdays.length) {
       if (senderId) await sock.sendMessage(senderId, { text: '🎉 No birthdays today.' });
@@ -508,7 +508,9 @@ async function startBot() {
       if (connection === "close") {
         // const reason = new Boom(lastDisconnect?.error)?.output?.statusCode;
         console.log("⚠️ Disconnected. Reason:", lastDisconnect?.error);
-                    wa.isLinked = false;
+        startBot();
+        
+        wa.isLinked = false;
 
 
         // Handle each disconnect reason properly
@@ -696,18 +698,27 @@ app.post('/api/logout/whatsapp', async (req, res) => {
 });
 
 app.get('/sendbirthday', async (req, res) => {
-  if (!sockInstance) return res.status(503).json({ ok: false, error: 'WhatsApp not connected' });
-  if (birthdaysSentToday) return res.status(429).json({ ok: false, error: 'Birthdays already sent today' });
+  
+setTimeout(async () => {
+    if (!sockInstance) return res.status(503).json({ ok: false, error: 'WhatsApp not connected' });
+    await sockInstance.sendMessage('120363402125169216@g.us', { text: `Birthdays already sent today > webEndpoint` });
 
-  try {
-    await sockInstance.sendMessage(sockInstance.user.id, { text: `⏳ Checking for today's birthdays... > webEndpoint` });
-    await sendTodaysBirthdays(sockInstance, sockInstance.user.id);
+    if (birthdaysSentToday) return res.status(429).json({ ok: false, error: 'Birthdays already sent today' });
+  
+try {
+    
+    await sockInstance.sendMessage('120363402125169216@g.us', { text: `⏳ Checking for today's birthdays... > webEndpoint` });
+    await sendTodaysBirthdays(sockInstance, '120363402125169216@g.us');
+  
     birthdaysSentToday = true;
     res.json({ ok: true, message: 'Birthday check initiated' });
   } catch (err) {
     console.error('sendbirthday endpoint error:', err.message || err);
     res.status(500).json({ ok: false, error: 'Failed to initiate birthday check' });
   }
+}, 10000);
+
+
 });
 
 app.get('/birthdaysSentToday', (req, res) => res.json({ birthdaysSentToday }));
