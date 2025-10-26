@@ -105,7 +105,8 @@ background-color: green;
     <div class="card-header">
       <h4 id="birthday-count" class="m-0">Upcoming Birthdays (0)</h4>
     </div>
-    <ul class="list-group list-group-flush" id="birthday-list"></ul>
+    <ul class="list-group list-group-flush" id="birthday-list">
+    </ul>
   </div>
 </div>
 
@@ -153,6 +154,25 @@ background-color: green;
   <option value="1">Style 1</option>
   <option value="2">Style 2</option>
   <option value="3">Style 3</option>
+</select>
+
+
+<div class="modal fade" id="perstyleModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body text-center p-4">
+        <img id="wa-modal-photo" src="" class="rounded-circle mb-3" alt="WhatsApp Profile" style="width: 100%; height: auto; max-width: 200px; max-height: 200px; object-fit: cover;">
+        <h5 id="wa-modal-name"></h5>
+        <p class="text-muted" id="wa-modal-id"></p>
+        <div class="d-grid gap
+-2 mt-3">
+  <div id="preview-container"><img id="style_image" src="" alt="Preview" class="img-fluid mt-2"/>
+</div>
+<select id="perstyleSelect" class="form-select">
+  <option value="1">Style 1</option>
+  <option value="2">Style 2</option>
+  <option value="3">Style 3</option>
+
 </select>
 
 
@@ -487,6 +507,8 @@ socket.on('qr', (data) => {
   
     new bootstrap.Modal('#styleModal').show();
   });
+  
+
 
   // Google logout
   el('btn-logout-google').addEventListener('click', async () => {
@@ -569,7 +591,8 @@ socket.on('qr', (data) => {
       list.innerHTML = '';
 
       if (todayCurrentYear.length) {
-        addSectionHeader(list, `🎉 Today — ${formatFullDate(today)}`);
+        addSectionHeader(list, `🎉 Today — ${formatFullDate(today)} `);
+
         todayCurrentYear.forEach(c => list.appendChild(renderItem(c, { highlight: true })));
       }
 
@@ -591,34 +614,105 @@ socket.on('qr', (data) => {
     ul.appendChild(li);
   }
 
-  function renderItem(contact, { highlight = false } = {}) {
-    const li = document.createElement('li');
-    li.className = 'list-group-item d-flex align-items-center birthday-card';
-    if (highlight) li.classList.add('list-group-item-warning');
 
-    let largePhoto = 'https://via.placeholder.com/70?text=User';
-    if (contact.photo && contact.photo.startsWith('https://lh3.googleusercontent.com')) {
-      largePhoto = contact.photo.replace(/=s\\d+$/, '=s8000');
+function sendsiglepersion(name, number) {
+  Swal.fire({
+    title: "Are You Sent the message From " + name,
+    text: "You won't be able to revert this!",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#3085d6",
+    cancelButtonColor: "#d33",
+    confirmButtonText: "Yes, Send it!"
+  }).then((result) => {
+    if (result.isConfirmed) {
+      // Show "sending" loading alert
+      Swal.fire({
+        title: "Sending message...",
+        html: "Please wait...",
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      fetch(`/api/send/${number}/${name}`)
+        .then(response => response.json())
+        .then(data => {
+          // Close the loading alert
+          Swal.close();
+          // Show success alert
+          Swal.fire("Sent!", data.message, "success");
+        })
+        .catch(error => {
+          // Close the loading alert
+          Swal.close();
+          // Show error alert
+          Swal.fire("Error!", "Failed to send message.", "error");
+        });
     }
+  });
+}
 
-    const name = escapeHTML(contact.name || 'Unknown');
-    const monthName = getMonthName(contact.birthday.month);
-    const day = contact.birthday.day;
-    const whenText = `${monthName} ${day}`;
+ function renderItem(contact, { highlight = false } = {}) {
+  const li = document.createElement('li');
+  li.className = 'list-group-item d-flex align-items-center birthday-card';
+  if (highlight) li.classList.add('list-group-item-warning');
 
-    li.innerHTML = `
-      <img src="${largePhoto}" class="rounded-circle me-3" alt="${name}">
-      <div class="flex-grow-1">
-        <div class="d-flex align-items-center gap-2">
-          <strong>${name}</strong>
-          ${highlight ? `<span class="badge bg-danger today-pill">TODAY</span>` : ''}
-        </div>
-        <div class="text-muted">Birthday: ${whenText}</div>
-      </div>
-    `;
-    return li;
+  let largePhoto = 'https://via.placeholder.com/70?text=User';
+  if (contact.photo && contact.photo.startsWith('https://lh3.googleusercontent.com')) {
+    largePhoto = contact.photo.replace(/=s\d+$/, '=s8000');
   }
 
+  const name = escapeHTML(contact.name || 'Unknown');
+
+  // Handle array or comma-separated string
+  let number = contact.phones || 'Unknown';
+  if (Array.isArray(number)) {
+    number = number[0];
+  } else if (typeof number === 'string' && number.includes(',')) {
+    number = number.split(',')[0].trim();
+  }
+
+  let data = {
+    name: name,
+    number: number
+  };
+
+
+  // Format birthday
+  const monthName = getMonthName(contact.birthday?.month);
+  const day = contact.birthday?.day || '';
+  const whenText = `${monthName} ${day}`.trim();
+
+li.innerHTML = `
+  <img src="${largePhoto}" class="rounded-circle me-3" alt="${name}">
+  <div class="flex-grow-1">
+    <div class="d-flex align-items-center gap-2">
+      <strong>${name}</strong>
+      ${highlight ? `<span class="badge bg-danger  today-pill">TODAY</span>` : ''}
+      <div class=" ms-auto d-flex gap-2 align-items-center">
+        
+ <button id="btn-change-frame-per" class="btn btn-sm  btn-outline-danger " style="margin-left: auto;">Change Frame Style</button>
+
+ 
+      <button type="button" 
+              onclick="sendsiglepersion('${name}','${number.replace(/\D/g, '')}')" 
+              class="btn btn-primary o">Send</button></div>
+
+
+              
+    </div>
+    <div class="text-muted">Birthday: ${whenText}</div>
+  </div>
+`;
+
+
+  return li;
+}
+
+
+  
   function getMonthName(monthNumber) {
     const date = new Date(); date.setMonth(Number(monthNumber) - 1);
     return date.toLocaleString('default', { month: 'short' });

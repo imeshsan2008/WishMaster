@@ -103,6 +103,7 @@ app.get('/api/user-style', (req, res) => {
   }
 });
 
+
 app.post('/api/user-style', (req, res) => {
   try {
     const { user_selected_style } = req.body;
@@ -358,7 +359,10 @@ app.get('/api/tomorrow-contacts', async (req, res) => {
   }
 });
 
+
+
 // ======================= Sending birthdays =======================
+
 async function sendTodaysBirthdays(sock, senderId) {
   try {
     const auth = await getAuthClient();
@@ -415,6 +419,31 @@ async function sendTodaysBirthdays(sock, senderId) {
     }
   } catch (err) {
     console.error('❌ Error sending birthdays:', err.message || err);
+  }
+}
+async function sendForcedBirthdayMessage(sock, senderId, _contactName) {
+  try {
+    const contactName = _contactName || 'there';
+    const number = senderId.replace(/\D/g, '');
+    const jid = `${number}@s.whatsapp.net`;
+
+    // Optional: customize this message
+    const message = getCustomMessage().replace(/\$\{name\}/g, `${contactName}`);
+
+    // Optional: fallback image or default photo
+    const defaultPhoto = 'https://via.placeholder.com/300x300.png?text=';
+    const profilePicUrl = await getValidProfilePicUrl(sock, jid, defaultPhoto);
+    const profileBuffer = await fetchProfilePicBuffer(profilePicUrl, contactName || 'there');
+    const framedImage = await createFramedImage(profileBuffer, contactName || 'there', styleId);
+
+    // Send WhatsApp message
+    const result = await sock.sendMessage(jid, { image: framedImage, caption: message });
+
+    console.log(`✅ Force-sent birthday message to ${jid}`);
+    return result;
+  } catch (err) {
+    console.error('❌ Error force-sending message:', err.message || err);
+    throw err;
   }
 }
 
@@ -661,6 +690,30 @@ app.get('/api/status', (req, res) => {
   const googleLinked = fs.existsSync(TOKEN_PATH);
   res.json({ google: { linked: googleLinked }, whatsapp: { linked: !!sockInstance, number: sockInstance?.user?.id || null, me: sockInstance?.user?.name || null } });
 });
+
+app.get('/api/send/:senderId/:contactName', async (req, res) => {
+  try {
+    const senderNumber = req.params.senderId;
+    const contactName = req.params.contactName;
+    const senderJid = `${senderNumber}@s.whatsapp.net`;
+
+    const result = await sendForcedBirthdayMessage(sockInstance, senderJid , contactName);
+
+ 
+    res.json({
+      success: true,
+      message: `Birthday message sent to ${senderNumber}`,
+      result,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
+});
+
 
 app.get('/api/qr', (req, res) => {
   // emit last-known QR via socket.io if any client requests
