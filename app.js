@@ -502,7 +502,7 @@ async function startBot() {
       markOnlineOnConnect: false,
       printQRInTerminal: false,
       syncFullHistory: false,
-      browser: ["Bulkadd", "Chrome", "1.0"]
+browser: ["VenomDevil", "Android", "2.23.10"]
     });
 
     sock.ev.on("creds.update", saveCreds);
