@@ -271,14 +271,14 @@ async function createFramedImage(profileBuffer, contactName, styleKey = null) {
   if (!fs.existsSync(framePath)) return profileBuffer;
 
   try {
-    const profileResized = await sharp(profileBuffer).resize(style.profile.width, style.profile.height, { fit: 'cover' }).toBuffer();
+    const profileResized = await sharp(profileBuffer).resize(style.profile.width, style.profile.height,style.profile.rotation, { fit: 'cover' }).toBuffer();
     const frameMeta = await sharp(framePath).metadata();
     const contactUpper = (contactName || '').toUpperCase();
 
     const svgText = `\n      <svg width="${frameMeta.width}" height="${frameMeta.height}">\n        <style>\n          .title { fill: ${style.text.color}; 
     
      font-family: ${style.text.fontFamily};
-     font-size: ${style.text.fontSize}; font-weight: bold; text-anchor: middle; dominant-baseline: middle; }\n        </style>\n        <text x="${style.text.x}" y="${style.text.y}" class="title">${contactUpper}</text>\n      </svg>\n    `;
+     font-size: ${style.text.fontSize}; font-weight: bold; text-anchor: middle; dominant-baseline: middle; }\n        </style>\n        <text x="${style.text.x}" y="${style.text.y}" transform="rotate(${style.text.rotation || 0})" class="title">${contactUpper}</text>\n      </svg>\n    `;
 
     const finalImage = await sharp({ create: { width: frameMeta.width, height: frameMeta.height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
       .composite([
@@ -502,7 +502,7 @@ async function startBot() {
       markOnlineOnConnect: false,
       printQRInTerminal: false,
       syncFullHistory: false,
-      browser: ["WishMaster", "Chrome", "1.0"]
+      browser: ["Bulkadd", "Chrome", "1.0"]
     });
 
     sock.ev.on("creds.update", saveCreds);

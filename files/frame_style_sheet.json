@@ -17,7 +17,7 @@
       }
     },
     "2": {
-      "framePath": "assets/img/birthday_frame2.png",
+      "framePath": "assets/img/frame2.png",
       "profile": {
         "width": 879,
         "height": 1399,
@@ -34,7 +34,7 @@
       }
     },
     "3": {
-      "framePath": "assets/img/birthday_frame3.png",
+      "framePath": "assets/img/frame3.png",
       "profile": {
         "width": 710,
         "height": 710,
@@ -48,7 +48,26 @@
         "color": "#19100c",
         "fontFamily": "Magnolia Script, sans-serif"
       }
+    },
+    "4": {
+      "framePath": "assets/img/frame4.png",
+      "profile": {
+        "width":  669,
+        "height": 647,
+        "left": 182,
+        "top": 520 ,
+        "rotation": 12
+      },
+      "text": {
+        "x": "567 ",
+        "y": "1214",
+        "fontSize": "61pt",
+        "rotation": 0,
+        "color": "#000",
+        "fontFamily": "Magnolia Script, sans-serif"
+      }
+
     }
   },
-  "user_selected_style": "3"
+  "user_selected_style": "4"
 }
