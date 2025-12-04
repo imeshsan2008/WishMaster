@@ -81,10 +81,11 @@ background-color: green;
       <!-- WhatsApp block -->
 
       <div id="wa-block" class="d-flex align-items-center gap-2">
-        <a href="/sendbirthday" class="btn btn-primary">Send Birthday</a>
+        <a href="/sendfestive" class="btn btn-primary">Send Birthday</a>
+        <a href="/festive" class="btn btn-outline-danger">Switch to Festive Mode</a>
+
         <span class="badge text-bg-success d-none" id="wa-linked">WhatsApp: Linked</span>
         <span class="badge text-bg-warning d-none" id="wa-not-linked">WhatsApp: Not linked</span>
-             <span class="badge text-bg-warning " ><a href="/api/birthday-logs" target="_blank">sent list Json</a></span>
  
       </div>
 
@@ -293,33 +294,7 @@ sweetAlert = (type, title, text) => {
     });
   };
 
-let qrTimer; // to track countdown
 
-  function qrtimer(expireTime) {
-      // Create timer element if it doesn't exist
-    let timerEl = document.getElementById('qr-timer');
-    if (!timerEl) {
-        timerEl = document.createElement('div');
-        timerEl.id = 'qr-timer';
-        timerEl.className = 'mt-2 text-center fw-bold';
-        document.getElementById('qr-card').appendChild(timerEl);
-    }
-
-    // Clear previous timer
-    clearInterval(qrTimer);
-
-    qrTimer = setInterval(() => {
-        if (expireTime <= 0) {
-            clearInterval(qrTimer);
-            timerEl.innerText = "QR Code expired. Refreshing...";
-            // Automatically request a new QR code
-qrcode();        } else {
-            timerEl.innerText = `QR Code expires in ${expireTime}s`;
-            expireTime--;
-        }
-    }, 1000);
-
-  }
 document.addEventListener("DOMContentLoaded", async () => {
   try {
     const res = await fetch("/api/user-style");
@@ -367,70 +342,6 @@ document.getElementById("styleSelect").addEventListener("change", async (e) => {
 });
 
 
-async function qrcode() {
-  const socket = io("http://localhost:3000");
- qral++;
- socket.on('connect', () => console.log("✅ Socket connected!"));
-
-
-qrtimer(20);
-socket.on('qr', (data) => {
-
-    document.getElementById('wa-qr').src = data.dataUrl;
-    document.getElementById('qr-card').classList.remove('d-none');
-
-                el('wa-modal-photo').classList.add('d-none');
-
-        if (qral === 1) {
-            Swal.fire({
-                title: 'New QR Code',
-                text: 'A new QR code has been generated. Please scan it to link WhatsApp.',
-                icon: 'info',
-                confirmButtonText: 'Got it!'
-            });
-
-                        new bootstrap.Modal('#waProfileModal').show();
-
-
-        }else if (qral === 6) {
-            Swal.fire({
-                title: 'QR Limit Reached',
-                text: 'You have reached the maximum number of QR codes. Please refresh the page.',
-                icon: 'error',
-                confirmButtonText: 'Refresh'
-            });
-            document.getElementById('qr-card').style.display = "none";
-        }
-            
-
-});
-
-    
-
-
-  socket.on('connected', () => {
-    console.log("✅ server connected!");
-    el('wa-avatar').classList.add('d-none');
-    Swal.fire('Connected', 'WhatsApp is now linked successfully.', 'success');
-  });
-
-  socket.on('disconnected', () => {
-        el('wa-avatar').classList.remove('d-none');
-     Swal.fire({
-                title: 'QR Limit Reached',
-                text: 'You have reached the maximum number of QR codes. Please refresh the page.',
-                icon: 'error',
-                confirmButtonText: 'Refresh'
-            });
-                clearInterval(qrTimer);
-    // Swal.fire('Disconnected', 'WhatsApp is disconnected. Please refresh to get a new QR code.', 'warning');
-  });
-
-  socket.on('qr_limit', (data) => {
-    document.getElementById('qr-card').style.display = "none";
-    Swal.fire('QR Limit Reached', data.message, 'error');
-  });
-}
 
   async function loadStatus() {
     try {
@@ -467,7 +378,6 @@ socket.on('qr', (data) => {
         el('wa-modal-id').textContent = s.whatsapp.number || '';
 
       } else {
-          qrcode();
 
                 el('btn-logout-wa').classList.add('d-none');
 
@@ -475,9 +385,7 @@ socket.on('qr', (data) => {
         el('wa-not-linked').classList.remove('d-none');
 
         try {
-          // setInterval(() => {
-          //   qrcode();
-          // }, 5000);
+   
           
          } catch {
           el('wa-qr').classList.add('d-none');

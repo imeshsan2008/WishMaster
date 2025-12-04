@@ -2,9 +2,7 @@
   "name": "wishmaster",
   "version": "1.0.0",
   "description": "",
-  
   "main": "index.js",
-
   "scripts": {
     "test": "node test_bulk.js",
     "dev": "node app.js",
@@ -30,6 +28,7 @@
     "fs": "^0.0.1-security",
     "googleapis": "^156.0.0",
     "http": "^0.0.1-security",
+    "multer": "^2.0.2",
     "node-cron": "^4.2.1",
     "pino": "^9.9.0",
     "pm2": "^6.0.8",

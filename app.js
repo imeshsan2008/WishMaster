@@ -11,8 +11,10 @@ const { Server } = require('socket.io');
 const http = require('http');
 const cron = require('node-cron');
 const Boom =  require('@hapi/boom'); 
+const multer = require("multer");
 
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys");
+const e = require('express');
 
 
 // ======================= Config ========================
@@ -24,6 +26,11 @@ const WA_AUTH_DIR = path.join(__dirname, 'whatsapp_auth');
 const PORT = process.env.PORT || 8000;
 const frame_style_sheet = path.join(__dirname, 'files', 'frame_style_sheet.json');
 const LOG_FILE = path.join(__dirname, 'birthday_log.json');
+// Folder where uploaded images are stored
+const upload = multer({ dest: path.join(__dirname, "assets/img/") });
+
+// File path for saving current festive image + caption
+const FESTIVE_CONFIG_PATH = path.join(__dirname, "festive_config.json");
 
 let birthdaysSentToday = false;
 let birthdayRetryMap = new Map();
@@ -33,6 +40,7 @@ let pairingStatus = "idle";
 let linkedNumber = null;
 // Global socket reference so routes can use it
 let sockInstance = null;
+let sock = null;
 let wa = {
   sock: null,
   latestQRDataURL: null,
@@ -141,6 +149,7 @@ app.get('/oauth2callback', async (req, res) => {
   }
 });
 
+
 function createOAuthClient() {
   const creds = loadCredentials();
   const { client_id, client_secret, redirect_uris } = creds.installed || creds.web || {};
@@ -160,7 +169,17 @@ async function getAuthClient(req, res) {
   }
   return null;
 }
+async function listContacts_festive(auth) {
+  const service = google.people({ version: 'v1', auth });
+  const res = await service.people.connections.list({ resourceName: 'people/me', pageSize: 2000, personFields: 'names,emailAddresses,phoneNumbers,birthdays,photos' });
+  return (res.data.connections || [])
+    .map(p => ({
+      name: p.names ? p.names[0].displayName : '',
+      phones: p.phoneNumbers ? p.phoneNumbers.map(ph => ph.value) : [],
 
+      photo: p.photos ? p.photos[0].url : null
+    }));
+}
 // ======================= People API helpers =======================
 async function listContacts(auth) {
   const service = google.people({ version: 'v1', auth });
@@ -193,6 +212,14 @@ async function getTodayBirthdays(auth) {
 }
 
 function getCustomMessage() {
+  try {
+    if (fs.existsSync(MESSAGE_FILE)) return fs.readFileSync(MESSAGE_FILE, 'utf8').trim();
+  } catch (err) {
+    console.error('⚠️ getCustomMessage error:', err.message);
+  }
+  return '🎉 Happy Birthday! 🎂 Wishing you a fantastic year ahead!';
+}
+function getCustomMessage_festive() {
   try {
     if (fs.existsSync(MESSAGE_FILE)) return fs.readFileSync(MESSAGE_FILE, 'utf8').trim();
   } catch (err) {
@@ -262,25 +289,85 @@ async function fetchProfilePicBuffer(profilePicUrl, contactName, maxRetries = 3,
   return fs.readFileSync(defaultAvatar);
 }
 
-async function createFramedImage(profileBuffer, contactName, styleKey = null) {
-  const styleSelected = styleKey || styleId || (styles && styles.user_selected_style) || (styles && styles.defaultStyle) || '1';
-  const style = styles && styles.frameStyles ? styles.frameStyles[styleSelected] : null;
-  if (!style) return profileBuffer; // nothing to do
+// async function createFramedImage(profileBuffer, contactName, styleKey = null) {
+//   const styleSelected = styleKey || styleId || (styles && styles.user_selected_style) || (styles && styles.defaultStyle) || '1';
+//   const style = styles && styles.frameStyles ? styles.frameStyles[styleSelected] : null;
+//   if (!style) return profileBuffer; // nothing to do
 
-  const framePath = path.join(__dirname, style.framePath || '');
-  if (!fs.existsSync(framePath)) return profileBuffer;
+//   const framePath = path.join(__dirname, style.framePath || '');
+//   if (!fs.existsSync(framePath)) return profileBuffer;
 
-  try {
-    const profileResized = await sharp(profileBuffer).resize(style.profile.width, style.profile.height,style.profile.rotation, { fit: 'cover' }).toBuffer();
-    const frameMeta = await sharp(framePath).metadata();
-    const contactUpper = (contactName || '').toUpperCase();
+//   try {
+//     const profileResized = await sharp(profileBuffer).resize(style.profile.width, style.profile.height,style.profile.rotation, { fit: 'cover' }).toBuffer();
+//     const frameMeta = await sharp(framePath).metadata();
+//     const contactUpper = (contactName || '').toUpperCase();
 
-    const svgText = `\n      <svg width="${frameMeta.width}" height="${frameMeta.height}">\n        <style>\n          .title { fill: ${style.text.color}; 
+//     const svgText = `\n      <svg width="${frameMeta.width}" height="${frameMeta.height}">\n        <style>\n          .title { fill: ${style.text.color}; 
     
-     font-family: ${style.text.fontFamily};
-     font-size: ${style.text.fontSize}; font-weight: bold; text-anchor: middle; dominant-baseline: middle; }\n        </style>\n        <text x="${style.text.x}" y="${style.text.y}" transform="rotate(${style.text.rotation || 0})" class="title">${contactUpper}</text>\n      </svg>\n    `;
+//      font-family: ${style.text.fontFamily};
+//      font-size: ${style.text.fontSize}; font-weight: bold; text-anchor: middle; dominant-baseline: middle; }\n        </style>\n        <text x="${style.text.x}px" y="${style.text.y}px" transform="rotate(${style.text.rotation || 0})" class="title">${contactUpper}</text>\n      </svg>\n    `;
 
-    const finalImage = await sharp({ create: { width: frameMeta.width, height: frameMeta.height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+//     const finalImage = await sharp({ create: { width: frameMeta.width, height: frameMeta.height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+//       .composite([
+//         { input: profileResized, top: style.profile.top, left: style.profile.left },
+//         { input: framePath, top: 0, left: 0 },
+//         { input: Buffer.from(svgText), top: 0, left: 0 }
+//       ])
+//       .png()
+//       .toBuffer();
+
+//     return finalImage;
+//   } catch (err) {
+//     console.error(`❌ Error creating framed image for ${contactName}:`, err.message);
+//     return profileBuffer;
+//   }
+// }
+
+
+async function createFramedImage(profileBuffer, contactName, styleKey = null) {
+  const styleSelected = styleKey || styleId || styles?.user_selected_style || styles?.defaultStyle || "1";
+  const style = styles?.frameStyles?.[styleSelected];
+  if (!style) return profileBuffer;
+
+  const framePath = path.join(__dirname, style.framePath);
+  if (!fs.existsSync(framePath)) return profileBuffer;
+  try {
+    // ✅ Read font file & convert to base64
+    const fontBuffer = await fetch(style.text.fonturl)
+      .then(res => res.arrayBuffer());
+    const fontBase64 = Buffer.from(fontBuffer).toString("base64");
+
+    const profileResized = await sharp(profileBuffer)
+      .resize(style.profile.width, style.profile.height, { fit: "cover" })
+      .toBuffer();
+
+    const frameMeta = await sharp(framePath).metadata();
+    const contactUpper = (contactName || "").toUpperCase();
+
+    const svgText = `
+      <svg width="${frameMeta.width}" height="${frameMeta.height}">
+        <style>
+          @font-face {
+
+font-family: ${style.text.fontFamily};        
+    src: url(data:font/ttf;base64,${fontBase64}) format('truetype');
+          }
+          .title {
+            fill: ${style.text.color};
+font-family: ${style.text.fontFamily};           
+ font-size: ${style.text.fontSize};
+            font-weight: bold;
+            text-anchor: middle;
+            dominant-baseline: middle;
+          }
+        </style>
+        <text x="${style.text.x}" y="${style.text.y}" transform="rotate(${style.text.rotation || 0})" class="title">${contactUpper}</text>
+      </svg>
+    `;
+
+    const finalImage = await sharp({
+      create: { width: frameMeta.width, height: frameMeta.height, channels: 4, background: { r:0,g:0,b:0,alpha:0 } }
+    })
       .composite([
         { input: profileResized, top: style.profile.top, left: style.profile.left },
         { input: framePath, top: 0, left: 0 },
@@ -291,7 +378,7 @@ async function createFramedImage(profileBuffer, contactName, styleKey = null) {
 
     return finalImage;
   } catch (err) {
-    console.error(`❌ Error creating framed image for ${contactName}:`, err.message);
+    console.error(`❌ Error creating framed image for ${contactName}:`, err);
     return profileBuffer;
   }
 }
@@ -338,10 +425,20 @@ app.get('/contacts', async (req, res) => {
   }
 });
 
+app.get('/contacts_festive', async (req, res) => {
+  try {
+    const auth = await getAuthClient(req, res);
+    if (!auth) return; // getAuthClient handled redirect
+    res.json(await listContacts_festive(auth));
+  } catch (err) {
+    console.error('Error retrieving contacts:', err.message);
+    res.status(500).send('Error retrieving contacts');
+  }
+});
 // ======================= Get tomorrow's contacts from external endpoint =======================
 app.get('/api/tomorrow-contacts', async (req, res) => {
   try {
-    const response = await axios.get('https://wishmasterimesh.koyeb.app/contacts');
+    const response = await axios.get('http://localhost:8000/contacts');
     const contacts = response.data || [];
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -378,7 +475,7 @@ async function sendTodaysBirthdays(sock, senderId) {
     // Optionally get tomorrow's list to notify the owner
     let allTomorrow = null;
     try {
-      const resp = await axios.get('https://wishmasterimesh.koyeb.app/contacts');
+      const resp = await axios.get('http://localhost:8000/contacts');
       allTomorrow = resp.data;
     } catch (err) {
       allTomorrow = null;
@@ -394,12 +491,11 @@ async function sendTodaysBirthdays(sock, senderId) {
           const message = getCustomMessage().replace(/\$\{name\}/g, contact.name);
           const number = contact.phone.replace(/\D/g, '');
           const jid = number + '@s.whatsapp.net';
-
-          const profilePicUrl = await getValidProfilePicUrl(sock, jid, contact.photo);
+          const profilePicUrl = await getValidProfilePicUrl(sockInstance, jid, contact.photo);
           const profileBuffer = await fetchProfilePicBuffer(profilePicUrl, contact.name);
           const framedImage = await createFramedImage(profileBuffer, contact.name, styleId);
 
-          // Send message
+          // Send messagephoto
           await sock.sendMessage(jid, { image: framedImage, caption: message });
 
           // record retry info so we can retry later if needed
@@ -421,6 +517,154 @@ async function sendTodaysBirthdays(sock, senderId) {
     console.error('❌ Error sending birthdays:', err.message || err);
   }
 }
+
+
+const FESTIVE_CONFG_PATH = path.join(__dirname, "festive_config.json");
+
+// Serve static files so you can view uploaded images if needed
+app.use("/assets", express.static(path.join(__dirname, "assets")));
+
+// Endpoint: upload new festive image + caption
+app.post("/api/festive/update", upload.single("image"), (req, res) => {
+  try {
+    const { caption } = req.body;
+    const imagePath = "./assets/img/" + req.file.filename;
+
+    // Save configuration (image path + caption)
+    fs.writeFileSync(
+      FESTIVE_CONFIG_PATH,
+      JSON.stringify({ image: imagePath, caption }, null, 2)
+    );
+
+    res.json({ message: "✅ Festive image updated successfully!" });
+  } catch (err) {
+    console.error("❌ Error updating festive image:", err);
+    res.status(500).json({ message: "Failed to update festive image" });
+  }
+});
+
+// Function to load the latest festive image + caption
+
+function getFestiveImage() {
+    let config = {};
+    try {
+        config = JSON.parse(fs.readFileSync(FESTIVE_CONFIG_PATH, "utf8"));
+    } catch (err) {
+        console.error("Error reading festive config:", err);
+        // fallback default
+        return { caption: "🎉 Happy Festival! Wishing you joy 💫" };
+    }
+
+    if (config.withImage && config.image) {
+        try {
+            const imagePath = path.join(__dirname, config.image);
+            return {
+                image: fs.readFileSync(imagePath),
+                caption: config.caption || "Error!"
+            };
+        } catch (err) {
+            console.error("Error reading festive image:", err);
+            return { caption: config.caption || "Error!" };
+        }
+    } else {
+        return {
+            caption: config.caption || "Error!"
+        };
+    }
+}
+
+
+async function send_festive_msg(sock, senderId) {
+    try {
+        const auth = await getAuthClient();
+        if (!auth) {
+            console.error("❌ Auth client not available");
+            return;
+        }
+
+        const people = await listContacts(auth);
+        if (!Array.isArray(people) || people.length === 0) {
+            console.log("⚠️ No contacts found.");
+            return;
+        }
+
+        // Optional: Fetch tomorrow's list
+        try {
+            await axios.get("/contacts_festive");
+        } catch {
+            console.warn("⚠️ Could not fetch tomorrow's contacts list");
+        }
+
+        for (const contact of people) {
+            // Validate contact
+            if (!contact || !Array.isArray(contact.phones) || contact.phones.length === 0) {
+                console.warn(`⚠️ Skipping invalid contact:`, contact);
+                continue;
+            }
+
+            const name = contact.name || "there";
+            const phone = contact.phones[0].replace(/\D/g, "");
+            const jid = phone + "@s.whatsapp.net";
+            const festiveImage = getFestiveImage();
+
+            // Replace ${name} in caption safely
+            let message = festiveImage.caption || "🎉 Happy Festival!";
+            message = message.replace(/\$\{name\}/g, name);
+
+            let attempts = 0;
+            const maxRetries = 5;
+            const delay = 2000;
+
+            while (attempts < maxRetries) {
+                try {
+                    if (festiveImage.image) {
+                        // Send image + caption
+                        await sock.sendMessage(jid, {
+                            image: festiveImage.image,
+                            caption: message
+                        });
+                    } else {
+                        // Send text-only message
+                        await sock.sendMessage(jid, { text: message });
+                    }
+
+                    // Log success
+                    birthdayRetryMap.set(jid, {
+                        message: festiveImage.image
+                            ? { image: festiveImage.image, caption: message }
+                            : { text: message },
+                        attempts: 1,
+                        timestamp: Date.now(),
+                        name
+                    });
+
+                    logBirthdayEvent(jid, name, "sent", 1);
+
+                    if (senderId) {
+                        await sock.sendMessage(senderId, {
+                            text: `✅ Sent festive message to ${name} (${contact.phones[0]})`
+                        });
+                    }
+
+                    console.log(`✅ Sent festive message to ${name} (${contact.phones[0]})`);
+                    break;
+                } catch (err) {
+                    attempts++;
+                    console.error(
+                        `❌ Failed to send message to ${name}. Attempt ${attempts}/${maxRetries}:`,
+                        err.message || err
+                    );
+                    if (attempts < maxRetries) await new Promise(res => setTimeout(res, delay));
+                    else logBirthdayEvent(contact.phones[0] || "unknown", name, "failed", attempts);
+                }
+            }
+        }
+    } catch (err) {
+        console.error("❌ Error sending festive messages:", err.message || err);
+    }
+}
+
+
 async function sendForcedBirthdayMessage(sock, senderId, _contactName) {
   try {
     const contactName = _contactName || 'there';
@@ -432,12 +676,12 @@ async function sendForcedBirthdayMessage(sock, senderId, _contactName) {
 
     // Optional: fallback image or default photo
     const defaultPhoto = 'https://via.placeholder.com/300x300.png?text=';
-    const profilePicUrl = await getValidProfilePicUrl(sock, jid, defaultPhoto);
+    const profilePicUrl = await getValidProfilePicUrl(sockInstance, jid, defaultPhoto);
     const profileBuffer = await fetchProfilePicBuffer(profilePicUrl, contactName || 'there');
     const framedImage = await createFramedImage(profileBuffer, contactName || 'there', styleId);
 
     // Send WhatsApp message
-    const result = await sock.sendMessage(jid, { image: framedImage, caption: message });
+    const result = await sockInstance.sendMessage(jid, { image: framedImage, caption: message });
 
     console.log(`✅ Force-sent birthday message to ${jid}`);
     return result;
@@ -502,7 +746,7 @@ async function startBot() {
       markOnlineOnConnect: false,
       printQRInTerminal: false,
       syncFullHistory: false,
-      browser: ["Bulkadd", "Chrome", "1.0"]
+      browser: ["VenomDevil", "Android", "2.23.10"]
     });
 
     sock.ev.on("creds.update", saveCreds);
@@ -518,6 +762,7 @@ async function startBot() {
 
       if (connection === "open") {
         console.log("✅ WhatsApp connected!");
+
         birthdaysSentToday = false;
         sockInstance = sock;
           wa.sock = sock;
@@ -774,7 +1019,32 @@ try {
 
 });
 
+app.get('/sendfestive', async (req, res) => {
+  try {
+    console.log("🔑 Started");
+    
+    // Send response immediately
+    res.json({ message: "✅ Festive image will be sent shortly!" });
+
+    // Delay sending the festive message by 10 seconds
+    setTimeout(async () => {
+      await send_festive_msg(sockInstance, '120363402125169216@g.us');
+      console.log("🎉 Festive image sent successfully!");
+    }, 10000);
+    
+  } catch (error) {
+    console.error("❌ Error sending festive image:", error);
+    res.status(500).json({ message: "Error sending festive image" });
+  }
+});
+
 app.get('/birthdaysSentToday', (req, res) => res.json({ birthdaysSentToday }));
+
+app.get('/birthdaysclear', (req, res) =>  {
+  birthdaysSentToday = false;
+  res.json({ birthdaysSentToday });
+});
+
 
 app.get('/api/birthday-logs', (req, res) => {
   try {
@@ -795,6 +1065,8 @@ cron.schedule('0 23 * * *', () => {
 // ======================= Static & assets =======================
 app.use('/assets/img', express.static(path.join(__dirname, 'assets', 'img')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'templates', 'index.html')));
+app.get('/festive', (req, res) => res.sendFile(path.join(__dirname, 'templates', 'index_festive.html')));
+
 app.get('/home', (req, res) => res.sendFile(path.join(__dirname, 'templates', 'index.html')));
 
 // ======================= Socket.IO =======================

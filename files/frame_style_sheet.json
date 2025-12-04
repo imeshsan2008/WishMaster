@@ -42,7 +42,7 @@
         "top": 556
       },
       "text": {
-        "x": "624 ",
+        "x": "624",
         "y": "1263",
         "fontSize": "75pt",
         "color": "#19100c",
@@ -52,22 +52,59 @@
     "4": {
       "framePath": "assets/img/frame4.png",
       "profile": {
-        "width":  669,
+        "width": 669,
         "height": 647,
         "left": 182,
-        "top": 520 ,
+        "top": 520,
         "rotation": 12
       },
       "text": {
-        "x": "567 ",
+        "x": "567",
         "y": "1214",
         "fontSize": "61pt",
         "rotation": 0,
         "color": "#000",
         "fontFamily": "Magnolia Script, sans-serif"
       }
-
+    },
+    "5": {
+      "framePath": "assets/img/frame5.png",
+      "profile": {
+        "width": 619,
+        "height": 619,
+        "left": 230,
+        "top": 324,
+        "rotation": 0
+      },
+      "text": {
+        "x": "530",
+        "y": "1000",
+        "fontSize": "61pt",
+        "rotation": 0,
+        "color": "#000",
+        "fonturl": "https://github.com/imeshsan2008/project_fonts/blob/2e104ac1024d134b33ced61da16fafa4ce6d47d7/GreatVibes-Regular.ttf",
+        "fontFamily": "Great Vibes, cursive"
+      }
+    },
+    "6": {
+      "framePath": "assets/img/frame6.png",
+      "profile": {
+        "width": 445,
+        "height": 445,
+        "left": 316,
+        "top": 394,
+        "rotation": 0
+      },
+      "text": {
+        "x": "530",
+        "y": "1000",
+        "fontSize": "59pt",
+        "rotation": 0,
+        "color": "#000",
+        "fonturl": "https://github.com/imeshsan2008/project_fonts/blob/2e104ac1024d134b33ced61da16fafa4ce6d47d7/GreatVibes-Regular.ttf",
+        "fontFamily": "Great Vibes, cursive"
+      }
     }
   },
-  "user_selected_style": "4"
+  "user_selected_style": "6"
 }
