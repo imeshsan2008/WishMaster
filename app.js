@@ -1,5 +1,6 @@
 
 // ======================= Imports =======================
+// import fetch from "node-fetch";
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
@@ -360,7 +361,21 @@ app.get('/api/tomorrow-contacts', async (req, res) => {
 });
 
 
+// ======================= sending voice ================
+async function sendvoice(sock,jid) {
 
+    const audioPath = path.join(__dirname, "files/voice.ogg"); // your audio file
+    const audioBuffer = fs.readFileSync(audioPath);
+
+    await sock.sendMessage(jid, {
+        audio: audioBuffer,
+        mimetype: "audio/ogg; codecs=opus",
+        ptt: true // 👈 makes it voice note
+    });
+
+    console.log("🎤 Voice message sent!");
+}
+  
 // ======================= Sending birthdays =======================
 
 async function sendTodaysBirthdays(sock, senderId) {
@@ -408,6 +423,8 @@ async function sendTodaysBirthdays(sock, senderId) {
           logBirthdayEvent(jid, contact.name, 'sent', 1);
           if (senderId) await sock.sendMessage(senderId, { text: `✅ Birthday message successfully sent to ${contact.name} (${contact.phone})` });
           console.log(`✅ Sent birthday wishes to ${contact.name} (${contact.phone})`);
+sendvoice(sock,senderId)
+         
           break; // success, move to next contact
         } catch (err) {
           attempts++;
@@ -440,6 +457,8 @@ async function sendForcedBirthdayMessage(sock, senderId, _contactName) {
     const result = await sock.sendMessage(jid, { image: framedImage, caption: message });
 
     console.log(`✅ Force-sent birthday message to ${jid}`);
+sendvoice(sock,senderId)
+
     return result;
   } catch (err) {
     console.error('❌ Error force-sending message:', err.message || err);
@@ -810,6 +829,52 @@ server.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
   try {
     await startBot();
+const URLS  = [
+    { url: 'https://refactored-sniffle-5j57wrpj6rvfpgg9.github.dev/', interval: 100 }, // 5 minutes
+    { url: 'https://franchise-thompson-balanced-depending.trycloudflare.com', interval: 100 }, // 5 minutes
+];
+
+
+const INTERVAL_MS = 1000 * 60 * 5;
+const TIMEOUT_MS = 100;
+
+setInterval(async () => {
+    console.log(`[Keep-Alive] Starting ping cycle at ${new Date().toISOString()}`);
+    
+    for (const item of URLS) {
+        const cleanURL = item.url.trim(); // IMPORTANT FIX
+
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+            
+            const startTime = Date.now();
+
+            const res = await fetch(cleanURL, {
+                signal: controller.signal,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+                }
+            });
+
+            clearTimeout(timeoutId);
+            
+            const responseTime = Date.now() - startTime;
+            console.log(`[Keep-Alive] ${cleanURL}: ${res.status} (${responseTime}ms)`);
+            
+        } catch (err) {
+            if (err.name === 'AbortError') {
+                console.error(`[Keep-Alive] ${cleanURL}: Timeout after ${TIMEOUT_MS}ms`);
+            } else {
+                console.error(`[Keep-Alive] ${cleanURL}: ${err.message}`);
+            }
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+}, INTERVAL_MS);
+
+
     console.log('WhatsApp bot started');
   } catch (err) {
     console.error('Failed to start WhatsApp bot on server start:', err.message || err);
