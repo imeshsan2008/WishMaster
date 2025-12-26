@@ -364,7 +364,7 @@ app.get('/api/tomorrow-contacts', async (req, res) => {
 // ======================= sending voice ================
 async function sendvoice(sock,jid) {
 
-    const audioPath = path.join(__dirname, "files/voice.ogg"); // your audio file
+    const audioPath = path.join(__dirname, "files/voice2.ogg"); // your audio file
     const audioBuffer = fs.readFileSync(audioPath);
 
     await sock.sendMessage(jid, {
