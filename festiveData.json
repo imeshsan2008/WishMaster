@@ -1,0 +1,30 @@
+{
+  "logs": [
+    {
+      "name": "Sir",
+      "number": "94768902513",
+      "success": true,
+      "time": "2026-04-11T14:59:29.693Z"
+    },
+    {
+      "name": "Sir",
+      "number": "94768902513",
+      "success": true,
+      "time": "2026-04-11T14:59:35.283Z"
+    },
+    {
+      "name": "Sir",
+      "number": "94768902513",
+      "success": true,
+      "time": "2026-04-11T15:45:46.945Z"
+    },
+    {
+      "name": "Sir",
+      "number": "94768902513",
+      "success": true,
+      "time": "2026-04-11T15:55:30.217Z"
+    }
+  ],
+  "successCount": 4,
+  "errorCount": 0
+}

@@ -1,0 +1,83 @@
+[debug] [2025-11-22T14:19:57.432Z] ----------------------------------------------------------------------
+[debug] [2025-11-22T14:19:57.436Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\imesh\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js init
+[debug] [2025-11-22T14:19:57.436Z] CLI Version:   14.26.0
+[debug] [2025-11-22T14:19:57.436Z] Platform:      win32
+[debug] [2025-11-22T14:19:57.436Z] Node Version:  v24.1.0
+[debug] [2025-11-22T14:19:57.436Z] Time:          Sat Nov 22 2025 19:49:57 GMT+0530 (India Standard Time)
+[debug] [2025-11-22T14:19:57.437Z] ----------------------------------------------------------------------
+[debug] 
+[info] 
+     ######## #### ########  ######## ########     ###     ######  ########
+     ##        ##  ##     ## ##       ##     ##  ##   ##  ##       ##
+     ######    ##  ########  ######   ########  #########  ######  ######
+     ##        ##  ##    ##  ##       ##     ## ##     ##       ## ##
+     ##       #### ##     ## ######## ########  ##     ##  ######  ########
+
+You're about to initialize a Firebase project in this directory:
+
+  C:\Users\imesh\Downloads\Work\WishMaster_New_Year - Copy
+
+[info] 
+=== Project Setup
+[info] 
+[info] First, let's associate this project directory with a Firebase project.
+[info] You can create multiple project aliases by running firebase use --add, 
+[info] 
+[debug] [2025-11-22T14:20:09.659Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-11-22T14:20:09.659Z] > authorizing via signed-in user (imeshbota0@gmail.com)
+[debug] [2025-11-22T14:20:09.661Z] Checked if tokens are valid: true, expires at: 1763824429242
+[debug] [2025-11-22T14:20:09.661Z] Checked if tokens are valid: true, expires at: 1763824429242
+[debug] [2025-11-22T14:20:09.663Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/wishmaster-1ea1a [none]
+[debug] [2025-11-22T14:20:10.404Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/wishmaster-1ea1a 200
+[debug] [2025-11-22T14:20:10.405Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/wishmaster-1ea1a {"projectId":"wishmaster-1ea1a","projectNumber":"749034763886","displayName":"wishmaster","name":"projects/wishmaster-1ea1a","resources":{"hostingSite":"wishmaster-1ea1a"},"state":"ACTIVE","etag":"1_9656e518-b295-4723-b33b-208d40fdcfef"}
+[info] i  Using project wishmaster-1ea1a (wishmaster) . 
+[info] 
+=== Hosting Setup
+[debug] [2025-11-22T14:20:10.420Z] Checked if tokens are valid: true, expires at: 1763824429242
+[debug] [2025-11-22T14:20:10.420Z] Checked if tokens are valid: true, expires at: 1763824429242
+[debug] [2025-11-22T14:20:10.421Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/wishmaster-1ea1a [none]
+[debug] [2025-11-22T14:20:10.819Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/wishmaster-1ea1a 200
+[debug] [2025-11-22T14:20:10.819Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/wishmaster-1ea1a {"projectId":"wishmaster-1ea1a","projectNumber":"749034763886","displayName":"wishmaster","name":"projects/wishmaster-1ea1a","resources":{"hostingSite":"wishmaster-1ea1a"},"state":"ACTIVE","etag":"1_9656e518-b295-4723-b33b-208d40fdcfef"}
+[info] 
+[info] Your public directory is the folder (relative to your project directory) that
+[info] will contain Hosting assets to be uploaded with firebase deploy. If you
+[info] have a build process for your assets, use your build's output directory.
+[info] 
+[info] 
+[info] i  Detected a .git folder at C:\Users\imesh\Downloads\Work\WishMaster_New_Year - Copy 
+[info] i  Authorizing with GitHub to upload your service account to a GitHub repository's secrets store. 
+[info] 
+[info] Visit this URL on this device to log in:
+[info] https://github.com/login/oauth/authorize?client_id=89cf50f02ac6aaed3484&state=443720840&redirect_uri=http%3A%2F%2Flocalhost%3A9005&scope=read%3Auser%20repo%20public_repo
+[info] 
+[info] Waiting for authentication...
+[debug] [2025-11-22T14:20:31.420Z] >>> [apiv2][query] POST https://github.com/login/oauth/access_token [none]
+[debug] [2025-11-22T14:20:31.420Z] >>> [apiv2][body] POST https://github.com/login/oauth/access_token [stream]
+[debug] [2025-11-22T14:20:32.244Z] <<< [apiv2][status] POST https://github.com/login/oauth/access_token 200
+[debug] [2025-11-22T14:20:32.245Z] <<< [apiv2][body] POST https://github.com/login/oauth/access_token {"access_token":"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","token_type":"bearer","scope":"read:user,repo"}
+[debug] [2025-11-22T14:20:32.251Z] >>> [apiv2][query] GET https://api.github.com/user [none]
+[debug] [2025-11-22T14:20:33.551Z] <<< [apiv2][status] GET https://api.github.com/user 200
+[debug] [2025-11-22T14:20:33.551Z] <<< [apiv2][body] GET https://api.github.com/user {"login":"imeshsan2008","id":111564145,"node_id":"U_kgDOBqZVcQ","avatar_url":"https://avatars.githubusercontent.com/u/111564145?v=4","gravatar_id":"","url":"https://api.github.com/users/imeshsan2008","html_url":"https://github.com/imeshsan2008","followers_url":"https://api.github.com/users/imeshsan2008/followers","following_url":"https://api.github.com/users/imeshsan2008/following{/other_user}","gists_url":"https://api.github.com/users/imeshsan2008/gists{/gist_id}","starred_url":"https://api.github.com/users/imeshsan2008/starred{/owner}{/repo}","subscriptions_url":"https://api.github.com/users/imeshsan2008/subscriptions","organizations_url":"https://api.github.com/users/imeshsan2008/orgs","repos_url":"https://api.github.com/users/imeshsan2008/repos","events_url":"https://api.github.com/users/imeshsan2008/events{/privacy}","received_events_url":"https://api.github.com/users/imeshsan2008/received_events","type":"User","user_view_type":"private","site_admin":false,"name":"Imesh Sandeepa","company":null,"blog":"","location":"kelaniya,srilanka","email":null,"hireable":true,"bio":null,"twitter_username":null,"notification_email":null,"public_repos":18,"public_gists":12,"followers":2,"following":3,"created_at":"2022-08-19T08:00:09Z","updated_at":"2025-11-07T02:46:11Z","private_gists":0,"total_private_repos":2,"owned_private_repos":2,"disk_usage":795422,"collaborators":0,"two_factor_authentication":true,"plan":{"name":"free","space":976562499,"collaborators":0,"private_repos":10000}}
+[info] 
+[info] +  Success! Logged into GitHub as imeshsan2008 
+[info] 
+[debug] [2025-11-22T14:20:36.734Z] >>> [apiv2][query] GET https://api.github.com/repos//actions/secrets/public-key type=owner
+[debug] [2025-11-22T14:20:37.670Z] <<< [apiv2][status] GET https://api.github.com/repos//actions/secrets/public-key 404
+[debug] [2025-11-22T14:20:37.670Z] <<< [apiv2][body] GET https://api.github.com/repos//actions/secrets/public-key {"message":"Not Found","documentation_url":"https://docs.github.com/rest","status":"404"}
+[info] 
+[info] 
+[error] !  The provided authorization cannot be used with this repository. If this repository is in an organization, did you remember to grant access? 
+[info] 
+[info] i  Action required: Visit this URL to ensure access has been granted to the appropriate organization(s) for the Firebase CLI GitHub OAuth App: 
+[info] https://github.com/settings/connections/applications/89cf50f02ac6aaed3484
+[info] 
+[debug] [2025-11-22T14:20:42.428Z] >>> [apiv2][query] GET https://api.github.com/repos/n/actions/secrets/public-key type=owner
+[debug] [2025-11-22T14:20:42.972Z] <<< [apiv2][status] GET https://api.github.com/repos/n/actions/secrets/public-key 404
+[debug] [2025-11-22T14:20:42.972Z] <<< [apiv2][body] GET https://api.github.com/repos/n/actions/secrets/public-key {"message":"Not Found","documentation_url":"https://docs.github.com/rest","status":"404"}
+[info] 
+[info] 
+[error] !  The provided authorization cannot be used with this repository. If this repository is in an organization, did you remember to grant access? 
+[info] 
+[info] i  Action required: Visit this URL to ensure access has been granted to the appropriate organization(s) for the Firebase CLI GitHub OAuth App: 
+[info] https://github.com/settings/connections/applications/89cf50f02ac6aaed3484
+[info] 

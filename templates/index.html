@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WishMaster</title>
+  <link rel="icon" href="/assets/img/logo.png" type="image/png">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <style>
+    body { background-color: #fefaf2; }
+    .birthday-card img { width: 70px; height: 70px; object-fit: cover; }
+    .today-pill { font-size:.75rem; padding:.25rem .5rem; border-radius:999px; }
+    .section-header { position: sticky; top: 0; z-index: 1; }
+    .status-bar { position: sticky; top: 0; z-index: 5; background: #fffbe9; border: 1px solid rgba(0,0,0,.05); }
+    .wa-avatar { width: 100px; height: 100px; object-fit: cover; border-radius: 50%; cursor: pointer; }
+    .qr-box img { width: 140px; height: 140px; }
+    .small-note { font-size: .8rem; color: #6c757d; }
+    .container{
+      display: none;
+    }
+    .container_setup{
+      display: block;
+      margin:0 auto ;
+      width:fit-content;
+      
+      
+    }
+    .setup_img{
+      width:150px;
+      height:150px;
+      
+position: relative;
+    
+margin: 0 auto;
+}
+.img_div{
+  text-align: center;
+}
+#gogle_sta{
+  color: #fff;
+  font-size: 15px;
+  font-weight: bold;
+background-color: green;
+}
+  </style>
+</head>
+<body><div class="container_setup my-4">
+<div class="card" style="width: 600px; ">
+  <div class="card-body">
+    <h5 class="img_div"><img class="setup_img" src="./assets/img/logo.png" alt=""></h5>
+  </div>
+<center class="card-body">
+  <div class="step_1">  <h3 >Welcome to WishMaster!</h3>
+    <p >To get started, please log in to your Google account to access your contacts and birthdays.</p>
+    <a href="/contacts" class="btn btn-primary btn-lg">Log in with Google</a></div>
+    <div class="step_2">  <h3 >Welcome to WishMaster!</h3>
+          <p>Google Account : <span id="gogle_sta"></span></p>
+
+    <p >To get started, please Link in to your Whatsapp account </p>
+      <p>Status: <span id="status">loading...</span></p>
+        <p>Linked: <span id="linknum">none</span></p>
+ 
+   
+          <img id="qr" src="" width="300" alt="QR Code will appear here" />
+          </div>
+          <br>
+  </div>
+  </center>
+  
+</div>
+</div>
+<div class="container my-4">
+
+  <!-- Status Bar -->
+  <div class="status-bar rounded-3 p-3 mb-3 d-flex align-items-center justify-content-between">
+    <div class="d-flex align-items-center gap-3">
+  <center class="mb-3"><img src="/assets/img/logo.png" alt="WishMaster" style="width: 100px; height: 100px;"></center>
+
+      <!-- WhatsApp block -->
+
+      <div id="wa-block" class="d-flex align-items-center gap-2">
+        <a onclick="sendBirthday()" class="btn btn-primary">Send Birthday</a>
+        <a href="/festive" class="btn btn-outline-danger">Switch to Festive Mode</a>
+
+        <span class="badge text-bg-success d-none" id="wa-linked">WhatsApp: Linked</span>
+        <span class="badge text-bg-warning d-none" id="wa-not-linked">WhatsApp: Not linked</span>
+ 
+      </div>
+
+      <!-- Google block -->
+      <div id="google-block" class="d-flex align-items-center gap-2">
+        <span class="badge text-bg-info d-none" id="google-linked">Google: Connected</span>
+        <span class="badge text-bg-secondary d-none" id="google-not-linked">Google: Not connected</span>
+        </div>
+    </div>       
+     <img id="wa-avatar" class="wa-avatar " srcset="/assets/img/default_avatar.png" alt="WA"  title="Open WhatsApp profile"/>
+
+  </div>
+
+    <button id="btn-refresh" class="btn btn-sm btn-outline-primary">Refresh</button>
+
+  <!-- Birthday Card -->
+  <div class="card mt-2">
+    <div class="card-header">
+      <h4 id="birthday-count" class="m-0">Upcoming Birthdays (0)</h4>
+    </div>
+    <ul class="list-group list-group-flush" id="birthday-list">
+    </ul>
+  </div>
+</div>
+
+<!-- WhatsApp Profile Modal -->
+<div class="modal fade" id="waProfileModal" tabindex="-1" aria-hidden="true" >
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body text-center p-4">
+         <div class="card-body p-2 text-center d-none" id="qr-card">
+         
+            <img id="wa-qr" src="" alt="Scan QR"/>
+            <div class="small-note  mt-1" id="s-s">Scan with WhatsApp to link</div>
+<div id="qr-timer"></div>
+           </div>
+     <img id="wa-modal-photo" src="" class="rounded-circle mb-3" alt="WhatsApp Profile" style="width: 100%; height: auto; max-width: 200px; max-height: 200px; object-fit: cover;" >
+        <h5 id="wa-modal-name"></h5>
+        <p class="text-muted" id="wa-modal-id"></p>
+        <div class="d-grid gap-2 mt-3">
+          <button id="btn-reset" class="btn btn-outline-danger" onclick="reset()">Reset Settings</button>
+          
+          <button id="btn-logout-wa" class="btn btn-outline-danger">Log out WhatsApp</button>
+          <button id="btn-logout-google" class="btn btn-sm btn-outline-danger d-none">Log out Google</button>
+        <a href="/contacts" class="btn btn-sm btn-outline-primary d-none" id="btn-contacts-login">Log in google </a>
+ <button id="btn-change-frame" class="btn btn-sm btn-outline-danger ">Change Frame Style</button>
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+        <div class="small-note mt-2">Logging out clears the local WhatsApp session and shows a new QR.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="styleModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body text-center p-4">
+        <img id="wa-modal-photo" src="" class="rounded-circle mb-3" alt="WhatsApp Profile" style="width: 100%; height: auto; max-width: 200px; max-height: 200px; object-fit: cover;">
+        <h5 id="wa-modal-name"></h5>
+        <p class="text-muted" id="wa-modal-id"></p>
+        <div class="d-grid gap
+-2 mt-3">
+  <div id="preview-container"><img id="style_image" src="" alt="Preview" class="img-fluid mt-2"/>
+</div>
+<select id="styleSelect" class="form-select">
+  <option value="1">Style 1</option>
+  <option value="2">Style 2</option>
+  <option value="3">Style 3</option>
+</select>
+
+
+<div class="modal fade" id="perstyleModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body text-center p-4">
+        <img id="wa-modal-photo" src="" class="rounded-circle mb-3" alt="WhatsApp Profile" style="width: 100%; height: auto; max-width: 200px; max-height: 200px; object-fit: cover;">
+        <h5 id="wa-modal-name"></h5>
+        <p class="text-muted" id="wa-modal-id"></p>
+        <div class="d-grid gap
+-2 mt-3">
+  <div id="preview-container"><img id="style_image" src="" alt="Preview" class="img-fluid mt-2"/>
+</div>
+<select id="perstyleSelect" class="form-select">
+  <option value="1">Style 1</option>
+  <option value="2">Style 2</option>
+  <option value="3">Style 3</option>
+
+</select>
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+<script>
+  const el = (id) => document.getElementById(id);
+function first_step() {
+  
+    document.querySelector('.step_1').style.display = 'block';
+    document.querySelector('.step_2').style.display = 'none'; 
+
+
+}
+function second_step() {
+    document.querySelector('.step_1').style.display = 'none';
+    document.querySelector('.step_2').style.display = 'block';
+            document.getElementById('gogle_sta').innerText = "Connected";
+
+}
+function initial_setup() {
+   fetch('api/status')
+    .then(response => response.json())
+    .then(data => {
+      if (!data.google.linked) {
+        first_step();
+      } else if (data.whatsapp.linked) {
+                    document.querySelector('.container_setup').style.display = 'none';
+
+            document.querySelector('.step_1').style.display = 'none';
+    document.querySelector('.step_2').style.display = 'none';
+    document.querySelector('.container').style.display = 'block';
+      }else{
+        second_step();
+      }
+    })
+    .catch(error => {
+      console.error('Error fetching status:', error);
+    });
+}
+initial_setup();
+ async function sendTest() {
+          const res = await fetch('/send-test');
+          const data = await res.json();
+          alert(data.message);
+        }    async function refresh() {
+          const qrImg = document.getElementById('qr');
+          const res = await fetch('/status');
+          const data = await res.json();
+          document.getElementById('status').innerText = data.status;
+          if (data.status === 'qr-received') {
+            const qrRes = await fetch('/qr-img');
+            const blob = await qrRes.blob();
+            qrImg.src = URL.createObjectURL(blob);
+            qrImg.style.display = 'block';
+          } else if (data.status === 'paired') {
+            sendTest();
+            qrImg.style.display = 'none';
+            showAlert('success', 'Paired', 'WhatsApp has been successfully paired!');
+            document.getElementById('linknum').innerText = data.linked || 'Unknown';
+          }
+        }
+       
+        refresh();
+        setInterval(refresh, 2000);
+
+el('styleSelect').addEventListener('change', (e) => {
+  const style = e.target.value;
+  updateUserStyle(style).then((res) => {
+    if (res.error) {
+      showAlert('error', 'Error', res.error);
+    } else {
+      showAlert('success', 'Style Updated', `Your style has been changed to Frame ${style}.`);
+    }
+  });
+});
+
+  // SweetAlert wrapper
+  function showAlert(type, title, text) {
+    return Swal.fire({
+      icon: type, title, text,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33'
+    });
+  }
+
+  function reset(){
+    Swal.fire({
+      title: 'Reset Settings',
+      text: "This will clear all local data and reload the page.",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, reset!',
+      cancelButtonText: 'Cancel'
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        await fetch('/api/reset', { method: 'GET' });
+        showAlert('success', 'Reset Successful', 'Settings have been cleared.');
+        location.reload();
+      }
+    });
+  }
+   let qral = 0;
+
+sweetAlert = (type, title, text) => {
+    return Swal.fire({
+      icon: type,
+      title: title,
+      text: text,
+      confirmButtonColor: '#3085d6',
+      toast: true,
+      position: 'top-end',
+      timer: 2000
+
+    });
+  };
+
+
+document.addEventListener("DOMContentLoaded", async () => {
+  try {
+    const res = await fetch("/api/user-style");
+    const data = await res.json();
+
+    const { frameStyles, user_selected_style } = data;
+    const select = document.getElementById("styleSelect");
+
+    // Clear & repopulate dropdown from frameStyles
+    select.innerHTML = "";
+    for (const [id, style] of Object.entries(frameStyles)) {
+      const opt = document.createElement("option");
+      opt.value = id;
+      opt.textContent = `Style ${id}`;
+      select.appendChild(opt);
+    }
+
+    // Set current selection
+    select.value = user_selected_style;
+
+    // Show preview
+    document.getElementById("style_image").src =
+      frameStyles[user_selected_style].framePath;
+  } catch (err) {
+    console.error("⚠️ Failed to load styles:", err);
+  }
+});
+
+// On change → update preview + save
+document.getElementById("styleSelect").addEventListener("change", async (e) => {
+  const newStyle = e.target.value;
+
+  // preview
+  const res = await fetch("/api/user-style");
+  const data = await res.json();
+  document.getElementById("style_image").src =
+    data.frameStyles[newStyle].framePath;
+
+  // save to backend
+  await fetch("/api/user-style", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_selected_style: newStyle }),
+  });
+});
+
+
+
+  async function loadStatus() {
+    try {
+      const res = await fetch('/api/status');
+      const s = await res.json();
+
+      // Google
+      if (s.google?.linked) {
+        el('google-linked').classList.remove('d-none');
+        el('google-not-linked').classList.add('d-none');
+        el('btn-logout-google').classList.remove('d-none');
+      } else {
+        el('google-linked').classList.add('d-none');
+        el('google-not-linked').classList.remove('d-none');
+        el('btn-contacts-login').classList.remove('d-none');
+        el('btn-logout-google').classList.add('d-none');
+      }
+
+      // WhatsApp
+      if (s.whatsapp?.linked) {
+        el('wa-linked').classList.remove('d-none');
+        el('wa-not-linked').classList.add('d-none');
+        el('wa-qr').classList.add('d-none');
+        el('s-s').classList.add('d-none');
+        el('qr-timer').classList.add('d-none');
+
+        const avatarUrl = s.whatsapp.profilePicUrl || '/assets/img/default_avatar.png';
+        el('wa-avatar').src = avatarUrl;
+        el('wa-avatar').classList.remove('d-none');
+        el('wa-modal-photo').src = avatarUrl;
+        el('wa-modal-name').textContent = s.whatsapp.me;
+                el('btn-logout-wa').classList.remove('d-none');
+
+        el('wa-modal-id').textContent = s.whatsapp.number || '';
+
+      } else {
+
+                el('btn-logout-wa').classList.add('d-none');
+
+        el('wa-linked').classList.add('d-none');
+        el('wa-not-linked').classList.remove('d-none');
+
+        try {
+   
+          
+         } catch {
+          el('wa-qr').classList.add('d-none');
+        }
+      }
+    } catch (e) {
+      console.error('status error', e);
+    }
+  }
+
+  // Avatar -> modal
+  el('wa-avatar').addEventListener('click', async () => {
+    try {
+      const r = await fetch('/api/status');
+      if (r.ok) {
+        const p = await r.json();
+        el('wa-modal-photo').src = p.whatsapp.profilePicUrl || '/assets/img/default_av_web.png';
+        el('wa-modal-name').textContent = p.whatsapp.me || 'Me';
+        el('wa-modal-id').textContent = p.whatsapp.number || '';
+      }
+    } catch {}
+    new bootstrap.Modal('#waProfileModal').show();
+  });
+
+
+  el('btn-change-frame').addEventListener('click', async () => {
+  
+    new bootstrap.Modal('#styleModal').show();
+  });
+  
+
+
+  // Google logout
+  el('btn-logout-google').addEventListener('click', async () => {
+    const confirm = await Swal.fire({
+      title: 'Log out Google?',
+      text: "This will delete your local token.",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, log out!',
+      cancelButtonText: 'Cancel'
+    });
+    if (!confirm.isConfirmed) return;
+
+    const r = await fetch('/api/logout/google', { method: 'POST' });
+    if (r.ok) {
+      showAlert('success', 'Success!', 'Google session removed.');
+      await loadStatus(); await loadBirthdays();
+    } else {
+      showAlert('error', 'Error', 'Failed to log out Google.');
+    }
+  });
+
+  // WhatsApp logout
+  el('btn-logout-wa').addEventListener('click', async () => {
+    const confirm = await Swal.fire({
+      title: 'Log out WhatsApp?',
+      text: "This will clear your session and show a new QR.",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, log out!',
+      cancelButtonText: 'Cancel'
+    });
+    if (!confirm.isConfirmed) return;
+
+    const r = await fetch('/api/logout/whatsapp', { method: 'POST' });
+    if (r.ok) {
+      showAlert('success', 'Success!', 'WhatsApp session removed.');
+      const m = bootstrap.Modal.getInstance(document.getElementById('waProfileModal'));
+      m?.hide();
+      setTimeout(loadStatus, 1000);
+    } else {
+      showAlert('error', 'Error', 'Failed to log out WhatsApp.');
+    }
+  });
+
+  el('btn-refresh').addEventListener('click', async () => {
+    await loadStatus();
+    await loadBirthdays();
+    showAlert('success', 'Refreshed', 'Status and birthdays updated!');
+  });
+
+  // ------------------ BIRTHDAYS ------------------
+  async function loadBirthdays() {
+    try {
+      const response = await fetch('/contacts');
+      if (!response.ok) return;
+      const data = await response.json();
+      let contacts = (data || []).filter(c =>  c.birthday && c.birthday.month && c.birthday.day);
+
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const todayMonth = today.getMonth() + 1;
+      const todayDay = today.getDate();
+
+      contacts = contacts.map(c => {
+        const next = getNextBirthdayDate(c.birthday, today);
+        const isToday = Number(c.birthday.month) === todayMonth && Number(c.birthday.day) === todayDay;
+        return { ...c, _nextDate: next, _nextYear: next.getFullYear(), _isToday: isToday };
+      });
+
+      contacts.sort((a, b) => a._nextDate - b._nextDate);
+
+      const todayCurrentYear = contacts.filter(c => c._isToday && c._nextYear === currentYear);
+      const yearCurrent = contacts.filter(c => c._nextYear === currentYear && !c._isToday);
+      const yearNext = contacts.filter(c => c._nextYear === currentYear + 1);
+
+      const list = document.getElementById('birthday-list');
+      const count = document.getElementById('birthday-count');
+      count.textContent = `Upcoming Birthdays (${contacts.length})`;
+      list.innerHTML = '';
+
+      if (todayCurrentYear.length) {
+        addSectionHeader(list, `🎉 Today — ${formatFullDate(today)} `);
+
+        todayCurrentYear.forEach(c => list.appendChild(renderItem(c, { highlight: true })));
+      }
+
+      addSectionHeader(list, `${currentYear}`);
+      yearCurrent.forEach(c => list.appendChild(renderItem(c, { highlight: false })));
+
+      addSectionHeader(list, `${currentYear + 1}`);
+      yearNext.forEach(c => list.appendChild(renderItem(c, { highlight: false })));
+
+    } catch (error) {
+      console.error('Error loading birthdays:', error);
+    }
+  }
+
+  function addSectionHeader(ul, title) {
+    const li = document.createElement('li');
+    li.className = 'list-group-item list-group-item-secondary fw-semibold section-header';
+    li.textContent = title;
+    ul.appendChild(li);
+  }
+
+
+function sendsiglepersion(name, number) {
+  Swal.fire({
+    title: "Are You Sent the message From " + name,
+    text: "You won't be able to revert this!",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#3085d6",
+    cancelButtonColor: "#d33",
+    confirmButtonText: "Yes, Send it!"
+  }).then((result) => {
+    if (result.isConfirmed) {
+      // Show "sending" loading alert
+      Swal.fire({
+        title: "Sending message...",
+        html: "Please wait...",
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      fetch(`/api/send/${number}/${name}`)
+        .then(response => response.json())
+        .then(data => {
+          // Close the loading alert
+          Swal.close();
+          // Show success alert
+          Swal.fire("Sent!", data.message, "success");
+        })
+        .catch(error => {
+          // Close the loading alert
+          Swal.close();
+          // Show error alert
+          Swal.fire("Error!", "Failed to send message.", "error");
+        });
+    }
+  });
+}
+
+ function renderItem(contact, { highlight = false } = {}) {
+  const li = document.createElement('li');
+  li.className = 'list-group-item d-flex align-items-center birthday-card';
+  if (highlight) li.classList.add('list-group-item-warning');
+
+  let largePhoto = 'https://via.placeholder.com/70?text=User';
+  if (contact.photo && contact.photo.startsWith('https://lh3.googleusercontent.com')) {
+    largePhoto = contact.photo.replace(/=s\d+$/, '=s8000');
+  }
+
+  const name = escapeHTML(contact.name || 'Unknown');
+
+  // Handle array or comma-separated string
+  let number = contact.phones || 'Unknown';
+  if (Array.isArray(number)) {
+    number = number[0];
+  } else if (typeof number === 'string' && number.includes(',')) {
+    number = number.split(',')[0].trim();
+  }
+
+  let data = {
+    name: name,
+    number: number
+  };
+
+
+  // Format birthday
+  const monthName = getMonthName(contact.birthday?.month);
+  const day = contact.birthday?.day || '';
+  const whenText = `${monthName} ${day}`.trim();
+
+li.innerHTML = `
+  <img src="${largePhoto}" class="rounded-circle me-3" alt="${name}">
+  <div class="flex-grow-1">
+    <div class="d-flex align-items-center gap-2">
+      <strong>${name}</strong>
+      ${highlight ? `<span class="badge bg-danger  today-pill">TODAY</span>` : ''}
+      <div class=" ms-auto d-flex gap-2 align-items-center">
+        
+ <button id="btn-change-frame-per" class="btn btn-sm  btn-outline-danger " style="margin-left: auto;">Change Frame Style</button>
+
+ 
+      <button type="button" 
+              onclick="sendsiglepersion('${name}','${number.replace(/\D/g, '')}')" 
+              class="btn btn-primary o">Send</button></div>
+
+
+              
+    </div>
+    <div class="text-muted">Birthday: ${whenText}</div>
+  </div>
+`;
+
+
+  return li;
+}
+
+
+  
+  function getMonthName(monthNumber) {
+    const date = new Date(); date.setMonth(Number(monthNumber) - 1);
+    return date.toLocaleString('default', { month: 'short' });
+  }
+  function getNextBirthdayDate(birthday, today) {
+    const y = today.getFullYear();
+    const m = Number(birthday.month) - 1;
+    const d = Number(birthday.day);
+    let next = safeDate(y, m, d);
+    if (stripTime(next) < stripTime(today)) next = safeDate(y + 1, m, d);
+    return next;
+  }
+  function safeDate(year, monthIndex, day) {
+    const dt = new Date(year, monthIndex, day);
+    if (dt.getMonth() !== monthIndex) return new Date(year, monthIndex, 28);
+    return dt;
+  }
+  function stripTime(dt) { return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()); }
+  function formatFullDate(dt) {
+    return dt.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  }
+  function escapeHTML(str) {
+    return String(str).replace(/[&<>\"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+  }
+function sendBirthday(){
+ Swal.fire({
+  title: "Are You Sure?",
+  text: "You won't be able to revert this!",
+  icon: "warning",
+  showCancelButton: true,
+  confirmButtonColor: "#3085d6",
+  cancelButtonColor: "#d33",
+  confirmButtonText: "Yes, Send it!"
+}).then((result) => {
+  if (result.isConfirmed) {
+    // Show "sending" loading alert
+    Swal.fire({
+      title: "Sending message...",
+      html: "Please wait...",
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
+    fetch(`/sendbirthday`)
+      .then(response => response.json())
+      .then(data => {
+        // Close the loading alert
+        Swal.close();
+        // Show success alert
+        Swal.fire("Sent!", data.message, "success");
+      })
+      .catch(error => {
+        // Close the loading alert
+        Swal.close();
+        // Show error alert
+        Swal.fire("Error!", "Failed to send message.", "error");
+      });
+  }
+});
+}
+  loadStatus();
+  loadBirthdays();
+</script>
+</body>
+</html>
