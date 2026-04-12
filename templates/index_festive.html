@@ -490,12 +490,13 @@ socket.on('qr', (data) => {
 
         const avatarUrl = s.whatsapp.profilePicUrl || '/assets/img/default_avatar.png';
         el('wa-avatar').src = avatarUrl;
+        
         el('wa-avatar').classList.remove('d-none');
         el('wa-modal-photo').src = avatarUrl;
         el('wa-modal-name').textContent = s.whatsapp.me;
                 el('btn-logout-wa').classList.remove('d-none');
 
-        el('wa-modal-id').textContent = s.whatsapp.number || '';
+        el('wa-modal-id').textContent = s.whatsapp.number.split(":")[0] || '';
 
       } else {
           qrcode();

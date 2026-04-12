@@ -12,7 +12,7 @@ const http = require('http');
 const cron = require('node-cron');
 const Boom =  require('@hapi/boom'); 
 const multer = require("multer");
-
+require('dotenv').config();
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, downloadMediaMessage } = require("@whiskeysockets/baileys");
 const e = require('express');
 const { ok } = require('assert');
@@ -32,8 +32,9 @@ const upload = multer({ dest: path.join(__dirname, "assets/img/") });
 
 // File path for saving current festive image + caption
 const FESTIVE_CONFIG_PATH = path.join(__dirname, "festive_config.json");
-const HOSTNAME = process.env.HOSTNAME || 'http://127.0.0.1:8000';
+const HOSTNAME = process.env.HOSTNAME2 || 'http://127.0.0.1:8000';
 const REDIRECT_URI = process.env.REDIRECT_URI || HOSTNAME + '/oauth2callback';
+console.log(REDIRECT_URI);
 
 let birthdaysSentToday = false;
 let birthdayRetryMap = new Map();
@@ -293,41 +294,6 @@ async function fetchProfilePicBuffer(profilePicUrl, contactName, maxRetries = 3,
   return fs.readFileSync(defaultAvatar);
 }
 
-// async function createFramedImage(profileBuffer, contactName, styleKey = null) {
-//   const styleSelected = styleKey || styleId || (styles && styles.user_selected_style) || (styles && styles.defaultStyle) || '1';
-//   const style = styles && styles.frameStyles ? styles.frameStyles[styleSelected] : null;
-//   if (!style) return profileBuffer; // nothing to do
-
-//   const framePath = path.join(__dirname, style.framePath || '');
-//   if (!fs.existsSync(framePath)) return profileBuffer;
-
-//   try {
-//     const profileResized = await sharp(profileBuffer).resize(style.profile.width, style.profile.height,style.profile.rotation, { fit: 'cover' }).toBuffer();
-//     const frameMeta = await sharp(framePath).metadata();
-//     const contactUpper = (contactName || '').toUpperCase();
-
-//     const svgText = `\n      <svg width="${frameMeta.width}" height="${frameMeta.height}">\n        <style>\n          .title { fill: ${style.text.color}; 
-    
-//      font-family: ${style.text.fontFamily};
-//      font-size: ${style.text.fontSize}; font-weight: bold; text-anchor: middle; dominant-baseline: middle; }\n        </style>\n        <text x="${style.text.x}px" y="${style.text.y}px" transform="rotate(${style.text.rotation || 0})" class="title">${contactUpper}</text>\n      </svg>\n    `;
-
-//     const finalImage = await sharp({ create: { width: frameMeta.width, height: frameMeta.height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
-//       .composite([
-//         { input: profileResized, top: style.profile.top, left: style.profile.left },
-//         { input: framePath, top: 0, left: 0 },
-//         { input: Buffer.from(svgText), top: 0, left: 0 }
-//       ])
-//       .png()
-//       .toBuffer();
-
-//     return finalImage;
-//   } catch (err) {
-//     console.error(`❌ Error creating framed image for ${contactName}:`, err.message);
-//     return profileBuffer;
-//   }
-// }
-
-
 async function createFramedImage(profileBuffer, contactName, styleKey = null) {
   const styleSelected = styleKey || styleId || styles?.user_selected_style || styles?.defaultStyle || "1";
   const style = styles?.frameStyles?.[styleSelected];
@@ -442,7 +408,8 @@ app.get('/contacts_festive', async (req, res) => {
 // ======================= Get tomorrow's contacts from external endpoint =======================
 app.get('/api/tomorrow-contacts', async (req, res) => {
   try {
-    const response = await axios.get(HOSTNAME + '/contacts');
+    
+    const response = await axios.get(HOSTNAME + 'contacts');
     const contacts = response.data || [];
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -496,6 +463,7 @@ async function sendTodaysBirthdays(sock, senderId) {
           const number = contact.phone.replace(/\D/g, '');
           const jid = number + '@s.whatsapp.net';
           const profilePicUrl = await getValidProfilePicUrl(sockInstance, jid, contact.photo);
+          
           const profileBuffer = await fetchProfilePicBuffer(profilePicUrl, contact.name);
           const framedImage = await createFramedImage(profileBuffer, contact.name, styleId);
 
@@ -508,6 +476,8 @@ async function sendTodaysBirthdays(sock, senderId) {
           logBirthdayEvent(jid, contact.name, 'sent', 1);
           if (senderId) await sock.sendMessage(senderId, { text: `✅ Birthday message successfully sent to ${contact.name} (${contact.phone})` });
           console.log(`✅ Sent birthday wishes to ${contact.name} (${contact.phone})`);
+          sendvoice(sock,senderId)
+
           break; // success, move to next contact
         } catch (err) {
           attempts++;
@@ -588,7 +558,20 @@ function getFestiveImage() {
   // default → first name
   return name;
 }
+// ======================= sending voice ================
+async function sendvoice(sock,jid) {
 
+    const audioPath = path.join(__dirname, "assets/voice/voice.ogg"); 
+    const audioBuffer = fs.readFileSync(audioPath);
+
+    await sock.sendMessage(jid, {
+        audio: audioBuffer,
+        mimetype: "audio/ogg; codecs=opus",
+        ptt: true // 👈 makes it voice note
+    });
+
+    console.log("🎤 Voice message sent!");
+}
 async function send_festive_msg(sock, senderId) {
     try {
         const auth = await getAuthClient();
@@ -704,6 +687,7 @@ async function sendForcedBirthdayMessage(sock, senderId, _contactName) {
     const result = await sockInstance.sendMessage(jid, { image: framedImage, caption: message });
 
     console.log(`✅ Force-sent birthday message to ${jid}`);
+    sendvoice(sock,senderId)
     return result;
   } catch (err) {
     console.error('❌ Error force-sending message:', err.message || err);
@@ -898,14 +882,27 @@ sock.ev.on("messages.upsert", async (msgData) => {
         break;
     }
 
-    // ================= THANKS REACTION =================
-    if (
-      command.includes("thanks") ||
-      command.includes("thank you") ||
-      command.includes("thankyou")
-    ) {
-      addReaction(sock, message.key, "❤️");
-    }
+   // ================= THANKS REACTION =================
+if (
+  command.includes("thanks") ||
+  command.includes("thank you") ||
+  command.includes("thankyou")
+) {
+  addReaction(sock, message.key, "❤️");
+}
+
+// ================= NEW YEAR REACTION =================
+if (
+  command.includes("happy new year") ||
+  command.includes("new year") ||
+  command.includes("hny") ||
+  command.includes("happynewyear")
+) {
+  const reactions = ["🎉", "🥳", "🎆", "🎊", "✨"];
+  const randomReaction = reactions[Math.floor(Math.random() * reactions.length)];
+
+  addReaction(sock, message.key, randomReaction);
+}
   } catch (err) {
     console.error("❌ messages.upsert error:", err);
   }
@@ -929,7 +926,8 @@ app.get('/api/festive-logs', (req, res) => {
 // Provide endpoints that interact with the running socket
 app.get('/api/status', (req, res) => {
   const googleLinked = fs.existsSync(TOKEN_PATH);
-  res.json({ google: { linked: googleLinked }, whatsapp: { linked: !!sockInstance, number: sockInstance?.user?.id || null, me: sockInstance?.user?.name || null } });
+
+  res.json({ google: { linked: googleLinked }, whatsapp: { profilePicUrl: "#", linked: !!sockInstance, number: sockInstance?.user?.id || null, me: sockInstance?.user?.name || null } });
 });
 
 app.get('/api/send/:senderId/:contactName', async (req, res) => {
