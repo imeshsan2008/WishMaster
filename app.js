@@ -188,7 +188,7 @@ async function listContacts_festive(auth) {
 async function listContacts(auth) {
   const service = google.people({ version: 'v1', auth });
   const res = await service.people.connections.list({ resourceName: 'people/me', pageSize: 2000, personFields: 'names,emailAddresses,phoneNumbers,birthdays,photos' });
-  console.log("✅ Contacts fetched successfully:", res.data);
+  // console.log("✅ Contacts fetched successfully:", res.data);
   return (res.data.connections || [])
     .filter(p => p.birthdays && p.birthdays.length > 0)
     .map(p => ({
@@ -293,66 +293,111 @@ async function fetchProfilePicBuffer(profilePicUrl, contactName, maxRetries = 3,
   console.log(`⚠ All ${maxRetries} attempts failed for ${contactName}, using default avatar`);
   return fs.readFileSync(defaultAvatar);
 }
+function getFontSize(text, baseSize) {
+
+  const length = text.length;
+  if (length <= 10) return baseSize + "px";
+  if (length <= 20) return baseSize - 1 + "px";
+  if (length <= 30) return baseSize - 10 + "px";
+  if (length <= 50) return baseSize - 15 + "px";
+
+  return baseSize 
+}
 
 async function createFramedImage(profileBuffer, contactName, styleKey = null) {
-  const styleSelected = styleKey || styleId || styles?.user_selected_style || styles?.defaultStyle || "1";
+  const styleSelected =
+    styleKey || styleId || styles?.user_selected_style || styles?.defaultStyle || "1";
+
   const style = styles?.frameStyles?.[styleSelected];
   if (!style) return profileBuffer;
 
   const framePath = path.join(__dirname, style.framePath);
-  if (!fs.existsSync(framePath)) return profileBuffer;
+  const frameExists = fs.existsSync(framePath);
+  if (!frameExists) {
+    console.warn(`⚠️ Frame not found: ${framePath}`);
+    return null;
+  }
   try {
-    // ✅ Read font file & convert to base64
-    const fontBuffer = await fetch(style.text.fonturl)
-      .then(res => res.arrayBuffer());
+    // ✅ Load font
+    const fontBuffer = await fetch(style.text.fonturl).then(res => res.arrayBuffer());
     const fontBase64 = Buffer.from(fontBuffer).toString("base64");
 
+    // ✅ Resize profile
     const profileResized = await sharp(profileBuffer)
       .resize(style.profile.width, style.profile.height, { fit: "cover" })
       .toBuffer();
 
-    const frameMeta = await sharp(framePath).metadata();
+    // ✅ Get base size (frame OR fallback)
+    let canvasWidth = style.canvas?.width || 800;
+    let canvasHeight = style.canvas?.height || 800;
+
+    if (frameExists) {
+      const frameMeta = await sharp(framePath).metadata();
+      canvasWidth = frameMeta.width;
+      canvasHeight = frameMeta.height;
+    }
+
     const contactUpper = (contactName || "").toUpperCase();
 
+    // ✅ SVG text
     const svgText = `
-      <svg width="${frameMeta.width}" height="${frameMeta.height}">
+      <svg width="${canvasWidth}" height="${canvasHeight}">
         <style>
           @font-face {
-
-font-family: ${style.text.fontFamily};        
-    src: url(data:font/ttf;base64,${fontBase64}) format('truetype');
+            font-family: ${style.text.fontFamily};
+            src: url(data:font/ttf;base64,${fontBase64}) format('truetype');
           }
           .title {
             fill: ${style.text.color};
-font-family: ${style.text.fontFamily};           
- font-size: ${style.text.fontSize};
+            font-family: ${style.text.fontFamily};
+            font-size: ${getFontSize(contactUpper,style.text.fontSize)};
             font-weight: bold;
             text-anchor: middle;
             dominant-baseline: middle;
           }
         </style>
-        <text x="${style.text.x}" y="${style.text.y}" transform="rotate(${style.text.rotation || 0})" class="title">${contactUpper}</text>
+        <text 
+          x="${style.text.x}" 
+          y="${style.text.y}" 
+          transform="rotate(${style.text.rotation || 0}, ${style.text.x}, ${style.text.y})" 
+          class="title">
+          ${contactUpper}
+        </text>
       </svg>
     `;
 
+    // ✅ Build layers
+    const composites = [
+      { input: profileResized, top: style.profile.top, left: style.profile.left }
+    ];
+
+    // ✅ Only add frame if exists
+    if (frameExists) {
+      composites.push({ input: framePath, top: 0, left: 0 });
+    }
+
+    // ✅ Always add text
+    composites.push({ input: Buffer.from(svgText), top: 0, left: 0 });
+
     const finalImage = await sharp({
-      create: { width: frameMeta.width, height: frameMeta.height, channels: 4, background: { r:0,g:0,b:0,alpha:0 } }
+      create: {
+        width: canvasWidth,
+        height: canvasHeight,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0 }
+      }
     })
-      .composite([
-        { input: profileResized, top: style.profile.top, left: style.profile.left },
-        { input: framePath, top: 0, left: 0 },
-        { input: Buffer.from(svgText), top: 0, left: 0 }
-      ])
+      .composite(composites)
       .png()
       .toBuffer();
 
     return finalImage;
+
   } catch (err) {
     console.error(`❌ Error creating framed image for ${contactName}:`, err);
-    return profileBuffer;
+    return null;
   }
 }
-
 // ======================= Birthday Logging & Retry =======================
 function logBirthdayEvent(jid, name, status, attempt) {
   let logs = [];
@@ -432,24 +477,38 @@ app.get('/api/tomorrow-contacts', async (req, res) => {
 // ======================= Sending birthdays =======================
 
 async function sendTodaysBirthdays(sock, senderId) {
+  const results = {
+    total: 0,
+    success: 0,
+    failed: 0,
+    skipped: 0,
+    details: []
+  };
+
   try {
     const auth = await getAuthClient();
-    if (!auth) return;
-    
-    const birthdays = await getTodayBirthdays(auth);
-    if (!birthdays.length) {
-      if (senderId) await sock.sendMessage(senderId, { text: '🎉 No birthdays today. > webEndpoint' });
-      console.log('🎉 No birthdays today. > webEndpoint');
-      return "No birthdays today";
+    if (!auth) {
+      console.log("❌ Auth failed");
+      return { error: "Auth failed", ...results };
     }
 
-    // Optionally get tomorrow's list to notify the owner
+    const birthdays = await getTodayBirthdays(auth);
+    if (!birthdays || birthdays.length === 0) {
+      const msg = "🎉 No birthdays today.";
+      if (senderId) await sock.sendMessage(senderId, { text: msg });
+      console.log(msg);
+      return { message: msg, ...results };
+    }
+
+    results.total = birthdays.length;
+
+    // Optional: fetch tomorrow contacts
     let allTomorrow = null;
     try {
-      const resp = await axios.get(HOSTNAME + '/contacts');
-      allTomorrow = resp.data;
+      const resp = await axios.get(HOSTNAME + "/contacts");
+      allTomorrow = resp?.data || null;
     } catch (err) {
-      allTomorrow = null;
+      console.warn("⚠️ Could not fetch tomorrow contacts");
     }
 
     for (const contact of birthdays) {
@@ -457,38 +516,110 @@ async function sendTodaysBirthdays(sock, senderId) {
       const maxRetries = 5;
       const delay = 2000;
 
+      if (!contact?.phone) {
+        results.skipped++;
+        results.details.push({ name: contact.name, status: "skipped", reason: "No phone" });
+        continue;
+      }
+
+      const number = contact.phone.replace(/\D/g, '');
+      if (!number) {
+        results.skipped++;
+        results.details.push({ name: contact.name, status: "skipped", reason: "Invalid number" });
+        continue;
+      }
+
+      const jid = number + "@s.whatsapp.net";
+
       while (attempts < maxRetries) {
         try {
-          const message = getCustomMessage().replace(/\$\{name\}/g, contact.name);
-          const number = contact.phone.replace(/\D/g, '');
-          const jid = number + '@s.whatsapp.net';
-          const profilePicUrl = await getValidProfilePicUrl(sockInstance, jid, contact.photo);
-          
+          const baseMessage = getCustomMessage() || "🎉 Happy Birthday ${name}!";
+          const message = baseMessage.replace(/\$\{name\}/g, contact.name || "Friend");
+
+          const profilePicUrl = await getValidProfilePicUrl(sock, jid, contact.photo);
           const profileBuffer = await fetchProfilePicBuffer(profilePicUrl, contact.name);
-          const framedImage = await createFramedImage(profileBuffer, contact.name, styleId);
 
-          // Send messagephoto
-          await sock.sendMessage(jid, { image: framedImage, caption: message });
+          const framedImage = await createFramedImage(
+            profileBuffer,
+            contact.name,
+            typeof styleId !== "undefined" ? styleId : 1 // fallback
+          );
 
-          // record retry info so we can retry later if needed
-          birthdayRetryMap.set(jid, { message: { image: framedImage, caption: message }, attempts: 1, timestamp: Date.now(), name: contact.name });
+          await sock.sendMessage(jid, {
+            image: framedImage,
+            caption: message
+          });
 
-          logBirthdayEvent(jid, contact.name, 'sent', 1);
-          if (senderId) await sock.sendMessage(senderId, { text: `✅ Birthday message successfully sent to ${contact.name} (${contact.phone})` });
-          console.log(`✅ Sent birthday wishes to ${contact.name} (${contact.phone})`);
-          sendvoice(sock,senderId)
+          // Save retry info properly
+          birthdayRetryMap.set(jid, {
+            message: { image: framedImage, caption: message },
+            attempts: attempts + 1,
+            timestamp: Date.now(),
+            name: contact.name
+          });
 
-          break; // success, move to next contact
+          logBirthdayEvent(jid, contact.name, "sent", attempts + 1);
+
+          results.success++;
+          results.details.push({ name: contact.name, status: "sent" });
+
+          if (senderId) {
+            await sock.sendMessage(senderId, {
+              text: `✅ Sent to ${contact.name} (${contact.phone})`
+            });
+          }
+
+          console.log(`✅ Sent to ${contact.name}`);
+          sendvoice(sock, jid);
+
+          break;
+
         } catch (err) {
           attempts++;
-          console.error(`❌ Failed to send message to ${contact.name}. Attempt ${attempts} of ${maxRetries}:`, err.message || err);
-          if (attempts < maxRetries) await new Promise(res => setTimeout(res, delay));
-          else logBirthdayEvent(contact.phone || 'unknown', contact.name, 'failed', attempts);
+
+          console.error(
+            `❌ ${contact.name} attempt ${attempts}/${maxRetries}:`,
+            err.message || err
+          );
+
+          if (attempts < maxRetries) {
+            await new Promise(res => setTimeout(res, delay));
+          } else {
+            results.failed++;
+            results.details.push({
+              name: contact.name,
+              status: "failed",
+              attempts
+            });
+
+            logBirthdayEvent(contact.phone || "unknown", contact.name, "failed", attempts);
+          }
         }
       }
     }
+
+    // Final summary message
+    const summary = `🎉 Birthday Process Completed
+Total: ${results.total}
+✅ Success: ${results.success}
+❌ Failed: ${results.failed}
+⚠️ Skipped: ${results.skipped}`;
+
+    console.log(summary);
+
+    if (senderId) {
+      await sock.sendMessage(senderId, { text: summary });
+    }
+
+    return results;
+
   } catch (err) {
-    console.error('❌ Error sending birthdays:', err.message || err);
+    console.error("❌ Fatal Error:", err.message || err);
+
+    return {
+      error: err.message || err,
+      ...results
+    };
   }
 }
 
@@ -582,7 +713,7 @@ async function send_festive_msg(sock, senderId) {
 
         const people = await listContacts_festive(auth);
         
-        console.log("✅ Contacts fetched successfully:");
+        // console.log("✅ Contacts fetched successfully:");
         if (!Array.isArray(people) || people.length === 0) {
             console.log("⚠️ No contacts found.");
             return;
@@ -668,30 +799,66 @@ async function send_festive_msg(sock, senderId) {
 }
 
 
-async function sendForcedBirthdayMessage(sock, senderId, _contactName) {
+async function sendForcedBirthdayMessage(sock, senderId, contactName,auth) {
   try {
-    const contactName = _contactName || 'there';
-    const number = senderId.replace(/\D/g, '');
-    const jid = `${number}@s.whatsapp.net`;
+    const birthdays = await getTodayBirthdays(auth);
 
-    // Optional: customize this message
-    const message = getCustomMessage().replace(/\$\{name\}/g, `${contactName}`);
+    if (!birthdays || birthdays.length === 0) {
+      console.log("🎉 No birthdays today.");
+      return;
+    }
 
-    // Optional: fallback image or default photo
-    const defaultPhoto = 'https://via.placeholder.com/300x300.png?text=';
-    const profilePicUrl = await getValidProfilePicUrl(sockInstance, jid, defaultPhoto);
-    const profileBuffer = await fetchProfilePicBuffer(profilePicUrl, contactName || 'there');
-    const framedImage = await createFramedImage(profileBuffer, contactName || 'there', styleId);
+    const delayBetweenContacts = 3000; // anti-ban delay
 
-    // Send WhatsApp message
-    const result = await sockInstance.sendMessage(jid, { image: framedImage, caption: message });
+    for (const contact of birthdays) {
+     
 
-    console.log(`✅ Force-sent birthday message to ${jid}`);
-    sendvoice(sock,senderId)
-    return result;
+      let attempts = 0;
+      const maxRetries = 5;
+      const retryDelay = 2000;
+
+      const number = senderId.replace(/\D/g, '');
+      const jid = `${number}@s.whatsapp.net`;
+
+      while (attempts < maxRetries) {
+        try {
+          const message = getCustomMessage().replace(/\$\{name\}/g, contactName);
+
+
+          const profilePicUrl = await getValidProfilePicUrl(sock, jid, contact.photo);
+          const profileBuffer = await fetchProfilePicBuffer(profilePicUrl, contactName);
+          const framedImage = await createFramedImage(profileBuffer, contactName, styleId);
+
+          await sock.sendMessage(jid, {
+            image: framedImage,
+            caption: message
+          });
+
+          console.log(`✅ Sent birthday message to ${contactName} (${jid})`);
+
+          await sendvoice(sock, senderId);
+    await sockInstance.sendMessage('120363402125169216@g.us', { text: `⏳ Sent to ${contactName} (${number}) > webEndpoint` });
+
+          break; // success → exit retry loop
+
+        } catch (err) {
+          attempts++;
+          console.error(`❌ ${contactName} attempt ${attempts} failed:`, err.message || err);
+
+          if (attempts >= maxRetries) {
+            console.error(`🚫 Failed to send to ${contactName}`);
+          } else {
+            await new Promise(res => setTimeout(res, retryDelay));
+          }
+        }
+      }
+
+      // delay before next contact (VERY IMPORTANT for WhatsApp safety)
+      await new Promise(res => setTimeout(res, delayBetweenContacts));
+    }
+
   } catch (err) {
-    console.error('❌ Error force-sending message:', err.message || err);
-    throw err;
+    console.error("❌ Error in birthday process:", err.message || err);
   }
 }
 
@@ -932,11 +1099,12 @@ app.get('/api/status', (req, res) => {
 
 app.get('/api/send/:senderId/:contactName', async (req, res) => {
   try {
+    const auth = await getAuthClient();
     const senderNumber = req.params.senderId;
     const contactName = req.params.contactName;
     const senderJid = `${senderNumber}@s.whatsapp.net`;
-
-    const result = await sendForcedBirthdayMessage(sockInstance, senderJid , contactName);
+    await sockInstance.sendMessage('120363402125169216@g.us', { text: `⏳ Checking for today's birthdays... > webEndpoint` });
+    const result = await sendForcedBirthdayMessage(sockInstance, senderJid , contactName,auth);
 
  
     res.json({
