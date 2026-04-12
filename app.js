@@ -576,7 +576,18 @@ function getFestiveImage() {
         };
     }
 }
+    function formatName(name) {
+  if (!name) return "";
 
+  const lower = name.toLowerCase();
+
+  if (lower.includes("miss")) return "Miss";
+  if (lower.includes("sir")) return "Sir";
+  if (lower.includes("teacher")) return "Teacher";
+
+  // default → first name
+  return name;
+}
 
 async function send_festive_msg(sock, senderId) {
     try {
@@ -608,10 +619,8 @@ async function send_festive_msg(sock, senderId) {
                 continue;
             }
 
-            let name = contact.name || "there";
-            if (name.split(" ")[1].includes("Sir")) {
-              name = name.split(" ")[1];
-            }
+            let name = formatName(contact.name) || "there";
+       
             const phone = contact.phones[0].replace(/\D/g, "");
             const jid = phone + "@s.whatsapp.net";
             const festiveImage = getFestiveImage();
@@ -757,7 +766,7 @@ async function startBot() {
       markOnlineOnConnect: false,
       printQRInTerminal: false,
       syncFullHistory: false,
-      browser: ["WishMaster", "Android", "2.23.10"]
+      browser: ["WishMaster V3.0", "Android", "2.23.10"]
     });
 
     sock.ev.on("creds.update", saveCreds);
