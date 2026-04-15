@@ -17,7 +17,7 @@ const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLat
 const e = require('express');
 const { ok } = require('assert');
 const { json } = require('stream/consumers');
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+// process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 // ======================= Config ========================
 const SCOPES = ['https://www.googleapis.com/auth/contacts.readonly'];
 const TOKEN_PATH = path.join(__dirname, 'files', 'token.json');
@@ -571,6 +571,7 @@ return name
 async function sendvoice(sock,jid,voice_name = "voice") {
 
     const audioPath = path.join(__dirname, "assets/voice/"+voice_name+".ogg"); 
+    console.log(audioPath);
     const audioBuffer = fs.readFileSync(audioPath);
 
     await sock.sendMessage(jid, {
@@ -668,7 +669,7 @@ async function send_festive_msg(sock, senderId) {
                         break;
 
                       default:
-                        sendvoice(sock, jid,"mr_voice");
+                        sendvoice(sock, jid,"voice");
                         break;
                     }
                     sendfastiveSave(name, contact.phones[0],true);
