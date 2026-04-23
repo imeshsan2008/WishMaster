@@ -31,6 +31,7 @@ const frame_style_sheet = path.join(__dirname, 'files', 'frame_style_sheet.json'
 const LOG_FILE = path.join(__dirname, 'birthday_log.json');
 // Folder where uploaded images are stored
 const upload = multer({ dest: path.join(__dirname, "assets/img/") });
+const ContactPath = path.join(__dirname, 'files', 'Contacts.json');
 
 // File path for saving current festive image + caption
 const FESTIVE_CONFIG_PATH = path.join(__dirname, "festive_config.json");
@@ -189,18 +190,44 @@ async function listContacts_festive(auth) {
 }
 // ======================= People API helpers =======================
 async function listContacts(auth) {
-  const service = google.people({ version: 'v1', auth });
-  const res = await service.people.connections.list({ resourceName: 'people/me', pageSize: 2000, personFields: 'names,emailAddresses,phoneNumbers,birthdays,photos' });
-  console.log("✅ Contacts fetched successfully:", res.data);
-  return (res.data.connections || [])
-    .filter(p => p.birthdays && p.birthdays.length > 0)
-    .map(p => ({
-      name: p.names ? p.names[0].displayName : '',
-      emails: p.emailAddresses ? p.emailAddresses.map(e => e.value) : [],
-      phones: p.phoneNumbers ? p.phoneNumbers.map(ph => ph.value) : [],
-      birthday: p.birthdays ? p.birthdays[0].date : null,
-      photo: p.photos ? p.photos[0].url : null
-    }));
+  try {
+    const service = google.people({ version: 'v1', auth });
+
+    const res = await service.people.connections.list({
+      resourceName: 'people/me',
+      pageSize: 2000,
+      personFields: 'names,emailAddresses,phoneNumbers,birthdays,photos'
+    });
+
+    console.log("✅ Contacts fetched from Google");
+
+    const contacts = (res.data.connections || [])
+      .filter(p => p.birthdays && p.birthdays.length > 0)
+      .map(p => ({
+        name: p.names ? p.names[0].displayName : '',
+        emails: p.emailAddresses ? p.emailAddresses.map(e => e.value) : [],
+        phones: p.phoneNumbers ? p.phoneNumbers.map(ph => ph.value) : [],
+        birthday: p.birthdays ? p.birthdays[0].date : null,
+        photo: p.photos ? p.photos[0].url : null
+      }));
+
+    // ✅ Save to local file
+    fs.writeFileSync(ContactPath, JSON.stringify(contacts, null, 2));
+
+    return contacts;
+
+  } catch (err) {
+    console.error("❌ Google API failed, using local file:", err.message);
+
+    // ✅ Fallback to local file
+    if (fs.existsSync(ContactPath)) {
+      const contacts = JSON.parse(fs.readFileSync(ContactPath, 'utf-8'));
+      return contacts;
+    } else {
+      console.error("❌ No local file found");
+      return [];
+    }
+  }
 }
 
 async function getTodayBirthdays(auth) {
@@ -370,9 +397,39 @@ app.get('/clear_list', (req, res) => {
 // ======================= Contacts endpoint (uses Google OAuth) =======================
 app.get('/contacts', async (req, res) => {
   try {
+
     const auth = await getAuthClient(req, res);
-    if (!auth) return; // getAuthClient handled redirect
-    res.json(await listContacts(auth));
+    if (!auth) return;
+
+    let useCache = false;
+
+    // ✅ Check if file exists
+    if (fs.existsSync(ContactPath)) {
+      const stats = fs.statSync(ContactPath);
+
+      // ⏱ Example: refresh if older than 24 hours
+      const ONE_DAY = 24 * 60 * 60 * 1000;
+      const isOld = (Date.now() - stats.mtimeMs) > ONE_DAY;
+
+      if (!isOld) {
+        useCache = true;
+      }
+    }
+
+    // ✅ If cache is valid → return file
+    if (useCache) {
+      const contacts = JSON.parse(fs.readFileSync(ContactPath, 'utf-8'));
+      return res.json(contacts);
+    }
+
+    // 🔄 Otherwise fetch from Google
+    const freshContacts = await listContacts(auth);
+
+    // 💾 Save new data
+    fs.writeFileSync(ContactPath, JSON.stringify(freshContacts, null, 2));
+
+    return res.json(freshContacts);
+
   } catch (err) {
     console.error('Error retrieving contacts:', err.message);
     res.status(500).send('Error retrieving contacts');
@@ -1093,11 +1150,13 @@ app.get('/api/qr', (req, res) => {
 
 app.post('/api/logout/google', async (req, res) => {
   try {
-    if (fs.existsSync(TOKEN_PATH)) fs.unlinkSync(TOKEN_PATH);
-    res.json({ ok: true });
+    if (fs.existsSync(TOKEN_PATH)) fs.unlinkSync(TOKEN_PATH) ;
+    if (fs.existsSync(ContactPath)) fs.unlinkSync(ContactPath);
+    res.json({ ok: true }); 
   } catch (e) {
     res.status(500).json({ ok: false, error: 'Failed to delete Google token' });
   }
+
 });
 
 // clear WhatsApp session helper
