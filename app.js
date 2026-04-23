@@ -17,9 +17,11 @@ const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLat
 const e = require('express');
 const { ok } = require('assert');
 const { json } = require('stream/consumers');
+const { file } = require('googleapis/build/src/apis/file');
 // process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 // ======================= Config ========================
-const SCOPES = ['https://www.googleapis.com/auth/contacts.readonly'];
+const SCOPES = ['https://www.googleapis.com/auth/contacts.readonly',  "https://www.googleapis.com/auth/userinfo.profile"
+];
 const TOKEN_PATH = path.join(__dirname, 'files', 'token.json');
 const CREDENTIALS_PATH = path.join(__dirname, 'files', 'credentials.json');
 const MESSAGE_FILE = path.join(__dirname, 'custom_message.txt');
@@ -56,6 +58,7 @@ let wa = {
   qrCount: 0,
   maxQr: 5
 };
+const GroupJid = "120363402125169216@g.us";
 // ======================= Load frame styles =======================
 if (!fs.existsSync(frame_style_sheet)) {
   console.error("❌ Missing frame_style_sheet.json (expected at: " + frame_style_sheet + ")");
@@ -168,7 +171,7 @@ async function getAuthClient(req, res) {
     oAuth2Client.setCredentials(token);
     return oAuth2Client;
   } else if (res) {
-    const authUrl = oAuth2Client.generateAuthUrl({ access_type: 'offline', scope: SCOPES });
+    const authUrl = oAuth2Client.generateAuthUrl({ access_type: 'offline', scope: SCOPES, prompt: 'consent' });
     res.redirect(authUrl);
   }
   return null;
@@ -244,38 +247,12 @@ const WA_HEADERS = {
   Accept: 'image/*'
 };
 
-async function getValidProfilePicUrl(sock, jid, googlePhotoUrl) {
-  // Prefer WhatsApp profile if available, else use googlePhotoUrl if valid, otherwise default avatar
-  try {
-    // try whatsapp profile first
-    if (sock && typeof sock.profilePictureUrl === 'function') {
-      try {
-        const waUrl = await sock.profilePictureUrl(jid, 'image').catch(() => null);
-        if (waUrl) return waUrl.replace(/=s\d+/, '=s10000');
-      } catch (e) {
-        // ignore
-      }
-    }
-console.log(googlePhotoUrl);
-
-    if (googlePhotoUrl && !isGoogleDefaultLetterImage(googlePhotoUrl)) {
-      return googlePhotoUrl.replace(/=s\d+/, '=s10000');
-    }
-  } catch (err) {
-    console.error('⚠️ getValidProfilePicUrl error:', err.message);
-  }
-
-  // fallback to default avatar file
-  return path.join(__dirname, 'assets', 'img', 'default_avatar.png');
-}
-
 async function fetchProfilePicBuffer(profilePicUrl, contactName, maxRetries = 3, retryDelay = 2000) {
-  const defaultAvatar = path.join(__dirname, 'assets', 'img', 'default_avatar.png');
   console.log(profilePicUrl);
-  
+
   if (!profilePicUrl || typeof profilePicUrl !== 'string' || !profilePicUrl.startsWith('http')) {
     console.log(`⚠ No valid profile picture for ${contactName}, using default avatar`);
-    return fs.readFileSync(defaultAvatar);
+    return null;
   }
 
   let attempt = 0;
@@ -294,17 +271,20 @@ async function fetchProfilePicBuffer(profilePicUrl, contactName, maxRetries = 3,
   }
 
   console.log(`⚠ All ${maxRetries} attempts failed for ${contactName}, using default avatar`);
-  return fs.readFileSync(defaultAvatar);
+  return null;
 }
 
 async function createFramedImage(profileBuffer, contactName, styleKey = null) {
   const styleSelected = styleKey || styleId || styles?.user_selected_style || styles?.defaultStyle || "1";
   const style = styles?.frameStyles?.[styleSelected];
   if (!style) return profileBuffer;
- 
+ if (!profileBuffer) {
+  return null;
+ }
 
   const framePath = path.join(__dirname, style.framePath);
   if (!fs.existsSync(framePath)) return profileBuffer;
+  
   try {
     // ✅ Read font file & convert to base64
     const fontBuffer = await fetch(style.text.fonturl)
@@ -434,26 +414,18 @@ app.get('/api/tomorrow-contacts', async (req, res) => {
 
 
 // ======================= Sending birthdays =======================
-
 async function sendTodaysBirthdays(sock, senderId) {
   try {
     const auth = await getAuthClient();
     if (!auth) return;
-    
-    const birthdays = await getTodayBirthdays(auth);
-    if (!birthdays.length) {
-      if (senderId) await sock.sendMessage(senderId, { text: '🎉 No birthdays today. > webEndpoint' });
-      console.log('🎉 No birthdays today. > webEndpoint');
-      return "No birthdays today";
-    }
 
-    // Optionally get tomorrow's list to notify the owner
-    let allTomorrow = null;
-    try {
-      const resp = await axios.get(HOSTNAME + '/contacts');
-      allTomorrow = resp.data;
-    } catch (err) {
-      allTomorrow = null;
+    const birthdays = await getTodayBirthdays(auth);
+
+    if (!birthdays.length) {
+      const msg = '🎉 No birthdays today.';
+      console.log(msg);
+      if (senderId) await sock.sendMessage(senderId, { text: msg });
+      return msg;
     }
 
     for (const contact of birthdays) {
@@ -461,42 +433,80 @@ async function sendTodaysBirthdays(sock, senderId) {
       const maxRetries = 5;
       const delay = 2000;
 
+      const message = getCustomMessage().replace(/\$\{name\}/g, contact.name);
+      const number = contact.phone.replace(/\D/g, '');
+      const jid = number + '@s.whatsapp.net';
+
       while (attempts < maxRetries) {
         try {
-          const message = getCustomMessage().replace(/\$\{name\}/g, contact.name);
-          const number = contact.phone.replace(/\D/g, '');
-          const jid = number + '@s.whatsapp.net';
-          const profilePicUrl = await getValidProfilePicUrl(sockInstance, jid, contact.photo);
-          console.log(profilePicUrl);
-          
-          const profileBuffer = await fetchProfilePicBuffer(profilePicUrl, contact.name);
-          const framedImage = await createFramedImage(profileBuffer, contact.name, styleId);
+          // ✅ Step 1: Google Photo
+          let googlePhotoUrl = "";
+          try {
+            const googleData = await getGoogleProfilePhoto(auth, number);
+            if (googleData?.photo && !googleData.photo.includes("/cm/")) {
+              googlePhotoUrl = googleData.photo;
+            }
+          } catch {
+            console.log("⚠️ Google photo failed");
+          }
 
-          // Send messagephoto
-          await sock.sendMessage(jid, { image: framedImage, caption: message });
+          // ✅ Step 2: WhatsApp Photo
+          let whatsappPhotoUrl = "";
+          try {
+            whatsappPhotoUrl = await sock.profilePictureUrl(jid, "image");
+          } catch {}
 
-          // record retry info so we can retry later if needed
-          birthdayRetryMap.set(jid, { message: { image: framedImage, caption: message }, attempts: 1, timestamp: Date.now(), name: contact.name });
+          const finalPhotoUrl = googlePhotoUrl || whatsappPhotoUrl;
+
+          // ❌ No photo → send text + voice
+          if (!finalPhotoUrl) {
+            await sock.sendMessage(jid, { text: message });
+            await sendvoice(sock, jid); // ✅ FIXED
+            console.log(`✅ Sent text + voice to ${jid}`);
+            break; // ✅ FIXED (no return)
+          }
+
+          // ✅ Process image
+          const profileBuffer = await fetchProfilePicBuffer(finalPhotoUrl, contact.name);
+          const framedImage = await createFramedImage(profileBuffer, contact.name);
+
+          await sock.sendMessage(jid, {
+            image: framedImage,
+            caption: message
+          });
+
+          await sendvoice(sock, jid); // ✅ FIXED
+
+          birthdayRetryMap.set(jid, {
+            message: { image: framedImage, caption: message },
+            attempts: 1,
+            timestamp: Date.now(),
+            name: contact.name
+          });
 
           logBirthdayEvent(jid, contact.name, 'sent', 1);
-          if (senderId) await sock.sendMessage(senderId, { text: `✅ Birthday message successfully sent to ${contact.name} (${contact.phone})` });
-          console.log(`✅ Sent birthday wishes to ${contact.name} (${contact.phone})`);
-          sendvoice(sock,senderId)
+          await sock.sendMessage(GroupJid, { text: `Birthday message successfully sent to ${contact.name} ${number} > webEndpoint` });
 
-          break; // success, move to next contact
+          console.log(`✅ Sent birthday to ${contact.name}`);
+          break;
+
         } catch (err) {
           attempts++;
-          console.error(`❌ Failed to send message to ${contact.name}. Attempt ${attempts} of ${maxRetries}:`, err.message || err);
-          if (attempts < maxRetries) await new Promise(res => setTimeout(res, delay));
-          else logBirthdayEvent(contact.phone || 'unknown', contact.name, 'failed', attempts);
+          console.error(`❌ Failed (${attempts}/${maxRetries}) → ${contact.name}`, err.message || err);
+
+          if (attempts < maxRetries) {
+            await new Promise(res => setTimeout(res, delay));
+          } else {
+            logBirthdayEvent(jid, contact.name, 'failed', attempts);
+          }
         }
       }
     }
+
   } catch (err) {
     console.error('❌ Error sending birthdays:', err.message || err);
   }
 }
-
 
 const FESTIVE_CONFG_PATH = path.join(__dirname, "festive_config.json");
 
@@ -582,6 +592,7 @@ async function sendvoice(sock,jid,voice_name = "voice") {
 
     console.log("🎤 Voice message sent!");
 }
+
 async function send_festive_msg(sock, senderId) {
     try {
         const auth = await getAuthClient();
@@ -692,29 +703,117 @@ async function send_festive_msg(sock, senderId) {
 }
 
 
-async function sendForcedBirthdayMessage(sock, senderId, _contactName) {
+async function getGoogleProfilePhoto(auth, number) {
   try {
-    const contactName = _contactName || 'there';
-    const number = senderId.replace(/\D/g, '');
+    const service = google.people({ version: 'v1', auth });
+
+    const res = await service.people.connections.list({
+      resourceName: 'people/me',
+      pageSize: 2000,
+      personFields: 'names,phoneNumbers,photos'
+    });
+
+    const connections = res.data.connections || [];
+
+    // Normalize number (important!)
+    const cleanNumber = number.replace(/\D/g, '');
+
+    for (const person of connections) {
+      const phones = person.phoneNumbers || [];
+
+      for (const phone of phones) {
+        const contactNumber = phone.value.replace(/\D/g, '');
+
+        if (contactNumber.includes(cleanNumber) || cleanNumber.includes(contactNumber)) {
+          
+          const photo = person.photos && person.photos.length > 0
+            ? person.photos[0].url
+            : null;
+
+          return {
+            name: person.names ? person.names[0].displayName : null,
+            phone: phone.value,
+            photo: photo.replace(/=s\d+/, '=s10000')
+          };
+        }
+      }
+    }
+
+    return null;
+
+  } catch (err) {
+    console.error("Error:", err.message);
+    return null;
+  }
+}
+async function sendForcedBirthdayMessage(sock, senderId, contactName = "there") {
+  try {
+    const number = senderId.replace(/\D/g, "");
     const jid = `${number}@s.whatsapp.net`;
 
-    // Optional: customize this message
-    const message = getCustomMessage().replace(/\$\{name\}/g, `${contactName}`);
+    // ✅ Message
+    const message = getCustomMessage().replace(/\$\{name\}/g, contactName);
 
-    // Optional: fallback image or default photo
-    const defaultPhoto = 'https://lh3.googleusercontent.com/contacts/AG6tpzGUMT1rVbomzgedhm8LSa8p7HZ8HzW0SauVGdGw55iN_m33k6Pz=s8000';
-    const profilePicUrl = await getValidProfilePicUrl(sockInstance, jid, defaultPhoto);
-    const profileBuffer = await fetchProfilePicBuffer(profilePicUrl, contactName || 'there');
-    const framedImage = await createFramedImage(profileBuffer, contactName || 'there', styleId);
+    // ✅ Step 1: Try Google Contact Photo
+    let googlePhotoUrl = "";
+    try {
+      const auth = await getAuthClient();
+      const googleData = await getGoogleProfilePhoto(auth, number);
+      if(!googleData.photo.includes("/cm/")){
+        googlePhotoUrl = googleData.photo;
+      }else{
+        googlePhotoUrl = "";
+      }
+    } catch (err) {
+      console.log("⚠️ Google photo fetch failed, fallback to WhatsApp");
+    }
 
-    // Send WhatsApp message
-    const result = await sockInstance.sendMessage(jid, { image: framedImage, caption: message });
+    // ✅ Step 2: Try WhatsApp profile photo
+    let whatsappPhotoUrl = "";
+    try {
+      whatsappPhotoUrl = await sock.profilePictureUrl(jid, "image");
+    } catch {
+      whatsappPhotoUrl = "";
+    }
 
-    console.log(`✅ Force-sent birthday message to ${jid}`);
-    sendvoice(sock,senderId)
-    return result;
+    // ✅ Decide which photo to use (priority: Google → WhatsApp)
+    const finalPhotoUrl = googlePhotoUrl || whatsappPhotoUrl;
+
+    // ❌ No photo → send text + voice only
+    if (!finalPhotoUrl) {
+      await sock.sendMessage(jid, { text: message });
+      await sendvoice(sock, senderId);
+      console.log(`✅ Sent text + voice (no photo) to ${jid}`);
+      return;
+    }
+
+    // ✅ Fetch image buffer
+    const profileBuffer = await fetchProfilePicBuffer(finalPhotoUrl, contactName);
+
+    // ❌ Buffer failed → fallback
+    if (!profileBuffer) {
+      await sock.sendMessage(jid, { text: message });
+      await sendvoice(sock, senderId);
+      console.log(`✅ Fallback text + voice (buffer failed) to ${jid}`);
+      return;
+    }
+
+    // ✅ Create framed image
+    const framedImage = await createFramedImage(profileBuffer, contactName, styleId);
+
+    // ✅ Send image + caption
+    await sock.sendMessage(jid, {
+      image: framedImage,
+      caption: message,
+    });
+
+    // ✅ Send voice
+    await sendvoice(sock, senderId);
+
+    console.log(`✅ Sent framed birthday message to ${jid}`);
+
   } catch (err) {
-    console.error('❌ Error force-sending message:', err.message || err);
+    console.error("❌ Error sending birthday message:", err?.message || err);
     throw err;
   }
 }
@@ -911,12 +1010,8 @@ sock.ev.on("messages.upsert", async (msgData) => {
         });
         addReaction(sock, message.key, "👨‍💻");
         break;
-            case ".status":
-        await sock.sendMessage('status@broadcast', {
-          text: 'Hello this is my status 👋'
-        });
-        addReaction(sock, message.key, "👋");
-        break;  
+ 
+      
     }
 
    // ================= THANKS REACTION =================
@@ -1030,14 +1125,14 @@ app.get('/sendbirthday', async (req, res) => {
   
 setTimeout(async () => {
     if (!sockInstance) return res.status(503).json({ ok: false, error: 'WhatsApp not connected' });
-    await sockInstance.sendMessage('120363402125169216@g.us', { text: `Birthdays already sent today > webEndpoint` });
+    await sockInstance.sendMessage(GroupJid, { text: `Birthdays already sent today > webEndpoint` });
 
     if (birthdaysSentToday) return res.status(429).json({ ok: false, error: 'Birthdays already sent today' });
   
 try {
     
-    await sockInstance.sendMessage('120363402125169216@g.us', { text: `⏳ Checking for today's birthdays... > webEndpoint` });
-    await sendTodaysBirthdays(sockInstance, '120363402125169216@g.us');
+    await sockInstance.sendMessage(GroupJid, { text: `⏳ Checking for today's birthdays... > webEndpoint` });
+    await sendTodaysBirthdays(sockInstance, GroupJid);
   
     birthdaysSentToday = true;
     res.json({ ok: true, message: 'Birthday check initiated' });
@@ -1094,7 +1189,7 @@ app.get('/sendfestive', async (req, res) => {
 
     // Delay sending the festive message by 10 seconds
     setTimeout(async () => {
-      await send_festive_msg(sockInstance, '120363402125169216@g.us');
+      await send_festive_msg(sockInstance, GroupJid);
       console.log("🎉 Festive image sent successfully!");
     }, 5000);
     
