@@ -2,3 +2,4 @@ node_modules
 whatsapp_auth
 files/credentials.json
 files/token.json
+files/Contacts.json
