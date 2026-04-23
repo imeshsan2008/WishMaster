@@ -1,4 +1,4 @@
 node_modules
 whatsapp_auth
-files
-
+files/credentials.json
+files/token.json
