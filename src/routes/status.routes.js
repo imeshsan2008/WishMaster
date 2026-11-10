@@ -11,6 +11,8 @@ router.get('/status', statusController.getPairingStatus);
 router.get('/send-test', statusController.sendTestMessage);
 router.get('/api/birthday-logs', statusController.getBirthdayLogsHandler);
 router.get('/api/festive-logs', statusController.getFestiveLogsHandler);
+router.get('/api/session/export-whatsapp', statusController.exportWhatsAppSession);
+router.get('/api/session/export-creds', statusController.exportWhatsAppCreds);
 router.get('/clear_list', statusController.clearRetriesHandler);
 router.get('/api/qr', (req, res) => {
   res.json({ message: 'QR served via /qr-img or socket.io' });

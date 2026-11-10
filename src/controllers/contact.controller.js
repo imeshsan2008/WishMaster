@@ -4,7 +4,8 @@ const { getSyncedContacts } = require('../services/db.service');
 
 async function getContacts(req, res) {
   try {
-    const auth = await getAuthClient(req, res);
+    const isHtml = req.headers && req.headers.accept && req.headers.accept.includes('text/html');
+    const auth = await getAuthClient(req, isHtml ? res : null);
     if (!auth) {
       if (res.headersSent) return;
 

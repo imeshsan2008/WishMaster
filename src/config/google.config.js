@@ -122,6 +122,30 @@ async function loadTokenAsync() {
   return null;
 }
 
+async function clearGoogleTokenAsync() {
+  inMemoryToken = null;
+  if (fs.existsSync(PATHS.TOKEN)) {
+    try { fs.unlinkSync(PATHS.TOKEN); } catch (e) {}
+  }
+  if (fs.existsSync(PATHS.CONTACTS_CACHE)) {
+    try { fs.unlinkSync(PATHS.CONTACTS_CACHE); } catch (e) {}
+  }
+  try {
+    delete process.env.GOOGLE_TOKEN_JSON;
+  } catch (e) {}
+
+  try {
+    const { getSql, isDbConnected } = require('./db');
+    const sql = getSql();
+    if (isDbConnected() && sql) {
+      await sql`DELETE FROM admin_settings WHERE key = 'google_token'`;
+      console.log('✅ Deleted google_token from DB admin_settings');
+    }
+  } catch (e) {
+    console.warn('⚠️ Could not remove google_token from DB:', e.message);
+  }
+}
+
 async function saveTokenAsync(token) {
   if (!token) return;
   inMemoryToken = token;
@@ -215,7 +239,7 @@ async function getAuthClient(req, res) {
     return oAuth2Client;
   }
 
-  if (res) {
+  if (res && (!req || (req.headers && req.headers.accept && req.headers.accept.includes('text/html')))) {
     const authUrl = oAuth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: GOOGLE_SCOPES,
@@ -232,6 +256,7 @@ module.exports = {
   loadCredentialsAsync,
   loadTokenAsync,
   saveTokenAsync,
+  clearGoogleTokenAsync,
   setInMemoryCreds,
   setInMemoryToken,
   createOAuthClient,

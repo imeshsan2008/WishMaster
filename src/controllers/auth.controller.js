@@ -1,8 +1,23 @@
 const fs = require('fs');
 const path = require('path');
-const { PATHS } = require('../config/env.config');
-const { createOAuthClient } = require('../config/google.config');
+const { PATHS, GOOGLE_SCOPES } = require('../config/env.config');
+const { createOAuthClientAsync, saveTokenAsync, clearGoogleTokenAsync } = require('../config/google.config');
 const { clearWhatsAppSession } = require('../services/whatsapp.service');
+
+async function googleLogin(req, res) {
+  try {
+    const oAuth2Client = await createOAuthClientAsync();
+    const authUrl = oAuth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: GOOGLE_SCOPES,
+      prompt: 'consent'
+    });
+    res.redirect(authUrl);
+  } catch (err) {
+    console.error('❌ Google login initiation failed:', err.message);
+    res.status(500).send('Error initiating Google login: ' + err.message);
+  }
+}
 
 async function googleCallback(req, res) {
   const code = req.query.code;
@@ -10,13 +25,12 @@ async function googleCallback(req, res) {
     return res.status(400).send('Authorization code missing');
   }
 
-  const oAuth2Client = createOAuthClient();
   try {
+    const oAuth2Client = await createOAuthClientAsync();
     const { tokens } = await oAuth2Client.getToken(code);
     oAuth2Client.setCredentials(tokens);
 
-    fs.mkdirSync(path.dirname(PATHS.TOKEN), { recursive: true });
-    fs.writeFileSync(PATHS.TOKEN, JSON.stringify(tokens, null, 2));
+    await saveTokenAsync(tokens);
 
     res.redirect('/home?success=true');
   } catch (err) {
@@ -27,8 +41,7 @@ async function googleCallback(req, res) {
 
 async function googleLogout(req, res) {
   try {
-    if (fs.existsSync(PATHS.TOKEN)) fs.unlinkSync(PATHS.TOKEN);
-    if (fs.existsSync(PATHS.CONTACTS_CACHE)) fs.unlinkSync(PATHS.CONTACTS_CACHE);
+    await clearGoogleTokenAsync();
     res.json({ ok: true, message: 'Google session cleared' });
   } catch (e) {
     console.error('❌ Google logout failed:', e.message);
@@ -47,6 +60,7 @@ async function whatsappLogout(req, res) {
 }
 
 module.exports = {
+  googleLogin,
   googleCallback,
   googleLogout,
   whatsappLogout

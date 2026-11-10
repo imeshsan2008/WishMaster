@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 const qrcode = require('qrcode');
 const { PATHS } = require('../config/env.config');
 const {
@@ -130,6 +131,55 @@ async function cronTriggerHandler(req, res) {
   }
 }
 
+async function exportWhatsAppSession(req, res) {
+  try {
+    const AdmZip = require('adm-zip');
+    const zip = new AdmZip();
+    const waDir = PATHS.WA_AUTH_DIR;
+
+    if (!fs.existsSync(waDir)) {
+      return res.status(404).json({ error: 'No WhatsApp auth folder found.' });
+    }
+
+    const files = fs.readdirSync(waDir);
+    if (!files || files.length === 0) {
+      return res.status(404).json({ error: 'WhatsApp auth directory is empty.' });
+    }
+
+    for (const f of files) {
+      const fullPath = path.join(waDir, f);
+      try {
+        if (fs.statSync(fullPath).isFile()) {
+          zip.addLocalFile(fullPath, 'whatsapp_auth');
+        }
+      } catch (e) {}
+    }
+
+    const zipBuffer = zip.toBuffer();
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', 'attachment; filename="whatsapp_session.zip"');
+    res.setHeader('Content-Length', zipBuffer.length);
+    res.send(zipBuffer);
+  } catch (err) {
+    console.error('❌ Error exporting WhatsApp session:', err.message);
+    res.status(500).json({ error: 'Failed to export WhatsApp session: ' + err.message });
+  }
+}
+
+async function exportWhatsAppCreds(req, res) {
+  try {
+    const credsPath = path.join(PATHS.WA_AUTH_DIR, 'creds.json');
+    if (!fs.existsSync(credsPath)) {
+      return res.status(404).json({ error: 'creds.json not found in whatsapp_auth directory.' });
+    }
+
+    res.download(credsPath, 'creds.json');
+  } catch (err) {
+    console.error('❌ Error exporting creds.json:', err.message);
+    res.status(500).json({ error: 'Failed to export creds.json: ' + err.message });
+  }
+}
+
 module.exports = {
   getSystemStatus,
   getQrImage,
@@ -139,5 +189,7 @@ module.exports = {
   getFestiveLogsHandler,
   clearRetriesHandler,
   pingHandler,
-  cronTriggerHandler
+  cronTriggerHandler,
+  exportWhatsAppSession,
+  exportWhatsAppCreds
 };
