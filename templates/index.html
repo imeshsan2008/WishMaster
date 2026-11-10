@@ -39,6 +39,7 @@
       <p class="text-xs text-slate-500 mt-1 mb-6">Enter your 4-digit PIN to access WishMaster</p>
 
       <form id="admin-login-form" onsubmit="handleLogin(event)" class="space-y-4">
+        <input type="text" name="username" autocomplete="username" class="hidden" style="display:none;" value="admin" tabindex="-1" aria-hidden="true">
         <div>
           <input 
             type="password" 
@@ -434,6 +435,7 @@
 
       <!-- 2. Change Admin Password -->
       <form onsubmit="event.preventDefault(); changeAdminPin();" class="space-y-2 pt-2 border-t border-slate-100">
+        <input type="text" name="username" autocomplete="username" class="hidden" style="display:none;" value="admin" tabindex="-1" aria-hidden="true">
         <label class="text-xs font-semibold uppercase text-slate-500 tracking-wider">Change Admin PIN</label>
         <div class="grid grid-cols-2 gap-2">
           <input type="password" id="current-pin" autocomplete="current-password" placeholder="Current PIN" class="px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none">
@@ -1822,6 +1824,7 @@
         const data = await res.json();
         if (data.songUrl) {
           document.getElementById('setting-song-url').value = data.songUrl;
+          updateSettingSongPreview();
         }
       } catch (err) {}
 
@@ -1862,6 +1865,58 @@
       }
     }
 
+    function updateSettingSongPreview() {
+      const url = document.getElementById('setting-song-url')?.value?.trim();
+      const audio = document.getElementById('setting-song-preview');
+      if (audio && url) {
+        audio.src = url;
+      }
+    }
+
+    async function uploadBirthdaySongFile() {
+      const fileInput = document.getElementById('setting-song-file');
+      const file = fileInput?.files?.[0];
+      if (!file) {
+        Swal.fire('No File Selected', 'Please select an audio file to upload (.mp3, .ogg, .wav, .m4a).', 'warning');
+        return;
+      }
+
+      const btn = document.getElementById('btn-upload-song');
+      const progressEl = document.getElementById('song-upload-progress');
+
+      if (btn) btn.disabled = true;
+      if (progressEl) progressEl.classList.remove('hidden');
+
+      const formData = new FormData();
+      formData.append('songFile', file);
+
+      try {
+        const res = await fetch('/api/settings/upload-song', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+
+        if (btn) btn.disabled = false;
+        if (progressEl) progressEl.classList.add('hidden');
+
+        if (data.ok || data.success) {
+          if (data.songUrl) {
+            document.getElementById('setting-song-url').value = data.songUrl;
+            updateSettingSongPreview();
+          }
+          fileInput.value = '';
+          Swal.fire('Uploaded!', data.message || 'Birthday celebration song uploaded and set successfully.', 'success');
+        } else {
+          Swal.fire('Upload Failed', data.error || 'Failed to upload song file.', 'error');
+        }
+      } catch (err) {
+        if (btn) btn.disabled = false;
+        if (progressEl) progressEl.classList.add('hidden');
+        Swal.fire('Error', 'Failed to upload audio file: ' + err.message, 'error');
+      }
+    }
+
     async function saveSongUrl() {
       const url = document.getElementById('setting-song-url').value;
       if (!url) return;
@@ -1873,6 +1928,7 @@
         });
         const data = await res.json();
         if (data.ok) {
+          updateSettingSongPreview();
           Swal.fire("Saved!", "Birthday song URL updated.", "success");
         }
       } catch (err) {
