@@ -180,6 +180,81 @@ async function exportWhatsAppCreds(req, res) {
   }
 }
 
+async function importWhatsAppSession(req, res) {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ success: false, error: 'No session file uploaded.' });
+    }
+
+    const originalName = (req.file.originalname || '').toLowerCase();
+    const waDir = PATHS.WA_AUTH_DIR;
+    fs.mkdirSync(waDir, { recursive: true });
+
+    let credsFound = false;
+
+    if (originalName.endsWith('.zip')) {
+      const AdmZip = require('adm-zip');
+      const zip = new AdmZip(req.file.buffer);
+      const entries = zip.getEntries();
+
+      if (!entries || entries.length === 0) {
+        return res.status(400).json({ success: false, error: 'Uploaded zip archive is empty.' });
+      }
+
+      for (const entry of entries) {
+        if (entry.isDirectory) continue;
+        const baseName = path.basename(entry.entryName);
+        if (!baseName) continue;
+
+        const destPath = path.join(waDir, baseName);
+        fs.writeFileSync(destPath, entry.getData());
+
+        if (baseName === 'creds.json') {
+          credsFound = true;
+        }
+      }
+    } else if (originalName.endsWith('.json')) {
+      try {
+        JSON.parse(req.file.buffer.toString('utf8'));
+      } catch (e) {
+        return res.status(400).json({ success: false, error: 'Invalid JSON file: ' + e.message });
+      }
+
+      fs.writeFileSync(path.join(waDir, 'creds.json'), req.file.buffer);
+      credsFound = true;
+    } else {
+      return res.status(400).json({ success: false, error: 'Only .zip or .json session files are supported.' });
+    }
+
+    if (!credsFound && !fs.existsSync(path.join(waDir, 'creds.json'))) {
+      return res.status(400).json({ success: false, error: 'No creds.json found in the uploaded file.' });
+    }
+
+    console.log('🔄 WhatsApp session imported successfully. Restarting WhatsApp bot...');
+
+    // Reconnect WhatsApp with new session
+    const { getSocket, startBot } = require('../services/whatsapp.service');
+    const existingSock = getSocket();
+    if (existingSock) {
+      try {
+        existingSock.end(new Error('Reloading imported WhatsApp session'));
+      } catch (e) {}
+    }
+
+    setTimeout(() => {
+      startBot();
+    }, 1500);
+
+    res.json({
+      success: true,
+      message: 'WhatsApp session imported successfully! Bot is reconnecting...'
+    });
+  } catch (err) {
+    console.error('❌ Error importing WhatsApp session:', err.message);
+    res.status(500).json({ success: false, error: 'Failed to import session: ' + err.message });
+  }
+}
+
 module.exports = {
   getSystemStatus,
   getQrImage,
@@ -191,5 +266,6 @@ module.exports = {
   pingHandler,
   cronTriggerHandler,
   exportWhatsAppSession,
-  exportWhatsAppCreds
+  exportWhatsAppCreds,
+  importWhatsAppSession
 };

@@ -447,6 +447,10 @@
         <a href="/api/session/export-whatsapp" download="whatsapp_session.zip" class="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-xl transition flex items-center gap-1.5 border border-emerald-200" title="Export WhatsApp Baileys Auth Session (.zip)">
           <i class="fab fa-whatsapp text-emerald-600"></i> Export WhatsApp Session (.zip)
         </a>
+        <button type="button" onclick="triggerImportWhatsAppSession()" class="px-3.5 py-2 bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-semibold rounded-xl transition flex items-center gap-1.5 border border-teal-200" title="Import WhatsApp Session (.zip or creds.json)">
+          <i class="fas fa-file-import text-teal-600"></i> Import WhatsApp Session
+        </button>
+        <input type="file" id="wa-session-import-input" accept=".zip,.json" class="hidden" onchange="handleWhatsAppSessionUpload(event)">
         <a href="/api/session/export-creds" download="creds.json" class="px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl transition flex items-center gap-1.5 border border-slate-200" title="Download creds.json directly">
           <i class="fas fa-file-code text-slate-500"></i> creds.json
         </a>
@@ -1899,6 +1903,59 @@
         }
       } catch (err) {
         Swal.fire("Error", "Failed to update PIN", "error");
+      }
+    }
+
+    function triggerImportWhatsAppSession() {
+      const input = document.getElementById('wa-session-import-input');
+      if (input) {
+        input.value = '';
+        input.click();
+      }
+    }
+
+    async function handleWhatsAppSessionUpload(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const confirm = await Swal.fire({
+        title: 'Import WhatsApp Session?',
+        text: `Restore WhatsApp authentication from "${file.name}"? This will reload the bot session.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#0d9488',
+        confirmButtonText: 'Yes, Import Session'
+      });
+
+      if (!confirm.isConfirmed) return;
+
+      const formData = new FormData();
+      formData.append('sessionFile', file);
+
+      Swal.fire({
+        title: 'Importing WhatsApp Session...',
+        text: 'Uploading credentials and connecting bot...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      try {
+        const res = await fetch('/api/session/import-whatsapp', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          Swal.fire('Imported!', data.message || 'WhatsApp session restored successfully.', 'success');
+          setTimeout(() => {
+            loadStatus();
+          }, 3000);
+        } else {
+          Swal.fire('Import Failed', data.error || 'Could not import WhatsApp session.', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Failed to communicate with server: ' + err.message, 'error');
       }
     }
 
