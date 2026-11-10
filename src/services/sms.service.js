@@ -338,11 +338,13 @@ async function sendSms({ recipientPhone, recipientName = '', message }) {
 // ======================== SEND BIRTHDAY SMS ========================
 
 async function sendBirthdaySms({ contact, wishUrl }) {
+  const { HOSTNAME } = require('../config/env.config');
   const config = await getTextLkConfig();
   const name = contact.name || '';
+  const finalWishUrl = wishUrl || HOSTNAME;
   const smsBody = config.template
     .replace(/\{name\}/gi, name)
-    .replace(/\{link\}/gi, wishUrl);
+    .replace(/\{link\}/gi, finalWishUrl);
 
   const phone = contact.phone || (contact.phones && contact.phones[0]) || '';
   return await sendSms({

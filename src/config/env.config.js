@@ -8,7 +8,8 @@ const TEMPLATES_DIR = path.join(ROOT_DIR, 'templates');
 const WA_AUTH_DIR = path.join(ROOT_DIR, 'whatsapp_auth');
 
 const PORT = process.env.PORT || 8000;
-const HOSTNAME = (process.env.HOSTNAME2 || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+const rawHostname = process.env.PROD_URL || process.env.prod_url || process.env.HOSTNAME2 || process.env.HOSTNAME || 'http://127.0.0.1:8000';
+const HOSTNAME = rawHostname.trim().replace(/\/+$/, '');
 const REDIRECT_URI = process.env.REDIRECT_URI || `${HOSTNAME}/oauth2callback`;
 const BOT_VERSION = process.env.BOT_VERSION || 'V 4.0';
 

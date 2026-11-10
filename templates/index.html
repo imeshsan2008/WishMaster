@@ -943,9 +943,26 @@
 
       <div class="p-6 overflow-y-auto space-y-4">
         <div>
-          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">Message Content</label>
-          <textarea id="template-message-input" rows="7" class="w-full p-4 text-xs font-mono bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 leading-relaxed"></textarea>
-          <p class="text-[11px] text-slate-400 mt-2">Use <code>{name}</code> for contact name and <code>{link}</code> for personalized surprise gift link.</p>
+          <div class="flex items-center justify-between mb-2">
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600">Message Content</label>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="text-[10px] text-slate-400">Insert tag:</span>
+              <button type="button" onclick="insertTemplatePlaceholder('{name}')" class="px-2 py-0.5 text-[11px] bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 text-slate-700 rounded-md font-mono border border-slate-200 transition">{name}</button>
+              <button type="button" onclick="insertTemplatePlaceholder('{link}')" class="px-2 py-0.5 text-[11px] bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 text-slate-700 rounded-md font-mono border border-slate-200 transition">{link}</button>
+              <button type="button" onclick="insertTemplatePlaceholder('{expiry_days}')" class="px-2 py-0.5 text-[11px] bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 text-slate-700 rounded-md font-mono border border-slate-200 transition">{expiry_days}</button>
+              <button type="button" onclick="insertTemplatePlaceholder('{footer}')" class="px-2 py-0.5 text-[11px] bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 text-slate-700 rounded-md font-mono border border-slate-200 transition">{footer}</button>
+            </div>
+          </div>
+          <textarea id="template-textarea" oninput="updateTemplatePreview()" rows="7" class="w-full p-4 text-xs font-mono bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 leading-relaxed"></textarea>
+          <p class="text-[11px] text-slate-400 mt-1.5">Use <code>{name}</code> for contact name and <code>{link}</code> for personalized surprise gift link.</p>
+        </div>
+
+        <div class="space-y-1.5 pt-2 border-t border-slate-100">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Live Preview</span>
+            <span class="text-[10px] text-slate-400">Preview with sample values</span>
+          </div>
+          <div id="template-live-preview" class="p-3.5 bg-emerald-50/60 border border-emerald-200/80 rounded-2xl text-xs text-slate-700 whitespace-pre-wrap font-sans leading-relaxed shadow-inner min-h-[70px]"></div>
         </div>
       </div>
 
@@ -2788,8 +2805,9 @@
       try {
         const res = await fetch('/api/message-template');
         const data = await res.json();
-        if (data.success && data.template) {
-          document.getElementById('template-textarea').value = data.template;
+        const area = document.getElementById('template-textarea');
+        if (data.success && data.template && area) {
+          area.value = data.template;
           updateTemplatePreview();
         }
       } catch (err) {
@@ -2798,11 +2816,18 @@
     }
 
     function updateTemplatePreview() {
-      const val = document.getElementById('template-textarea').value || '';
+      const area = document.getElementById('template-textarea');
+      const preview = document.getElementById('template-live-preview');
+      if (!area || !preview) return;
+      const val = area.value || '';
+      const sampleUrl = (window.location && window.location.origin ? window.location.origin : 'https://wishmaster.vexorait.com') + '/wish/sample123';
       const samplePreview = val
-        .replace(/\{name\}/gi, '<b>Kasun</b>')
-        .replace(/\{link\}/gi, '<span class="text-blue-600 underline">http://127.0.0.1:8000/wish/sample123</span>');
-      document.getElementById('template-live-preview').innerHTML = samplePreview;
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/\{name\}/gi, '<b class="text-slate-900 font-bold">Kasun</b>')
+        .replace(/\{link\}/gi, `<span class="text-emerald-700 underline font-medium font-mono">${sampleUrl}</span>`)
+        .replace(/\{expiry_days\}/gi, '<span class="font-bold text-amber-600">3</span>')
+        .replace(/\{footer\}/gi, '<span class="text-slate-400 text-[11px]">✨ WishMaster Automated Birthday Messenger ✨</span>');
+      preview.innerHTML = samplePreview.replace(/\n/g, '<br>');
     }
 
     function insertTemplatePlaceholder(tag) {
@@ -2817,7 +2842,8 @@
     }
 
     async function saveMessageTemplate() {
-      const template = document.getElementById('template-textarea').value;
+      const area = document.getElementById('template-textarea');
+      const template = area ? area.value : '';
       if (!template.trim()) {
         Swal.fire('Warning', 'Message template cannot be empty.', 'warning');
         return;
@@ -2867,8 +2893,11 @@
         const res = await fetch('/api/message-template/reset', { method: 'POST' });
         const data = await res.json();
         if (data.success) {
-          document.getElementById('template-textarea').value = data.template;
-          updateTemplatePreview();
+          const area = document.getElementById('template-textarea');
+          if (area) {
+            area.value = data.template;
+            updateTemplatePreview();
+          }
           Swal.fire('Reset!', 'Default template restored.', 'success');
         }
       } catch (err) {
