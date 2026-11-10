@@ -15,8 +15,6 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <!-- Socket.IO -->
   <script src="/socket.io/socket.io.js"></script>
-  <!-- Socket.IO -->
-  <script src="/socket.io/socket.io.js"></script>
 
   <style>
     body {
@@ -45,6 +43,7 @@
           <input 
             type="password" 
             id="login-pin" 
+            autocomplete="current-password"
             maxlength="10" 
             placeholder="Enter PIN" 
             class="w-full text-center text-xl tracking-widest px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500"
@@ -434,14 +433,14 @@
       </div>
 
       <!-- 2. Change Admin Password -->
-      <div class="space-y-2 pt-2 border-t border-slate-100">
+      <form onsubmit="event.preventDefault(); changeAdminPin();" class="space-y-2 pt-2 border-t border-slate-100">
         <label class="text-xs font-semibold uppercase text-slate-500 tracking-wider">Change Admin PIN</label>
         <div class="grid grid-cols-2 gap-2">
-          <input type="password" id="current-pin" placeholder="Current PIN" class="px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none">
-          <input type="password" id="new-pin" placeholder="New 4-digit PIN" class="px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none">
+          <input type="password" id="current-pin" autocomplete="current-password" placeholder="Current PIN" class="px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none">
+          <input type="password" id="new-pin" autocomplete="new-password" placeholder="New 4-digit PIN" class="px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none">
         </div>
-        <button onclick="changeAdminPin()" class="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl transition mt-1">Update PIN</button>
-      </div>
+        <button type="submit" class="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl transition mt-1">Update PIN</button>
+      </form>
 
       <!-- 3. Session & Logout Controls -->
       <div class="pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2">
@@ -627,8 +626,8 @@
               <!-- Profile Area Guide Box -->
               <div 
                 id="studio-profile-guide" 
-                class="absolute border-2 border-dashed border-pink-400/70 bg-pink-400/15 pointer-events-none rounded-xl flex items-center justify-center"
-                title="Profile Photo Location"
+                class="absolute border-2 border-dashed border-pink-400/80 bg-pink-400/20 cursor-move select-none rounded-xl flex items-center justify-center z-20 hover:border-pink-500 transition-colors"
+                title="Drag to position Profile Photo"
               >
                 <span class="text-[9px] font-bold text-pink-600 bg-white/90 px-1 rounded shadow-xs uppercase">Photo</span>
               </div>
@@ -699,6 +698,57 @@
             </p>
           </div>
 
+          <!-- Profile Photo Area Panel -->
+          <div class="bg-white p-5 rounded-2xl border border-pink-100 shadow-sm space-y-4">
+            <div class="flex items-center justify-between">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                <i class="fas fa-user-circle text-pink-500"></i> Profile Photo Position & Size
+              </h4>
+              <span id="studio-profile-size-label" class="text-[10px] font-mono font-bold text-pink-600 bg-pink-50 px-2 py-0.5 rounded-md border border-pink-100">400 px</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-[11px] font-semibold text-slate-500 block mb-1">Photo X (px)</label>
+                <div class="relative">
+                  <input 
+                    type="number" 
+                    id="studio-profile-x" 
+                    oninput="onStudioProfileManualChange()" 
+                    class="w-full px-3 py-2 text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  >
+                  <span class="absolute right-3 top-2 text-[10px] text-slate-400 font-mono">px</span>
+                </div>
+              </div>
+
+              <div>
+                <label class="text-[11px] font-semibold text-slate-500 block mb-1">Photo Y (px)</label>
+                <div class="relative">
+                  <input 
+                    type="number" 
+                    id="studio-profile-y" 
+                    oninput="onStudioProfileManualChange()" 
+                    class="w-full px-3 py-2 text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  >
+                  <span class="absolute right-3 top-2 text-[10px] text-slate-400 font-mono">px</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label class="text-[11px] font-semibold text-slate-500 block mb-1">Photo Box Size (px)</label>
+              <input 
+                type="range" 
+                id="studio-profile-size-slider" 
+                min="100" 
+                max="1000" 
+                value="400" 
+                oninput="onStudioProfileSizeSlider(this.value)" 
+                class="w-full accent-pink-500"
+              >
+            </div>
+          </div>
+
           <!-- Typography Panel -->
           <div class="bg-white p-5 rounded-2xl border border-pink-100 shadow-sm space-y-4">
             <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
@@ -707,13 +757,25 @@
 
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="text-[11px] font-semibold text-slate-500 block mb-1">Font Size (px)</label>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="text-[11px] font-semibold text-slate-500">Font Size</label>
+                  <span id="studio-font-size-label" class="text-[10px] font-mono text-pink-600 font-bold">45 px</span>
+                </div>
                 <input 
                   type="number" 
                   id="studio-font-size" 
                   value="45" 
-                  oninput="onStudioTypographyChange()" 
+                  oninput="onStudioFontSizeInput(this.value)" 
                   class="w-full px-3 py-2 text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500"
+                >
+                <input 
+                  type="range" 
+                  id="studio-font-size-slider" 
+                  min="15" 
+                  max="150" 
+                  value="45" 
+                  oninput="onStudioFontSizeSlider(this.value)" 
+                  class="w-full mt-1.5 accent-pink-500"
                 >
               </div>
 
@@ -1125,13 +1187,13 @@
 
         <!-- TAB 3: GATEWAY SETTINGS -->
         <div id="sms-tab-settings" class="space-y-4 hidden">
-          <div class="space-y-3">
+          <form onsubmit="event.preventDefault(); saveSmsSettings();" class="space-y-3">
             <div class="space-y-1">
               <label class="text-xs font-bold text-slate-700 flex items-center justify-between">
                 <span>Text.lk API Token (Bearer Token)</span>
                 <a href="https://app.text.lk" target="_blank" class="text-[10px] text-sky-500 hover:underline">Get Token from app.text.lk <i class="fas fa-external-link-alt"></i></a>
               </label>
-              <input type="password" id="sms-setting-token" placeholder="Paste your Text.lk API Token" class="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500">
+              <input type="password" id="sms-setting-token" autocomplete="off" placeholder="Paste your Text.lk API Token" class="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500">
             </div>
 
             <div class="space-y-1">
@@ -1153,10 +1215,10 @@
               </label>
             </div>
 
-            <button onclick="saveSmsSettings()" class="w-full py-2.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-md transition">
+            <button type="submit" class="w-full py-2.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-md transition">
               Save Text.lk Settings
             </button>
-          </div>
+          </form>
         </div>
 
       </div>
@@ -1943,23 +2005,38 @@
     let isDraggingProfile = false;
     let profileDragOffset = { x: 0, y: 0 };
 
+    function setElemVal(id, val) {
+      const el = document.getElementById(id);
+      if (el) el.value = val;
+    }
+    function setElemText(id, text) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    }
+    function getElemVal(id, def = 0) {
+      const el = document.getElementById(id);
+      return el ? (parseFloat(el.value) || def) : def;
+    }
+
     function loadStudioStyleDetails(styleId) {
       const style = studioData.frameStyles?.[styleId];
       if (!style) return;
 
       const img = document.getElementById('studio-frame-img');
-      img.src = style.framePath.startsWith('/') ? style.framePath : `/${style.framePath}`;
+      if (img && style.framePath) {
+        img.src = style.framePath.startsWith('/') ? style.framePath : `/${style.framePath}`;
+      }
 
       // Populate text coordinates
       const text = style.text || {};
       const fSize = text.fontSize || '45';
-      document.getElementById('studio-font-size').value = fSize;
-      document.getElementById('studio-font-size-slider').value = fSize;
-      document.getElementById('studio-font-size-label').textContent = `${fSize} px`;
+      setElemVal('studio-font-size', fSize);
+      setElemVal('studio-font-size-slider', fSize);
+      setElemText('studio-font-size-label', `${fSize} px`);
 
       const colorVal = text.color || '#000000';
-      document.getElementById('studio-color-picker').value = colorVal.startsWith('#') ? colorVal : '#000000';
-      document.getElementById('studio-color-hex').value = colorVal;
+      setElemVal('studio-color-picker', colorVal.startsWith('#') ? colorVal : '#000000');
+      setElemVal('studio-color-hex', colorVal);
       
       // Parse rotation from rotation or transform
       let rot = text.rotation || 0;
@@ -1967,22 +2044,23 @@
         const m = text.transform.match(/rotate\(([-\d.]+)/);
         if (m) rot = parseFloat(m[1]);
       }
-      document.getElementById('studio-rotation').value = rot;
+      setElemVal('studio-rotation', rot);
 
       // Populate profile coordinates
       const prof = style.profile || { width: 400, height: 400, left: 100, top: 100 };
       const pSize = prof.width || 400;
-      document.getElementById('studio-profile-size-slider').value = pSize;
-      document.getElementById('studio-profile-size-label').textContent = `${pSize} px`;
-      document.getElementById('studio-profile-x').value = prof.left || 100;
-      document.getElementById('studio-profile-y').value = prof.top || 100;
+      setElemVal('studio-profile-size-slider', pSize);
+      setElemText('studio-profile-size-label', `${pSize} px`);
+      setElemVal('studio-profile-x', prof.left || 100);
+      setElemVal('studio-profile-y', prof.top || 100);
     }
 
     function onStudioImageLoaded() {
       const img = document.getElementById('studio-frame-img');
+      if (!img) return;
       studioImgNatural.width = img.naturalWidth || 1080;
       studioImgNatural.height = img.naturalHeight || 1080;
-      document.getElementById('studio-res-indicator').textContent = `${studioImgNatural.width} x ${studioImgNatural.height} px`;
+      setElemText('studio-res-indicator', `${studioImgNatural.width} x ${studioImgNatural.height} px`);
 
       const style = studioData.frameStyles?.[activeStudioStyleId];
       if (!style) return;
@@ -2008,8 +2086,8 @@
         actualY = parseFloat(text.y);
       }
 
-      document.getElementById('studio-coord-x').value = Math.round(actualX);
-      document.getElementById('studio-coord-y').value = Math.round(actualY);
+      setElemVal('studio-coord-x', Math.round(actualX));
+      setElemVal('studio-coord-y', Math.round(actualY));
 
       updateBadgePositionFromCoords(actualX, actualY);
       applyTypographyStyles();
@@ -2017,6 +2095,7 @@
 
     function updateBadgePositionFromCoords(actualX, actualY) {
       const badge = document.getElementById('studio-draggable-badge');
+      if (!badge || !studioImgNatural.width || !studioImgNatural.height) return;
       const pctX = (actualX / studioImgNatural.width) * 100;
       const pctY = (actualY / studioImgNatural.height) * 100;
       badge.style.left = `${pctX}%`;
@@ -2025,44 +2104,46 @@
 
     function updateProfilePositionAndSize(left, top, width, height) {
       const profGuide = document.getElementById('studio-profile-guide');
-      const pLeftPct = (left / studioImgNatural.width) * 100;
-      const pTopPct = (top / studioImgNatural.height) * 100;
-      const pWidthPct = (width / studioImgNatural.width) * 100;
-      const pHeightPct = (height / studioImgNatural.height) * 100;
+      if (profGuide && studioImgNatural.width && studioImgNatural.height) {
+        const pLeftPct = (left / studioImgNatural.width) * 100;
+        const pTopPct = (top / studioImgNatural.height) * 100;
+        const pWidthPct = (width / studioImgNatural.width) * 100;
+        const pHeightPct = (height / studioImgNatural.height) * 100;
 
-      profGuide.style.left = `${pLeftPct}%`;
-      profGuide.style.top = `${pTopPct}%`;
-      profGuide.style.width = `${pWidthPct}%`;
-      profGuide.style.height = `${pHeightPct}%`;
+        profGuide.style.left = `${pLeftPct}%`;
+        profGuide.style.top = `${pTopPct}%`;
+        profGuide.style.width = `${pWidthPct}%`;
+        profGuide.style.height = `${pHeightPct}%`;
+      }
 
-      document.getElementById('studio-profile-x').value = Math.round(left);
-      document.getElementById('studio-profile-y').value = Math.round(top);
+      setElemVal('studio-profile-x', Math.round(left));
+      setElemVal('studio-profile-y', Math.round(top));
     }
 
     function onStudioProfileSizeSlider(val) {
       const size = parseFloat(val) || 400;
-      document.getElementById('studio-profile-size-label').textContent = `${size} px`;
-      const left = parseFloat(document.getElementById('studio-profile-x').value) || 0;
-      const top = parseFloat(document.getElementById('studio-profile-y').value) || 0;
+      setElemText('studio-profile-size-label', `${size} px`);
+      const left = getElemVal('studio-profile-x', 0);
+      const top = getElemVal('studio-profile-y', 0);
       updateProfilePositionAndSize(left, top, size, size);
     }
 
     function onStudioProfileManualChange() {
-      const left = parseFloat(document.getElementById('studio-profile-x').value) || 0;
-      const top = parseFloat(document.getElementById('studio-profile-y').value) || 0;
-      const size = parseFloat(document.getElementById('studio-profile-size-slider').value) || 400;
+      const left = getElemVal('studio-profile-x', 0);
+      const top = getElemVal('studio-profile-y', 0);
+      const size = getElemVal('studio-profile-size-slider', 400);
       updateProfilePositionAndSize(left, top, size, size);
     }
 
     function onStudioFontSizeSlider(val) {
-      document.getElementById('studio-font-size').value = val;
-      document.getElementById('studio-font-size-label').textContent = `${val} px`;
+      setElemVal('studio-font-size', val);
+      setElemText('studio-font-size-label', `${val} px`);
       applyTypographyStyles();
     }
 
     function onStudioFontSizeInput(val) {
-      document.getElementById('studio-font-size-slider').value = val;
-      document.getElementById('studio-font-size-label').textContent = `${val} px`;
+      setElemVal('studio-font-size-slider', val);
+      setElemText('studio-font-size-label', `${val} px`);
       applyTypographyStyles();
     }
 
@@ -2089,20 +2170,22 @@
     }
 
     function applyTypographyStyles() {
-      const color = document.getElementById('studio-color-hex').value || '#000000';
-      const rot = parseFloat(document.getElementById('studio-rotation').value) || 0;
-      const fontSize = parseFloat(document.getElementById('studio-font-size').value) || 45;
+      const color = document.getElementById('studio-color-hex')?.value || '#000000';
+      const rot = parseFloat(document.getElementById('studio-rotation')?.value) || 0;
+      const fontSize = parseFloat(document.getElementById('studio-font-size')?.value) || 45;
       const badgeText = document.getElementById('studio-badge-text');
       const badge = document.getElementById('studio-draggable-badge');
 
-      badgeText.style.color = color;
-      badge.style.transform = `translate(-50%, -50%) rotate(${rot}deg)`;
+      if (badgeText) badgeText.style.color = color;
+      if (badge) badge.style.transform = `translate(-50%, -50%) rotate(${rot}deg)`;
       
       // Dynamic preview scale for text based on frame resolution
       const container = document.getElementById('studio-canvas-container');
-      const scale = (container.clientWidth || 380) / studioImgNatural.width;
-      const previewFontSize = Math.max(10, Math.round(fontSize * scale));
-      badgeText.style.fontSize = `${previewFontSize}px`;
+      if (container && studioImgNatural.width) {
+        const scale = (container.clientWidth || 380) / studioImgNatural.width;
+        const previewFontSize = Math.max(10, Math.round(fontSize * scale));
+        if (badgeText) badgeText.style.fontSize = `${previewFontSize}px`;
+      }
     }
 
     // Drag-and-Drop Event Listeners for BOTH Name Badge and Profile Box
@@ -2155,8 +2238,8 @@
           const actualX = Math.round((pctX / 100) * studioImgNatural.width);
           const actualY = Math.round((pctY / 100) * studioImgNatural.height);
 
-          document.getElementById('studio-coord-x').value = actualX;
-          document.getElementById('studio-coord-y').value = actualY;
+          setElemVal('studio-coord-x', actualX);
+          setElemVal('studio-coord-y', actualY);
         }
 
         if (isDraggingProfile) {
@@ -2175,8 +2258,8 @@
           const actualX = Math.round((pctX / 100) * studioImgNatural.width);
           const actualY = Math.round((pctY / 100) * studioImgNatural.height);
 
-          document.getElementById('studio-profile-x').value = actualX;
-          document.getElementById('studio-profile-y').value = actualY;
+          setElemVal('studio-profile-x', actualX);
+          setElemVal('studio-profile-y', actualY);
         }
       }
 
@@ -2201,15 +2284,15 @@
     }
 
     async function saveStudioCoordinates() {
-      const x = document.getElementById('studio-coord-x').value;
-      const y = document.getElementById('studio-coord-y').value;
-      const fontSize = document.getElementById('studio-font-size').value;
-      const color = document.getElementById('studio-color-hex').value;
-      const rotation = parseFloat(document.getElementById('studio-rotation').value) || 0;
+      const x = document.getElementById('studio-coord-x')?.value || '540';
+      const y = document.getElementById('studio-coord-y')?.value || '900';
+      const fontSize = document.getElementById('studio-font-size')?.value || '45';
+      const color = document.getElementById('studio-color-hex')?.value || '#000000';
+      const rotation = getElemVal('studio-rotation', 0);
 
-      const profX = parseFloat(document.getElementById('studio-profile-x').value) || 0;
-      const profY = parseFloat(document.getElementById('studio-profile-y').value) || 0;
-      const profSize = parseFloat(document.getElementById('studio-profile-size-slider').value) || 400;
+      const profX = getElemVal('studio-profile-x', 0);
+      const profY = getElemVal('studio-profile-y', 0);
+      const profSize = getElemVal('studio-profile-size-slider', 400);
 
       Swal.fire({
         title: 'Saving coordinates & layout to Database...',
