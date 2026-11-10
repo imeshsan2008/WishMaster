@@ -11,9 +11,16 @@ const { getBirthdayLogs, clearOldRetries } = require('../services/birthday.servi
 const { getFestiveLogs } = require('../services/festive.service');
 const { isDbConnected } = require('../config/db');
 
-function getSystemStatus(req, res) {
+async function getSystemStatus(req, res) {
   const sock = getSocket();
-  const googleLinked = fs.existsSync(PATHS.TOKEN);
+  const { loadTokenAsync } = require('../config/google.config');
+  let googleLinked = fs.existsSync(PATHS.TOKEN);
+  if (!googleLinked) {
+    try {
+      const token = await loadTokenAsync();
+      googleLinked = !!token;
+    } catch (e) {}
+  }
   const rawId = sock?.user?.id || getLinkedNumber() || '';
   const cleanNumber = rawId.split('@')[0].split(':')[0].replace(/\D/g, '');
 
