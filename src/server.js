@@ -25,30 +25,41 @@ io.on('connection', (socket) => {
 });
 
 // Start Server & Subsystems
-server.listen(PORT, async () => {
-  console.log(`🚀 WishMaster ${BOT_VERSION} running on port ${PORT}`);
+function startServer() {
+  return new Promise((resolve, reject) => {
+    server.listen(PORT, async () => {
+      console.log(`🚀 WishMaster ${BOT_VERSION} running on port ${PORT}`);
 
-  // Initialize Supabase Database
-  try {
-    await initDatabase();
-  } catch (err) {
-    console.error('⚠️ Database init error:', err.message);
-  }
+      // Initialize Supabase Database
+      try {
+        await initDatabase();
+      } catch (err) {
+        console.error('⚠️ Database init error:', err.message);
+      }
 
-  // Initialize scheduled tasks with real-time Socket.IO sync
-  initCronJobs(io);
+      // Initialize scheduled tasks with real-time Socket.IO sync
+      initCronJobs(io);
 
-  // Initialize Keep-Alive Heartbeat
-  initHeartbeat();
+      // Initialize Keep-Alive Heartbeat
+      initHeartbeat();
 
-  // Start WhatsApp Baileys Bot
-  try {
-    await startBot();
-    console.log('🤖 WhatsApp Bot initialized');
-  } catch (err) {
-    console.error('❌ Failed to start WhatsApp Bot:', err.message || err);
-  }
-});
+      // Start WhatsApp Baileys Bot
+      try {
+        await startBot();
+        console.log('🤖 WhatsApp Bot initialized');
+      } catch (err) {
+        console.error('❌ Failed to start WhatsApp Bot:', err.message || err);
+      }
+
+      resolve(server);
+    });
+
+    server.on('error', (err) => {
+      console.error('❌ Server startup error:', err);
+      reject(err);
+    });
+  });
+}
 
 // Graceful shutdown handling
 function shutdown(signal) {
@@ -67,4 +78,8 @@ function shutdown(signal) {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
-module.exports = server;
+module.exports = {
+  server,
+  io,
+  startServer
+};

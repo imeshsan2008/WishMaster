@@ -4,9 +4,15 @@
  */
 
 require('dotenv').config();
-const { startServer } = require('./src/server');
+const serverModule = require('./src/server');
 
-startServer().catch(err => {
-  console.error('Fatal application error:', err);
-  process.exit(1);
-});
+const start = typeof serverModule.startServer === 'function' 
+  ? serverModule.startServer 
+  : (typeof serverModule === 'function' ? serverModule : null);
+
+if (start) {
+  start().catch(err => {
+    console.error('Fatal application error:', err);
+    process.exit(1);
+  });
+}
