@@ -1,5 +1,30 @@
-node_modules
-whatsapp_auth
+node_modules/
+whatsapp_auth/
+files/Contacts.json
+*.log
+firebase-debug.log
+birthday_log.json
+skills-lock.json
+.DS_Store
+
+# Sensitive environment variables & API keys
+.env
+.env.*
+!.env.example
+
+# WhatsApp authentication credentials & session files
+*creds.json
+**/whatsapp_auth/
+**/session/
+sent_proto_cache.json
+files/sent_proto_cache.json
+
+# Google OAuth credentials & tokens
 files/credentials.json
 files/token.json
-files/Contacts.json
+credentials.json
+token.json
+
+# Generated wishes images & temporary assets
+assets/img/wishes/
+.agents/

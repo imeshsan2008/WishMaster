@@ -30,7 +30,7 @@
         "y": "1198.65",
         "fontSize": "45",
         "color": "#8a1817",
-        "fonturl":"https://github.com/imeshsan2008/project_fonts/blob/339510843e81f66b8b5f49978b7734cf7a116e3a/Gotham-MediumItalic.otf",
+        "fonturl": "https://github.com/imeshsan2008/project_fonts/blob/339510843e81f66b8b5f49978b7734cf7a116e3a/Gotham-MediumItalic.otf",
         "fontFamily": "Gotham, sans-serif",
         "transform": "rotate(-90deg, 535.50, 1198.65)"
       }
@@ -46,9 +46,9 @@
       "text": {
         "x": "624",
         "y": "1263",
-        "fontSize": "45",
+        "fontSize": "48",
         "color": "#19100c",
-         "fonturl":"https://github.com/imeshsan2008/project_fonts/blob/339510843e81f66b8b5f49978b7734cf7a116e3a/Magnolia%20Script.otf",
+        "fonturl": "https://github.com/imeshsan2008/project_fonts/blob/339510843e81f66b8b5f49978b7734cf7a116e3a/Magnolia%20Script.otf",
         "fontFamily": "Magnolia Script, sans-serif"
       }
     },
@@ -67,7 +67,7 @@
         "fontSize": "45",
         "rotation": 0,
         "color": "#000",
-        "fonturl":"https://github.com/imeshsan2008/project_fonts/blob/339510843e81f66b8b5f49978b7734cf7a116e3a/Magnolia%20Script.otf",
+        "fonturl": "https://github.com/imeshsan2008/project_fonts/blob/339510843e81f66b8b5f49978b7734cf7a116e3a/Magnolia%20Script.otf",
         "fontFamily": "Magnolia Script, sans-serif"
       }
     },

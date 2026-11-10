@@ -1,690 +1,3298 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>WishMaster</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WishMaster - Automated Birthday & Festive Manager</title>
   <link rel="icon" href="/assets/img/logo.png" type="image/png">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- SweetAlert2 -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <!-- Socket.IO -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- Socket.IO -->
+  <script src="/socket.io/socket.io.js"></script>
 
   <style>
-    body { background-color: #fefaf2; }
-    .birthday-card img { width: 70px; height: 70px; object-fit: cover; }
-    .today-pill { font-size:.75rem; padding:.25rem .5rem; border-radius:999px; }
-    .section-header { position: sticky; top: 0; z-index: 1; }
-    .status-bar { position: sticky; top: 0; z-index: 5; background: #fffbe9; border: 1px solid rgba(0,0,0,.05); }
-    .wa-avatar { width: 100px; height: 100px; object-fit: cover; border-radius: 50%; cursor: pointer; }
-    .qr-box img { width: 140px; height: 140px; }
-    .small-note { font-size: .8rem; color: #6c757d; }
-    .container{
-      display: none;
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: #fdfbf7;
+      color: #334155;
     }
-    .container_setup{
-      display: block;
-      margin:0 auto ;
-      width:fit-content;
-      
-      
+    .font-cursive {
+      font-family: 'Dancing Script', cursive;
     }
-    .setup_img{
-      width:150px;
-      height:150px;
-      
-position: relative;
-    
-margin: 0 auto;
-}
-.img_div{
-  text-align: center;
-}
-#gogle_sta{
-  color: #fff;
-  font-size: 15px;
-  font-weight: bold;
-background-color: green;
-}
   </style>
 </head>
-<body><div class="container_setup my-4">
-<div class="card" style="width: 600px; ">
-  <div class="card-body">
-    <h5 class="img_div"><img class="setup_img" src="./assets/img/logo.png" alt=""></h5>
-  </div>
-<center class="card-body">
-  <div class="step_1">  <h3 >Welcome to WishMaster!</h3>
-    <p >To get started, please log in to your Google account to access your contacts and birthdays.</p>
-    <a href="/contacts" class="btn btn-primary btn-lg">Log in with Google</a></div>
-    <div class="step_2">  <h3 >Welcome to WishMaster!</h3>
-          <p>Google Account : <span id="gogle_sta"></span></p>
+<body class="min-h-screen flex flex-col bg-[#fdfbf7]">
 
-    <p >To get started, please Link in to your Whatsapp account </p>
-      <p>Status: <span id="status">loading...</span></p>
-        <p>Linked: <span id="linknum">none</span></p>
- 
-   
-          <img id="qr" src="" width="300" alt="QR Code will appear here" />
+  <!-- ======================== ADMIN LOGIN MODAL ======================== -->
+  <div id="login-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 hidden">
+    <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-pink-100 text-center animate-fade-in">
+      <div class="w-16 h-16 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-4 text-pink-600 text-2xl shadow-inner">
+        <i class="fas fa-lock"></i>
+      </div>
+      <h2 class="text-2xl font-bold text-slate-800">Admin Login</h2>
+      <p class="text-xs text-slate-500 mt-1 mb-6">Enter your 4-digit PIN to access WishMaster</p>
+
+      <form id="admin-login-form" onsubmit="handleLogin(event)" class="space-y-4">
+        <div>
+          <input 
+            type="password" 
+            id="login-pin" 
+            maxlength="10" 
+            placeholder="Enter PIN (Default: 1224)" 
+            class="w-full text-center text-xl tracking-widest px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500"
+            required
+            autofocus
+          />
+        </div>
+        <button type="submit" class="w-full py-3 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-semibold rounded-xl shadow-lg transition">
+          Unlock Dashboard
+        </button>
+      </form>
+    </div>
+  </div>
+
+  
+  </div>
+
+  <!-- ======================== SECRET LETTERS MANAGER MODAL ======================== -->
+  <div id="secret-letters-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-pink-100 overflow-hidden animate-fade-in">
+      
+      <!-- Header -->
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center text-lg">
+            <i class="fas fa-envelope-open-text"></i>
           </div>
-          <br>
-  </div>
-  </center>
-  
-</div>
-</div>
-<div class="container my-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-base sm:text-lg font-bold text-slate-800">Secret Birthday Letters</h3>
+              <span id="letters-pool-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 uppercase tracking-wide">
+                Rotating Pool
+              </span>
+            </div>
+            <p class="text-xs text-slate-400">Heartfelt letters for the surprise page that cycle one-by-one per recipient</p>
+          </div>
+        </div>
 
-  <!-- Status Bar -->
-  <div class="status-bar rounded-3 p-3 mb-3 d-flex align-items-center justify-content-between">
-    <div class="d-flex align-items-center gap-3">
-  <center class="mb-3"><img src="/assets/img/logo.png" alt="WishMaster" style="width: 100px; height: 100px;"></center>
-
-      <!-- WhatsApp block -->
-
-      <div id="wa-block" class="d-flex align-items-center gap-2">
-        <a onclick="sendBirthday()" class="btn btn-primary">Send Birthday</a>
-        <a href="/festive" class="btn btn-outline-danger">Switch to Festive Mode</a>
-
-        <span class="badge text-bg-success d-none" id="wa-linked">WhatsApp: Linked</span>
-        <span class="badge text-bg-warning d-none" id="wa-not-linked">WhatsApp: Not linked</span>
- 
+        <button onclick="closeSecretLettersModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+          <i class="fas fa-times text-lg"></i>
+        </button>
       </div>
 
-      <!-- Google block -->
-      <div id="google-block" class="d-flex align-items-center gap-2">
-        <span class="badge text-bg-info d-none" id="google-linked">Google: Connected</span>
-        <span class="badge text-bg-secondary d-none" id="google-not-linked">Google: Not connected</span>
+      <!-- Action Toolbar -->
+      <div class="px-6 py-3 border-b border-slate-100 bg-white flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <button onclick="addNewSecretLetter()" class="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-1.5">
+            <i class="fas fa-plus"></i>
+            <span>Add New Letter</span>
+          </button>
+          <button onclick="toggleJsonImportBox()" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center gap-1.5">
+            <i class="fas fa-code"></i>
+            <span>Import / Paste JSON</span>
+          </button>
         </div>
-    </div>       
-     <img id="wa-avatar" class="wa-avatar " srcset="/assets/img/default_avatar.png" alt="WA"  title="Open WhatsApp profile"/>
 
-  </div>
+        <div class="flex items-center gap-2">
+          <button onclick="saveAllSecretLetters()" class="px-4 py-1.5 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5">
+            <i class="fas fa-save"></i>
+            <span>Save All to Database</span>
+          </button>
+        </div>
+      </div>
 
-    <button id="btn-refresh" class="btn btn-sm btn-outline-primary">Refresh</button>
+      <!-- Optional JSON Import Box (Collapsible) -->
+      <div id="json-import-container" class="hidden px-6 py-4 bg-purple-50/50 border-b border-purple-100 space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-purple-800 flex items-center gap-1.5">
+            <i class="fas fa-file-import text-purple-600"></i> Paste JSON Array of Letters
+          </span>
+          <span class="text-[11px] text-slate-500">Supports: <code>["letter text 1", "letter text 2"]</code> or <code>[{"title": "...", "text": "..."}]</code></span>
+        </div>
+        <textarea id="json-import-textarea" rows="4" placeholder='[\n  "Wishing you an incredible year ahead filled with happiness and health...",\n  "Happy Birthday! May all your dreams and wishes bloom into reality..."\n]' class="w-full px-3.5 py-2.5 text-xs font-mono bg-white border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400"></textarea>
+        <div class="flex justify-end gap-2">
+          <button onclick="toggleJsonImportBox()" class="px-3 py-1 bg-slate-200 text-slate-600 text-xs font-semibold rounded-lg">Cancel</button>
+          <button onclick="submitJsonImport()" class="px-4 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg shadow">Import & Sync</button>
+        </div>
+      </div>
 
-  <!-- Birthday Card -->
-  <div class="card mt-2">
-    <div class="card-header">
-      <h4 id="birthday-count" class="m-0">Upcoming Birthdays (0)</h4>
+      <!-- Letters Scrollable List -->
+      <div class="flex-grow overflow-y-auto p-4 sm:p-6 space-y-4 bg-[#faf7f5]">
+        <div id="secret-letters-list" class="space-y-4">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
     </div>
-    <ul class="list-group list-group-flush" id="birthday-list">
-    </ul>
   </div>
-</div>
 
-<!-- WhatsApp Profile Modal -->
-<div class="modal fade" id="waProfileModal" tabindex="-1" aria-hidden="true" >
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-body text-center p-4">
-         <div class="card-body p-2 text-center d-none" id="qr-card">
-         
-            <img id="wa-qr" src="" alt="Scan QR"/>
-            <div class="small-note  mt-1" id="s-s">Scan with WhatsApp to link</div>
-<div id="qr-timer"></div>
-           </div>
-     <img id="wa-modal-photo" src="" class="rounded-circle mb-3" alt="WhatsApp Profile" style="width: 100%; height: auto; max-width: 200px; max-height: 200px; object-fit: cover;" >
-        <h5 id="wa-modal-name"></h5>
-        <p class="text-muted" id="wa-modal-id"></p>
-        <div class="d-grid gap-2 mt-3">
-          <button id="btn-reset" class="btn btn-outline-danger" onclick="reset()">Reset Settings</button>
+  
+  </div>
+
+  <!-- ======================== TOP NAVIGATION ======================== -->
+  <header class="bg-white/80 backdrop-blur-md border-b border-pink-100 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      
+      <div class="flex items-center gap-3">
+        <img src="/assets/img/logo.png" alt="WishMaster" class="w-12 h-12 object-contain rounded-xl p-1 bg-pink-50 border border-pink-200">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-pink-600">WishMaster v4.0</span>
+          <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            Birthday Dashboard <span class="text-xs px-2 py-0.5 rounded-full bg-pink-100 text-pink-700 font-medium">Surprise Web Page Edition</span>
+          </h1>
+        </div>
+      </div>
+
+      <!-- Action buttons & badges -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <button onclick="triggerBirthdayCheck()" class="px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-md transition flex items-center gap-2">
+          <i class="fas fa-paper-plane"></i>
+          <span class="hidden sm:inline">Send Today's Wishes</span>
+          <span class="sm:hidden">Send</span>
+        </button>
+
+        <a href="/festive" class="px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs sm:text-sm font-semibold rounded-xl border border-purple-200 transition flex items-center gap-1.5">
+          <i class="fas fa-holly-berry text-purple-600"></i>
+          <span class="hidden md:inline">Festive Mode</span>
+        </a>
+
+        <button onclick="openFrameStudioModal()" class="px-3 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-md transition flex items-center gap-1.5" title="Customize frame templates & drag name coordinates">
+          <i class="fas fa-magic"></i>
+          <span class="hidden md:inline">Frame Studio</span>
+        </button>
+
+        <button onclick="openSecretLettersModal()" class="px-3 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-md transition flex items-center gap-1.5" title="Manage rotating secret letters & import JSON">
+          <i class="fas fa-envelope-open-text"></i>
+          <span class="hidden md:inline">Secret Letters</span>
+        </button>
+
+        <button onclick="openMessageTemplateModal()" class="px-3 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-md transition flex items-center gap-1.5" title="Customize automated WhatsApp birthday invitation message">
+          <i class="fas fa-comment-dots"></i>
+          <span class="hidden md:inline">Message Template</span>
+        </button>
+
+        <button onclick="openSmsCenterModal()" class="px-3 py-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-md transition flex items-center gap-1.5" title="Text.lk SMS Gateway & Credit History">
+          <i class="fas fa-sms text-sm"></i>
+          <span class="hidden md:inline">SMS Center</span>
+          <span id="badge-sms-monthly" class="ml-1 px-1.5 py-0.2 bg-white/25 rounded-full text-[10px] font-mono">0</span>
+        </button>
+
+        <button onclick="openBackupModal()" class="px-3 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-md transition flex items-center gap-1.5" title="Export / Import Full System Backup (.ZIP)">
+          <i class="fas fa-file-archive text-sm"></i>
+          <span class="hidden md:inline">Backup (.ZIP)</span>
+        </button>
+
+        <button onclick="openSettingsModal()" class="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition" title="Settings">
+          <i class="fas fa-cog"></i>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ======================== MAIN CONTAINER ======================== -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow space-y-8">
+
+    <!-- STATUS BARS / METRICS -->
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      
+      <!-- Google Status Card -->
+      <div class="bg-white p-4 rounded-2xl border border-pink-100 shadow-sm flex items-center gap-3">
+        <div id="google-icon" class="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600 text-lg">
+          <i class="fab fa-google"></i>
+        </div>
+        <div>
+          <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Google Contacts</div>
+          <div id="google-status-text" class="text-sm font-bold text-slate-700">Checking...</div>
+        </div>
+      </div>
+
+      <!-- WhatsApp Status Card -->
+      <div class="bg-white p-4 rounded-2xl border border-pink-100 shadow-sm flex items-center gap-3">
+        <div id="wa-icon" class="w-10 h-10 rounded-xl flex items-center justify-center bg-green-50 text-green-600 text-lg">
+          <i class="fab fa-whatsapp"></i>
+        </div>
+        <div>
+          <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">WhatsApp Bot</div>
+          <div id="wa-status-text" class="text-sm font-bold text-slate-700">Checking...</div>
+        </div>
+      </div>
+
+      <!-- Supabase DB Status Card -->
+      <div class="bg-white p-4 rounded-2xl border border-pink-100 shadow-sm flex items-center gap-3">
+        <div id="db-icon" class="w-10 h-10 rounded-xl flex items-center justify-center bg-emerald-50 text-emerald-600 text-lg">
+          <i class="fas fa-database"></i>
+        </div>
+        <div>
+          <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Supabase DB</div>
+          <div id="db-status-text" class="text-sm font-bold text-slate-700">Checking...</div>
+        </div>
+      </div>
+
+      <!-- 7-Day Active Wishes Card -->
+      <div class="bg-white p-4 rounded-2xl border border-pink-100 shadow-sm flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-amber-50 text-amber-600 text-lg">
+          <i class="fas fa-gift"></i>
+        </div>
+        <div>
+          <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Active 7-Day Wishes</div>
+          <div id="active-wishes-count" class="text-sm font-bold text-slate-700">0 sent</div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ONBOARDING SETUP WIZARD (Visible if unlinked) -->
+    <section id="setup-section" class="bg-white p-6 rounded-3xl border border-pink-200 shadow-md hidden">
+      <div class="max-w-xl mx-auto text-center space-y-4">
+        <div class="w-16 h-16 bg-pink-100 rounded-full flex items-center justify-center mx-auto text-pink-500 text-2xl shadow-inner">
+          <i class="fas fa-qrcode"></i>
+        </div>
+        <h3 class="text-xl font-bold text-slate-800">WhatsApp Pairing Setup</h3>
+        <p class="text-xs text-slate-500">Scan this QR code from WhatsApp on your phone to link WishMaster</p>
+
+        <div class="flex justify-center p-4 bg-slate-50 rounded-2xl border border-slate-100 max-w-xs mx-auto">
+          <img id="qr-code-img" src="" alt="WhatsApp QR Code" class="w-60 h-60 object-contain rounded-xl">
+        </div>
+        <p id="pairing-status-note" class="text-xs text-slate-400">Waiting for QR code generation...</p>
+      </div>
+    </section>
+
+    <!-- ======================== SECTION: ACTIVE 7-DAY WISHES TRACKING ======================== -->
+    <section class="bg-white rounded-3xl border border-pink-100 shadow-sm overflow-hidden">
+      <div class="p-6 border-b border-pink-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-rose-500 bg-rose-50 px-2.5 py-1 rounded-full">Web Wishes & View Tracking</span>
+          <h2 class="text-lg font-bold text-slate-800 mt-1">Active Wishes Sent in Last 7 Days</h2>
+          <p class="text-xs text-slate-400">Tracks when recipients open their unique surprise web page link. Automatically clears after 7 days.</p>
+        </div>
+
+        <button onclick="loadActiveWishes()" class="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-medium rounded-xl border border-slate-200 transition flex items-center gap-1.5 self-start sm:self-auto">
+          <i class="fas fa-sync-alt"></i> Refresh Wishes
+        </button>
+      </div>
+
+      <!-- Active wishes list -->
+      <div class="p-6">
+        <div id="active-wishes-list" class="divide-y divide-slate-100">
+          <div class="text-center py-8 text-slate-400 text-xs">Loading active wishes...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================== SECTION: CONTACTS & BIRTHDAYS ======================== -->
+    <section class="bg-white rounded-3xl border border-pink-100 shadow-sm overflow-hidden">
+      <div class="p-6 border-b border-pink-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-pink-600 bg-pink-50 px-2.5 py-1 rounded-full">Google Contacts</span>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-semibold border border-emerald-200">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              Real-time Live Sync
+            </span>
+          </div>
+          <h2 id="contacts-heading" class="text-lg font-bold text-slate-800 mt-1">Upcoming Birthdays (0)</h2>
+          <p class="text-xs text-slate-400">Contacts synced in real-time from your connected Google Account</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="syncContactsToSupabase()" class="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-xl border border-emerald-200 transition flex items-center gap-1.5" title="Force sync latest Google Contacts to Supabase Database">
+            <i class="fas fa-cloud-upload-alt"></i> Sync with Supabase
+          </button>
+          <button onclick="loadContacts(true)" class="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-medium rounded-xl border border-slate-200 transition flex items-center gap-1.5" title="Fetch fresh contacts live from Google">
+            <i class="fas fa-redo"></i> Live Sync Now
+          </button>
+        </div>
+      </div>
+
+      <!-- Contacts Area: Today's Birthdays (Separated) & Upcoming Birthdays -->
+      <div class="p-6 space-y-6">
+        
+        <!-- SECTION 1: TODAY'S BIRTHDAYS (SEPARATE & PROMINENT) -->
+        <div id="today-birthdays-section" class="p-5 bg-gradient-to-r from-pink-50 via-rose-50 to-purple-50 rounded-2xl border-2 border-pink-300 shadow-sm space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-pink-200/60">
+            <div class="flex items-center gap-2.5">
+              <span class="w-9 h-9 rounded-xl bg-gradient-to-tr from-pink-500 to-rose-500 text-white flex items-center justify-center text-base shadow">🎂</span>
+              <div>
+                <h3 class="text-sm font-bold text-[#831843] uppercase tracking-wider flex items-center gap-2">
+                  <span>Today's Birthdays</span>
+                  <span id="today-birthdays-badge" class="px-2.5 py-0.5 bg-rose-500 text-white text-[10px] font-bold rounded-full animate-pulse font-mono">0 Today</span>
+                </h3>
+                <p id="today-date-text" class="text-[11px] text-pink-700/80 font-medium">Birthdays happening right now today</p>
+              </div>
+            </div>
+            
+            <button id="btn-send-all-today" onclick="triggerBirthdayCheck()" class="hidden px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white text-xs font-bold rounded-xl shadow-md hover:shadow-lg transition flex items-center gap-1.5 self-start sm:self-auto">
+              <i class="fas fa-paper-plane"></i>
+              <span>Send All Today's Wishes</span>
+            </button>
+          </div>
+
+          <div id="today-birthdays-list" class="space-y-2.5 pt-1">
+            <div class="py-4 text-center text-slate-400 text-xs italic">Checking today's birthdays...</div>
+          </div>
+        </div>
+
+        <!-- SECTION 2: UPCOMING BIRTHDAYS (NEXT DAYS) -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between pb-1.5 border-b border-slate-100">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+              <i class="fas fa-calendar-alt text-purple-500"></i>
+              <span>Upcoming Birthdays</span>
+              <span id="upcoming-birthdays-count" class="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-full font-mono">0</span>
+            </h3>
+          </div>
+
+          <div id="upcoming-birthdays-list" class="space-y-2.5">
+            <div class="text-center py-6 text-slate-400 text-xs">Loading upcoming birthdays...</div>
+          </div>
+        </div>
+
+        <!-- Legacy container kept for background safety -->
+        <div id="contacts-list" class="hidden"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ======================== SETTINGS MODAL ======================== -->
+  <div id="settings-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 hidden">
+    <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-pink-100 space-y-6">
+      
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <i class="fas fa-sliders-h text-pink-500"></i> Settings & Audio
+        </h3>
+        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600">
+          <i class="fas fa-times text-lg"></i>
+        </button>
+      </div>
+
+      <!-- 1. Song URL & Upload Setting -->
+      <div class="space-y-3">
+        <label class="text-xs font-semibold uppercase text-slate-500 tracking-wider flex items-center justify-between">
+          <span>Birthday Celebration Song</span>
+          <span class="text-[10px] text-pink-600 font-bold bg-pink-50 px-2 py-0.5 rounded-full border border-pink-200">🎵 Audio</span>
+        </label>
+        <p class="text-xs text-slate-400">Audio stream played automatically on page load when recipients open their surprise gift page.</p>
+        
+        <!-- Upload Audio Box -->
+        <div class="p-3 bg-pink-50/50 rounded-2xl border border-pink-100 space-y-2">
+          <label class="block text-[11px] font-bold text-slate-700">Upload New Song / Audio File (.mp3, .ogg, .wav, .m4a)</label>
+          <div class="flex items-center gap-2">
+            <input type="file" id="setting-song-file" accept="audio/*,.mp3,.ogg,.wav,.m4a" class="block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-pink-500 file:text-white hover:file:bg-pink-600 cursor-pointer">
+            <button id="btn-upload-song" onclick="uploadBirthdaySongFile()" class="shrink-0 px-3.5 py-1.5 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white text-xs font-bold rounded-xl shadow transition flex items-center gap-1.5">
+              <i class="fas fa-cloud-upload-alt"></i> Upload
+            </button>
+          </div>
+          <div id="song-upload-progress" class="hidden text-[10px] font-semibold text-pink-600 flex items-center gap-1">
+            <i class="fas fa-spinner fa-spin"></i> Uploading audio file...
+          </div>
+        </div>
+
+        <!-- URL Input & Manual Save -->
+        <div class="space-y-1">
+          <label class="text-[11px] font-semibold text-slate-600">Or Custom Audio URL:</label>
+          <div class="flex gap-2">
+            <input type="text" id="setting-song-url" oninput="updateSettingSongPreview()" placeholder="https://.../song.mp3 or /assets/voice/..." class="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500">
+            <button onclick="saveSongUrl()" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl shadow transition">Save</button>
+          </div>
+        </div>
+
+        <!-- Audio Live Preview Player -->
+        <div class="pt-1">
+          <label class="text-[10px] uppercase font-bold text-slate-400">Audio Preview:</label>
+          <audio id="setting-song-preview" controls class="w-full mt-1 h-8 rounded-lg border border-slate-200 bg-white"></audio>
+        </div>
+      </div>
+
+      <!-- 2. Bot Footer & Link Expiry Settings -->
+      <div class="space-y-3 pt-3 border-t border-slate-100">
+        <label class="text-xs font-semibold uppercase text-slate-500 tracking-wider">General Bot & Link Settings</label>
+        
+        <div class="space-y-1">
+          <label class="text-[11px] font-semibold text-slate-600">Bot Footer Tagline</label>
+          <p class="text-[10px] text-slate-400">Displayed at the bottom of WhatsApp messages and cards.</p>
+          <input type="text" id="setting-bot-footer" placeholder="> WishMaster V4.0" class="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500">
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-[11px] font-semibold text-slate-600">Wish Link Validity Period (Days)</label>
+          <p class="text-[10px] text-slate-400">Number of days before the celebration link expires.</p>
+          <input type="number" id="setting-expiry-days" min="1" max="365" value="7" class="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500">
+        </div>
+
+        <button onclick="saveGeneralSettings()" class="w-full py-2 bg-pink-500 hover:bg-pink-600 text-white text-xs font-semibold rounded-xl shadow transition">Save General Settings</button>
+      </div>
+
+      <!-- 2. Change Admin Password -->
+      <div class="space-y-2 pt-2 border-t border-slate-100">
+        <label class="text-xs font-semibold uppercase text-slate-500 tracking-wider">Change Admin PIN (Currently 1224)</label>
+        <div class="grid grid-cols-2 gap-2">
+          <input type="password" id="current-pin" placeholder="Current PIN" class="px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none">
+          <input type="password" id="new-pin" placeholder="New 4-digit PIN" class="px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none">
+        </div>
+        <button onclick="changeAdminPin()" class="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl transition mt-1">Update PIN</button>
+      </div>
+
+      <!-- 3. Session & Logout Controls -->
+      <div class="pt-4 border-t border-slate-100 flex flex-wrap gap-2">
+        <button onclick="logoutWhatsApp()" class="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold rounded-xl transition">
+          <i class="fab fa-whatsapp mr-1"></i> Logout WhatsApp
+        </button>
+        <button onclick="logoutGoogle()" class="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold rounded-xl transition">
+          <i class="fab fa-google mr-1"></i> Logout Google
+        </button>
+        <button onclick="adminLogout()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition ml-auto">
+          <i class="fas fa-sign-out-alt mr-1"></i> Lock UI
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  
+  </div>
+
+  <!-- ======================== SECRET LETTERS MANAGER MODAL ======================== -->
+  <div id="secret-letters-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-pink-100 overflow-hidden animate-fade-in">
+      
+      <!-- Header -->
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center text-lg">
+            <i class="fas fa-envelope-open-text"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-base sm:text-lg font-bold text-slate-800">Secret Birthday Letters</h3>
+              <span id="letters-pool-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 uppercase tracking-wide">
+                Rotating Pool
+              </span>
+            </div>
+            <p class="text-xs text-slate-400">Heartfelt letters for the surprise page that cycle one-by-one per recipient</p>
+          </div>
+        </div>
+
+        <button onclick="closeSecretLettersModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+          <i class="fas fa-times text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Action Toolbar -->
+      <div class="px-6 py-3 border-b border-slate-100 bg-white flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <button onclick="addNewSecretLetter()" class="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-1.5">
+            <i class="fas fa-plus"></i>
+            <span>Add New Letter</span>
+          </button>
+          <button onclick="toggleJsonImportBox()" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center gap-1.5">
+            <i class="fas fa-code"></i>
+            <span>Import / Paste JSON</span>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="saveAllSecretLetters()" class="px-4 py-1.5 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5">
+            <i class="fas fa-save"></i>
+            <span>Save All to Database</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Optional JSON Import Box (Collapsible) -->
+      <div id="json-import-container" class="hidden px-6 py-4 bg-purple-50/50 border-b border-purple-100 space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-purple-800 flex items-center gap-1.5">
+            <i class="fas fa-file-import text-purple-600"></i> Paste JSON Array of Letters
+          </span>
+          <span class="text-[11px] text-slate-500">Supports: <code>["letter text 1", "letter text 2"]</code> or <code>[{"title": "...", "text": "..."}]</code></span>
+        </div>
+        <textarea id="json-import-textarea" rows="4" placeholder='[\n  "Wishing you an incredible year ahead filled with happiness and health...",\n  "Happy Birthday! May all your dreams and wishes bloom into reality..."\n]' class="w-full px-3.5 py-2.5 text-xs font-mono bg-white border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400"></textarea>
+        <div class="flex justify-end gap-2">
+          <button onclick="toggleJsonImportBox()" class="px-3 py-1 bg-slate-200 text-slate-600 text-xs font-semibold rounded-lg">Cancel</button>
+          <button onclick="submitJsonImport()" class="px-4 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg shadow">Import & Sync</button>
+        </div>
+      </div>
+
+      <!-- Letters Scrollable List -->
+      <div class="flex-grow overflow-y-auto p-4 sm:p-6 space-y-4 bg-[#faf7f5]">
+        <div id="secret-letters-list" class="space-y-4">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  
+  </div>
+
+  <!-- ======================== FRAME STYLE STUDIO MODAL ======================== -->
+  <div id="frame-studio-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-5xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-pink-100 overflow-hidden animate-fade-in">
+      
+      <!-- Studio Header -->
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center text-lg">
+            <i class="fas fa-magic"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-base sm:text-lg font-bold text-slate-800">Frame Template Studio</h3>
+              <span id="studio-active-tag" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-pink-100 text-pink-700 uppercase tracking-wide">
+                Active: Style 3
+              </span>
+            </div>
+            <p class="text-xs text-slate-400">Drag the recipient's name placeholder to position it on your birthday frames</p>
+          </div>
+        </div>
+
+        <button onclick="closeFrameStudioModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+          <i class="fas fa-times text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Studio Toolbar -->
+      <div class="px-6 py-3 border-b border-slate-100 bg-white flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <label class="text-xs font-bold text-slate-600 uppercase tracking-wider">Template:</label>
+          <select id="studio-style-select" onchange="onStudioSelectChange()" class="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-pink-500">
+            <!-- Populated dynamically -->
+          </select>
+
+          <button onclick="setStudioActiveStyle()" class="px-3.5 py-1.5 bg-pink-500 hover:bg-pink-600 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-1.5" title="Use this frame for birthday wishes">
+            <i class="fas fa-check"></i>
+            <span>Set as Active</span>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="document.getElementById('studio-upload-input').click()" class="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-1.5" title="Upload a new PNG frame">
+            <i class="fas fa-plus"></i>
+            <span>Add New Frame</span>
+          </button>
+          <input type="file" id="studio-upload-input" accept="image/png,image/jpeg" class="hidden" onchange="uploadNewFrameTemplate(this)">
+
+          <button onclick="deleteStudioCurrentStyle()" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-bold rounded-xl transition flex items-center gap-1" title="Delete current frame">
+            <i class="fas fa-trash-alt"></i>
+            <span>Delete</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Studio Main Content: Two Columns -->
+      <div class="flex-grow overflow-y-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 bg-[#faf7f5]">
+        
+        <!-- Left: Interactive Canvas / Frame Preview (cols: 7) -->
+        <div class="lg:col-span-7 flex flex-col items-center">
+          <div class="w-full flex items-center justify-between mb-2 px-1">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <i class="fas fa-crosshairs text-pink-500"></i> Visual Drag & Drop Canvas
+            </span>
+            <span id="studio-res-indicator" class="text-[11px] font-mono text-slate-400 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+              -- x -- px
+            </span>
+          </div>
+
+          <!-- Preview Frame Wrapper -->
+          <div class="relative w-full max-w-md bg-white rounded-2xl p-3 shadow-md border border-pink-100 flex items-center justify-center overflow-hidden">
+            
+            <div id="studio-canvas-container" class="relative inline-block select-none max-w-full">
+              <!-- Frame Image -->
+              <img 
+                id="studio-frame-img" 
+                src="" 
+                alt="Frame Template" 
+                class="block max-w-full max-h-[460px] object-contain rounded-lg select-none pointer-events-none"
+                onload="onStudioImageLoaded()"
+              >
+
+              <!-- Profile Area Guide Box -->
+              <div 
+                id="studio-profile-guide" 
+                class="absolute border-2 border-dashed border-pink-400/70 bg-pink-400/15 pointer-events-none rounded-xl flex items-center justify-center"
+                title="Profile Photo Location"
+              >
+                <span class="text-[9px] font-bold text-pink-600 bg-white/90 px-1 rounded shadow-xs uppercase">Photo</span>
+              </div>
+
+              <!-- Interactive Draggable Name Badge -->
+              <div 
+                id="studio-draggable-badge" 
+                class="absolute cursor-grab active:cursor-grabbing select-none z-30 group"
+                style="top: 50%; left: 50%; transform: translate(-50%, -50%);"
+                title="Drag to position the Name"
+              >
+                <div class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-900/90 text-white shadow-xl border-2 border-amber-400 group-hover:scale-105 transition-transform backdrop-blur-sm">
+                  <i class="fas fa-grip-vertical text-amber-300 text-xs"></i>
+                  <span id="studio-badge-text" class="text-xs font-extrabold tracking-wide uppercase font-mono">
+                    [ RECIPIENT NAME ]
+                  </span>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+          <p class="text-[11px] text-slate-400 text-center mt-3 flex items-center justify-center gap-1.5">
+            <i class="fas fa-hand-pointer text-pink-500"></i>
+            <span>Click and drag the <b>[ RECIPIENT NAME ]</b> badge to place it anywhere on the frame!</span>
+          </p>
+        </div>
+
+        <!-- Right: Fine Coordinates & Styling Panel (cols: 5) -->
+        <div class="lg:col-span-5 space-y-4">
           
-          <button id="btn-logout-wa" class="btn btn-outline-danger">Log out WhatsApp</button>
-          <button id="btn-logout-google" class="btn btn-sm btn-outline-danger d-none">Log out Google</button>
-        <a href="/contacts" class="btn btn-sm btn-outline-primary d-none" id="btn-contacts-login">Log in google </a>
- <button id="btn-change-frame" class="btn btn-sm btn-outline-danger ">Change Frame Style</button>
-          <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <div class="bg-white p-5 rounded-2xl border border-pink-100 shadow-sm space-y-4">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+              <i class="fas fa-map-marker-alt text-pink-500"></i> Exact Name Coordinates
+            </h4>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-[11px] font-semibold text-slate-500 block mb-1">X Position (px)</label>
+                <div class="relative">
+                  <input 
+                    type="number" 
+                    id="studio-coord-x" 
+                    oninput="onStudioCoordManualChange()" 
+                    class="w-full px-3 py-2 text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  >
+                  <span class="absolute right-3 top-2 text-[10px] text-slate-400 font-mono">px</span>
+                </div>
+              </div>
+
+              <div>
+                <label class="text-[11px] font-semibold text-slate-500 block mb-1">Y Position (px)</label>
+                <div class="relative">
+                  <input 
+                    type="number" 
+                    id="studio-coord-y" 
+                    oninput="onStudioCoordManualChange()" 
+                    class="w-full px-3 py-2 text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  >
+                  <span class="absolute right-3 top-2 text-[10px] text-slate-400 font-mono">px</span>
+                </div>
+              </div>
+            </div>
+
+            <p class="text-[10px] text-slate-400 leading-relaxed">
+              Coordinates scale 1:1 with the frame's natural resolution for crisp output generation.
+            </p>
+          </div>
+
+          <!-- Typography Panel -->
+          <div class="bg-white p-5 rounded-2xl border border-pink-100 shadow-sm space-y-4">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+              <i class="fas fa-font text-purple-500"></i> Name Typography & Color
+            </h4>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-[11px] font-semibold text-slate-500 block mb-1">Font Size (px)</label>
+                <input 
+                  type="number" 
+                  id="studio-font-size" 
+                  value="45" 
+                  oninput="onStudioTypographyChange()" 
+                  class="w-full px-3 py-2 text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500"
+                >
+              </div>
+
+              <div>
+                <label class="text-[11px] font-semibold text-slate-500 block mb-1">Rotation (deg)</label>
+                <input 
+                  type="number" 
+                  id="studio-rotation" 
+                  value="0" 
+                  placeholder="0" 
+                  oninput="onStudioTypographyChange()" 
+                  class="w-full px-3 py-2 text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500"
+                >
+              </div>
+            </div>
+
+            <div>
+              <label class="text-[11px] font-semibold text-slate-500 block mb-1">Text Color</label>
+              <div class="flex items-center gap-2">
+                <input 
+                  type="color" 
+                  id="studio-color-picker" 
+                  value="#000000" 
+                  oninput="onStudioColorPickerInput(this.value)" 
+                  class="w-10 h-9 p-0.5 rounded-xl border border-slate-200 cursor-pointer"
+                >
+                <input 
+                  type="text" 
+                  id="studio-color-hex" 
+                  value="#000000" 
+                  oninput="onStudioColorHexInput(this.value)" 
+                  class="w-full px-3 py-2 text-xs font-mono uppercase bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500"
+                >
+              </div>
+            </div>
+
+            <!-- Database status indicator -->
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+              <span class="text-slate-400">Database Storage:</span>
+              <span class="text-emerald-600 font-semibold flex items-center gap-1">
+                <i class="fas fa-database text-xs"></i> Supabase & Local JSON Synced
+              </span>
+            </div>
+
+            <!-- Save Coordinates Button -->
+            <button 
+              onclick="saveStudioCoordinates()" 
+              class="w-full py-3 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 mt-2"
+            >
+              <i class="fas fa-cloud-upload-alt text-sm"></i>
+              <span>Save Name Coordinates to Database</span>
+            </button>
+
+          </div>
+
         </div>
-        <div class="small-note mt-2">Logging out clears the local WhatsApp session and shows a new QR.</div>
+
+      </div>
+
+    </div>
+  </div>
+
+  
+  </div>
+
+  <!-- ======================== SECRET LETTERS MANAGER MODAL ======================== -->
+  <div id="secret-letters-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-pink-100 overflow-hidden animate-fade-in">
+      
+      <!-- Header -->
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center text-lg">
+            <i class="fas fa-envelope-open-text"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-base sm:text-lg font-bold text-slate-800">Secret Birthday Letters</h3>
+              <span id="letters-pool-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 uppercase tracking-wide">
+                Rotating Pool
+              </span>
+            </div>
+            <p class="text-xs text-slate-400">Heartfelt letters for the surprise page that cycle one-by-one per recipient</p>
+          </div>
+        </div>
+
+        <button onclick="closeSecretLettersModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+          <i class="fas fa-times text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Action Toolbar -->
+      <div class="px-6 py-3 border-b border-slate-100 bg-white flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <button onclick="addNewSecretLetter()" class="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-1.5">
+            <i class="fas fa-plus"></i>
+            <span>Add New Letter</span>
+          </button>
+          <button onclick="toggleJsonImportBox()" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center gap-1.5">
+            <i class="fas fa-code"></i>
+            <span>Import / Paste JSON</span>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="saveAllSecretLetters()" class="px-4 py-1.5 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5">
+            <i class="fas fa-save"></i>
+            <span>Save All to Database</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Optional JSON Import Box (Collapsible) -->
+      <div id="json-import-container" class="hidden px-6 py-4 bg-purple-50/50 border-b border-purple-100 space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-purple-800 flex items-center gap-1.5">
+            <i class="fas fa-file-import text-purple-600"></i> Paste JSON Array of Letters
+          </span>
+          <span class="text-[11px] text-slate-500">Supports: <code>["letter text 1", "letter text 2"]</code> or <code>[{"title": "...", "text": "..."}]</code></span>
+        </div>
+        <textarea id="json-import-textarea" rows="4" placeholder='[\n  "Wishing you an incredible year ahead filled with happiness and health...",\n  "Happy Birthday! May all your dreams and wishes bloom into reality..."\n]' class="w-full px-3.5 py-2.5 text-xs font-mono bg-white border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400"></textarea>
+        <div class="flex justify-end gap-2">
+          <button onclick="toggleJsonImportBox()" class="px-3 py-1 bg-slate-200 text-slate-600 text-xs font-semibold rounded-lg">Cancel</button>
+          <button onclick="submitJsonImport()" class="px-4 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg shadow">Import & Sync</button>
+        </div>
+      </div>
+
+      <!-- Letters Scrollable List -->
+      <div class="flex-grow overflow-y-auto p-4 sm:p-6 space-y-4 bg-[#faf7f5]">
+        <div id="secret-letters-list" class="space-y-4">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  
+  </div>
+
+  
+  <!-- ======================== MESSAGE TEMPLATE MODAL ======================== -->
+  <div id="message-template-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-emerald-100 overflow-hidden animate-fade-in">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-lg">
+            <i class="fas fa-comment-dots"></i>
+          </div>
+          <div>
+            <h3 class="text-base sm:text-lg font-bold text-slate-800">WhatsApp Message Template</h3>
+            <p class="text-xs text-slate-400">Edit the greeting text sent to contacts on their birthday</p>
+          </div>
+        </div>
+        <button onclick="closeMessageTemplateModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+          <i class="fas fa-times text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto space-y-4">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">Message Content</label>
+          <textarea id="template-message-input" rows="7" class="w-full p-4 text-xs font-mono bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 leading-relaxed"></textarea>
+          <p class="text-[11px] text-slate-400 mt-2">Use <code>{name}</code> for contact name and <code>{link}</code> for personalized surprise gift link.</p>
+        </div>
+      </div>
+
+      <div class="px-6 py-4 border-t border-slate-100 bg-white flex items-center justify-between">
+        <button onclick="resetMessageTemplateDefault()" class="text-xs text-slate-500 hover:text-rose-500 font-semibold transition">Reset to Default</button>
+        <div class="flex items-center gap-2">
+          <button onclick="closeMessageTemplateModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition">Cancel</button>
+          <button onclick="saveMessageTemplate()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5">
+            <i class="fas fa-check"></i>
+            <span>Save Template</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<div class="modal fade" id="styleModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-body text-center p-4">
-        <img id="wa-modal-photo" src="" class="rounded-circle mb-3" alt="WhatsApp Profile" style="width: 100%; height: auto; max-width: 200px; max-height: 200px; object-fit: cover;">
-        <h5 id="wa-modal-name"></h5>
-        <p class="text-muted" id="wa-modal-id"></p>
-        <div class="d-grid gap
--2 mt-3">
-  <div id="preview-container"><img id="style_image" src="" alt="Preview" class="img-fluid mt-2"/>
-</div>
-<select id="styleSelect" class="form-select">
-  <option value="1">Style 1</option>
-  <option value="2">Style 2</option>
-  <option value="3">Style 3</option>
-</select>
+  <!-- ======================== PERSONALIZE CONTACT MODAL ======================== -->
+  <div id="personalize-contact-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-pink-100 overflow-hidden animate-fade-in">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-pink-100 text-pink-600 flex items-center justify-center text-lg">
+            <i class="fas fa-sliders-h"></i>
+          </div>
+          <div>
+            <h3 class="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-1.5">
+              <span>Personalize:</span>
+              <span id="pref-contact-name-title" class="text-pink-600">Contact</span>
+            </h3>
+            <p id="pref-contact-phone-subtitle" class="text-xs text-slate-400">Phone</p>
+          </div>
+        </div>
+        <button onclick="closePersonalizeContactModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+          <i class="fas fa-times text-lg"></i>
+        </button>
+      </div>
 
+      <div class="flex-grow overflow-y-auto p-6 space-y-6 bg-[#faf7f5]">
+        <!-- SECTION 1: FRAME STYLE SELECTION -->
+        <div class="bg-white p-5 rounded-2xl border border-pink-100 shadow-sm space-y-3">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+            <i class="fas fa-crop-alt text-amber-500"></i> Frame Style Template
+          </h4>
+          <p class="text-[11px] text-slate-400">Choose which photo frame will be used when generating this contact's birthday card</p>
+          
+          <select id="pref-frame-select" onchange="onPrefFrameSelectChange()" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-pink-500">
+            <option value="default">★ Default (Currently Active Global Frame)</option>
+          </select>
 
-<div class="modal fade" id="perstyleModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-body text-center p-4">
-        <img id="wa-modal-photo" src="" class="rounded-circle mb-3" alt="WhatsApp Profile" style="width: 100%; height: auto; max-width: 200px; max-height: 200px; object-fit: cover;">
-        <h5 id="wa-modal-name"></h5>
-        <p class="text-muted" id="wa-modal-id"></p>
-        <div class="d-grid gap
--2 mt-3">
-  <div id="preview-container"><img id="style_image" src="" alt="Preview" class="img-fluid mt-2"/>
-</div>
-<select id="perstyleSelect" class="form-select">
-  <option value="1">Style 1</option>
-  <option value="2">Style 2</option>
-  <option value="3">Style 3</option>
+          <!-- Frame Preview Thumbnail -->
+          <div id="pref-frame-preview-box" class="flex items-center gap-3.5 p-3 bg-gradient-to-r from-amber-50/60 to-pink-50/60 rounded-xl border border-amber-200/80">
+            <img id="pref-frame-preview-img" src="/assets/img/frame3.png" alt="Frame Preview" class="w-16 h-20 object-contain rounded-lg border-2 border-white shadow-sm bg-slate-900" onerror="this.src='/assets/img/default_avatar.png';">
+            <div>
+              <div id="pref-frame-preview-name" class="text-xs font-bold text-slate-800">Frame Style 3 (Active Global)</div>
+              <p class="text-[11px] text-slate-400 mt-0.5">Birthday photo card template preview for this contact</p>
+            </div>
+          </div>
+        </div>
 
-</select>
+        <!-- SECTION 2: SECRET BIRTHDAY LETTER -->
+        <div class="bg-white p-5 rounded-2xl border border-pink-100 shadow-sm space-y-4">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+            <i class="fas fa-envelope-open-text text-purple-500"></i> Secret Birthday Letter
+          </h4>
+          <p class="text-[11px] text-slate-400">Select how the secret letter revealed on the celebration web page is chosen</p>
 
+          <label class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:bg-pink-50/30 cursor-pointer transition">
+            <input type="radio" name="pref-letter-type" value="auto" id="pref-type-auto" onchange="onPrefLetterTypeChange()" class="mt-1 accent-pink-500">
+            <div>
+              <div class="text-xs font-bold text-slate-800">Auto (Rotating Secret Letters Pool)</div>
+              <div class="text-[11px] text-slate-400">Picks the next secret letter from your pool in rotation.</div>
+            </div>
+          </label>
 
+          <label class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:bg-pink-50/30 cursor-pointer transition">
+            <input type="radio" name="pref-letter-type" value="saved" id="pref-type-saved" onchange="onPrefLetterTypeChange()" class="mt-1 accent-pink-500">
+            <div class="flex-grow space-y-2">
+              <div>
+                <div class="text-xs font-bold text-slate-800">Saved Letter from Pool</div>
+                <div class="text-[11px] text-slate-400">Select one specific pre-saved message for this contact.</div>
+              </div>
+              <select id="pref-saved-letter-select" class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400"></select>
+            </div>
+          </label>
 
+          <label class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:bg-pink-50/30 cursor-pointer transition">
+            <input type="radio" name="pref-letter-type" value="custom" id="pref-type-custom" onchange="onPrefLetterTypeChange()" class="mt-1 accent-pink-500">
+            <div class="flex-grow space-y-2">
+              <div>
+                <div class="text-xs font-bold text-slate-800">Custom Letter (Only for this person)</div>
+                <div class="text-[11px] text-slate-400">Write an exclusive, dedicated birthday letter just for this friend.</div>
+              </div>
+              <textarea id="pref-custom-letter-text" rows="4" placeholder="Write custom secret birthday message here..." class="w-full p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400"></textarea>
+            </div>
+          </label>
+        </div>
+      </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+      <div class="px-6 py-4 border-t border-slate-100 bg-white flex items-center justify-end gap-3">
+        <button onclick="closePersonalizeContactModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition">Cancel</button>
+        <button onclick="saveContactPersonalization()" class="px-5 py-2 bg-pink-500 hover:bg-pink-600 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5">
+          <i class="fas fa-check"></i>
+          <span>Save Personalization</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
-<script>
-  const el = (id) => document.getElementById(id);
-function first_step() {
+  <!-- ======================== SMS CENTER & TEXT.LK MODAL ======================== -->
+  <div id="sms-center-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-sky-100 overflow-hidden animate-fade-in">
+      
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0 bg-white">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center text-lg shadow-inner">
+            <i class="fas fa-sms"></i>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+              Text.lk SMS Gateway & Credits
+            </h3>
+            <p class="text-xs text-slate-400">Automated & Manual SMS Greetings with Monthly Credit Tracking</p>
+          </div>
+        </div>
+        <button onclick="closeSmsCenterModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center transition">
+          <i class="fas fa-times text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Credit Stats Grid (Month Reset & Cumulative Total) -->
+      <div class="p-6 pb-2 border-b border-slate-100 bg-slate-50/50 flex-shrink-0">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          <!-- Monthly Credits (Auto-resets each month) -->
+          <div class="p-4 rounded-2xl bg-white border border-sky-100 shadow-xs flex items-center justify-between">
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-sky-600">This Month's Credits</span>
+              <div class="text-2xl font-black text-sky-900 mt-0.5" id="sms-month-credits">0</div>
+              <span class="text-[10px] text-slate-400" id="sms-month-label">Resets monthly</span>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center text-lg">
+              <i class="fas fa-calendar-alt"></i>
+            </div>
+          </div>
+
+          <!-- Total All-Time Credits -->
+          <div class="p-4 rounded-2xl bg-white border border-purple-100 shadow-xs flex items-center justify-between">
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-purple-600">Total Credits Used</span>
+              <div class="text-2xl font-black text-purple-900 mt-0.5" id="sms-total-credits">0</div>
+              <span class="text-[10px] text-slate-400">All-time cumulative</span>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center text-lg">
+              <i class="fas fa-chart-line"></i>
+            </div>
+          </div>
+
+          <!-- Gateway Status -->
+          <div class="p-4 rounded-2xl bg-white border border-emerald-100 shadow-xs flex items-center justify-between">
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Text.lk Gateway</span>
+              <div class="text-sm font-bold text-emerald-900 mt-1 flex items-center gap-1.5" id="sms-gateway-status">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span> Ready
+              </div>
+              <span class="text-[10px] text-slate-400" id="sms-sender-label">Sender: TextLKDemo</span>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center text-lg">
+              <i class="fas fa-shield-alt"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab Navigation Buttons -->
+        <div class="flex gap-2 pt-4 mt-2 border-t border-slate-200/60">
+          <button id="tab-btn-history" onclick="switchSmsTab('history')" class="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-sky-500 text-white shadow-xs flex items-center gap-1.5 transition">
+            <i class="fas fa-history text-xs"></i> SMS History
+          </button>
+          <button id="tab-btn-send" onclick="switchSmsTab('send')" class="px-3.5 py-1.5 text-xs font-semibold rounded-xl text-slate-600 hover:bg-white flex items-center gap-1.5 transition">
+            <i class="fas fa-paper-plane text-xs"></i> Quick / Test SMS
+          </button>
+          <button id="tab-btn-settings" onclick="switchSmsTab('settings')" class="px-3.5 py-1.5 text-xs font-semibold rounded-xl text-slate-600 hover:bg-white flex items-center gap-1.5 transition">
+            <i class="fas fa-cog text-xs"></i> Text.lk Settings
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div class="p-6 overflow-y-auto flex-1 space-y-4">
+
+        <!-- TAB 1: SMS HISTORY TABLE -->
+        <div id="sms-tab-history" class="space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-500 font-medium">All Sent Messages & Delivery Status</span>
+            <button onclick="loadSmsHistory()" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition flex items-center gap-1">
+              <i class="fas fa-sync-alt text-[10px]"></i> Refresh
+            </button>
+          </div>
+
+          <div class="border border-slate-100 rounded-2xl overflow-hidden shadow-xs">
+            <div class="overflow-x-auto max-h-[380px]">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead class="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider sticky top-0 z-10 border-b border-slate-100 text-[10px]">
+                  <tr>
+                    <th class="p-3">Status</th>
+                    <th class="p-3">Recipient</th>
+                    <th class="p-3">Phone</th>
+                    <th class="p-3">Message</th>
+                    <th class="p-3">Credits</th>
+                    <th class="p-3 text-right">Date & Time</th>
+                  </tr>
+                </thead>
+                <tbody id="sms-history-tbody" class="divide-y divide-slate-100 text-slate-700">
+                  <tr>
+                    <td colspan="6" class="p-6 text-center text-slate-400">Loading SMS history...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: QUICK / TEST SMS -->
+        <div id="sms-tab-send" class="space-y-4 hidden">
+          <div class="p-4 bg-sky-50/60 rounded-2xl border border-sky-100 space-y-3">
+            <div class="space-y-1">
+              <label class="text-xs font-bold text-slate-700">Recipient Phone Number</label>
+              <input type="text" id="quick-sms-phone" placeholder="947XXXXXXXX or 07XXXXXXXX" class="w-full px-3.5 py-2.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500">
+            </div>
+
+            <div class="space-y-1">
+              <label class="text-xs font-bold text-slate-700">Recipient Name (Optional)</label>
+              <input type="text" id="quick-sms-name" placeholder="Contact Name" class="w-full px-3.5 py-2.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500">
+            </div>
+
+            <div class="space-y-1">
+              <label class="text-xs font-bold text-slate-700">SMS Content</label>
+              <textarea id="quick-sms-message" rows="3" placeholder="Type SMS message here..." class="w-full px-3.5 py-2.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500"></textarea>
+            </div>
+
+            <button onclick="sendQuickSms()" class="w-full py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2">
+              <i class="fas fa-paper-plane text-xs"></i> Send SMS via Text.lk
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB 3: GATEWAY SETTINGS -->
+        <div id="sms-tab-settings" class="space-y-4 hidden">
+          <div class="space-y-3">
+            <div class="space-y-1">
+              <label class="text-xs font-bold text-slate-700 flex items-center justify-between">
+                <span>Text.lk API Token (Bearer Token)</span>
+                <a href="https://app.text.lk" target="_blank" class="text-[10px] text-sky-500 hover:underline">Get Token from app.text.lk <i class="fas fa-external-link-alt"></i></a>
+              </label>
+              <input type="password" id="sms-setting-token" placeholder="Paste your Text.lk API Token" class="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500">
+            </div>
+
+            <div class="space-y-1">
+              <label class="text-xs font-bold text-slate-700">Sender ID (Masking)</label>
+              <input type="text" id="sms-setting-sender" placeholder="TextLKDemo" class="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500">
+              <p class="text-[10px] text-slate-400">Approved alphanumeric Masking Sender ID on Text.lk (e.g. TextLKDemo or YourBrand)</p>
+            </div>
+
+            <div class="space-y-1">
+              <label class="text-xs font-bold text-slate-700">Birthday SMS Message Template</label>
+              <textarea id="sms-setting-template" rows="3" class="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500"></textarea>
+              <p class="text-[10px] text-slate-400">Available placeholders: <code>{name}</code>, <code>{link}</code>. (Note: Wish Link Validity is Never Expiring for SMS)</p>
+            </div>
+
+            <div class="flex items-center gap-2 pt-1">
+              <input type="checkbox" id="sms-setting-autosend" class="w-4 h-4 text-sky-600 rounded focus:ring-sky-500">
+              <label for="sms-setting-autosend" class="text-xs font-semibold text-slate-700 cursor-pointer">
+                Automatically send Birthday SMS alongside WhatsApp when sending wishes
+              </label>
+            </div>
+
+            <button onclick="saveSmsSettings()" class="w-full py-2.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-md transition">
+              Save Text.lk Settings
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
   
-    document.querySelector('.step_1').style.display = 'block';
-    document.querySelector('.step_2').style.display = 'none'; 
+  </div>
 
+  
+  <!-- ======================== SEND WISH MODAL (MULTI-NUMBER & CHANNELS) ======================== -->
+  <div id="send-wish-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 hidden">
+    <div class="relative w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-pink-100 space-y-5 animate-modal-pop">
+      <div class="flex items-center justify-between pb-3 border-b border-pink-100">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pink-500 to-rose-500 text-white flex items-center justify-center shadow-md">
+            <i class="fas fa-gift text-lg"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-800">Send Surprise Birthday Wish</h3>
+            <p id="send-modal-contact-name" class="text-xs font-semibold text-pink-600">Contact Name</p>
+          </div>
+        </div>
+        <button onclick="closeSendWishModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
 
-}
-function second_step() {
-    document.querySelector('.step_1').style.display = 'none';
-    document.querySelector('.step_2').style.display = 'block';
-            document.getElementById('gogle_sta').innerText = "Connected";
+      <!-- Multiple Phone Numbers Selection -->
+      <div id="send-modal-phone-section" class="space-y-2">
+        <label class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+          <i class="fas fa-phone-alt text-pink-500"></i> Target Phone Number
+        </label>
+        <div id="send-modal-phone-options" class="space-y-2">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
 
-}
-function initial_setup() {
-   fetch('api/status')
-    .then(response => response.json())
-    .then(data => {
-      if (!data.google.linked) {
-        first_step();
-      } else if (data.whatsapp.linked) {
-                    document.querySelector('.container_setup').style.display = 'none';
+      <!-- Channels Selection -->
+      <div class="space-y-2">
+        <label class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+          <i class="fas fa-paper-plane text-indigo-500"></i> Dispatch Channels
+        </label>
+        <div class="grid grid-cols-2 gap-2.5">
+          <label class="flex items-center gap-2.5 p-3 rounded-xl border border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50 cursor-pointer transition">
+            <input type="checkbox" id="send-channel-wa" checked class="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500">
+            <div>
+              <div class="text-xs font-bold text-slate-800 flex items-center gap-1">
+                <i class="fab fa-whatsapp text-emerald-600"></i> WhatsApp
+              </div>
+              <div class="text-[10px] text-slate-400">Wish link only</div>
+            </div>
+          </label>
 
-            document.querySelector('.step_1').style.display = 'none';
-    document.querySelector('.step_2').style.display = 'none';
-    document.querySelector('.container').style.display = 'block';
-      }else{
-        second_step();
+          <label class="flex items-center gap-2.5 p-3 rounded-xl border border-sky-200 bg-sky-50/40 hover:bg-sky-50 cursor-pointer transition">
+            <input type="checkbox" id="send-channel-sms" checked class="w-4 h-4 text-sky-600 rounded focus:ring-sky-500">
+            <div>
+              <div class="text-xs font-bold text-slate-800 flex items-center gap-1">
+                <i class="fas fa-sms text-sky-600"></i> Text.lk SMS
+              </div>
+              <div class="text-[10px] text-slate-400">Direct wish link SMS</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Live Delivery Results Container -->
+      <div id="send-modal-results" class="hidden p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+        <div class="text-xs font-bold text-slate-700 flex items-center justify-between">
+          <span>Delivery Status:</span>
+          <span id="send-modal-status-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold"></span>
+        </div>
+        <div id="send-modal-results-list" class="space-y-1.5 text-xs"></div>
+      </div>
+
+      <!-- Send Action Button -->
+      <div class="pt-2">
+        <button id="btn-execute-send-wish" onclick="executeSendWish()" class="w-full py-3 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition flex items-center justify-center gap-2">
+          <i class="fas fa-paper-plane"></i>
+          <span>Send Surprise Wish Now</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== BACKUP & RESTORE MODAL ======================== -->
+  <div id="backup-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 hidden">
+    <div class="relative w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-emerald-100 space-y-5 animate-modal-pop">
+      <div class="flex items-center justify-between pb-3 border-b border-emerald-100">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-md">
+            <i class="fas fa-file-archive text-lg"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-800">System Backup & Restore (.ZIP)</h3>
+            <p class="text-xs text-slate-400">Export and import all configs, secret letters, frames, and audio files</p>
+          </div>
+        </div>
+        <button onclick="closeBackupModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <!-- EXPORT SECTION -->
+      <div class="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-200/80 space-y-2.5">
+        <div class="flex items-center gap-2">
+          <i class="fas fa-download text-emerald-600"></i>
+          <h4 class="text-xs font-bold text-slate-800">Export Full Backup (.ZIP)</h4>
+        </div>
+        <p class="text-[11px] text-slate-500 leading-relaxed">
+          Generates a lightweight <code>.zip</code> package containing database settings, contact personalizations, secret letters pool, photo frame templates (<code>assets/img/</code>), and birthday songs / voice clips (<code>assets/voice/</code>).
+        </p>
+        <a href="/api/backup/export" download class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition">
+          <i class="fas fa-file-download"></i> Download Full Backup (.ZIP)
+        </a>
+      </div>
+
+      <!-- RESTORE SECTION -->
+      <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+        <div class="flex items-center gap-2">
+          <i class="fas fa-upload text-teal-600"></i>
+          <h4 class="text-xs font-bold text-slate-800">Restore from Backup (.ZIP)</h4>
+        </div>
+        <p class="text-[11px] text-slate-500 leading-relaxed">
+          Select or drop a previously exported <code>.zip</code> file. All frames, audio files, and settings will be restored automatically.
+        </p>
+        <div class="flex items-center gap-2">
+          <input type="file" id="backup-zip-input" accept=".zip" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100">
+          <button onclick="uploadBackupZip()" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow transition flex-shrink-0 flex items-center gap-1.5">
+            <i class="fas fa-sync-alt"></i> Restore
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="bg-white border-t border-pink-100 py-6 text-center text-xs text-slate-400">
+    <p>WishMaster • Automated Surprise Birthday Engine with Supabase & Baileys</p>
+  </footer>
+
+  <script>
+    // ======================== AUTHENTICATION ========================
+    function checkAuth() {
+      const authenticated = sessionStorage.getItem('wishmaster_admin_auth');
+      if (authenticated !== 'true') {
+        document.getElementById('login-modal').classList.remove('hidden');
+      } else {
+        document.getElementById('login-modal').classList.add('hidden');
+        initializeApp();
       }
-    })
-    .catch(error => {
-      console.error('Error fetching status:', error);
-    });
-}
-initial_setup();
- async function sendTest() {
-          const res = await fetch('/send-test');
-          const data = await res.json();
-          alert(data.message);
-        }    async function refresh() {
-          const qrImg = document.getElementById('qr');
-          const res = await fetch('/status');
-          const data = await res.json();
-          document.getElementById('status').innerText = data.status;
-          if (data.status === 'qr-received') {
-            const qrRes = await fetch('/qr-img');
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const pin = document.getElementById('login-pin').value;
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pin })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          sessionStorage.setItem('wishmaster_admin_auth', 'true');
+          document.getElementById('login-modal').classList.add('hidden');
+          initializeApp();
+          Swal.fire('Welcome!', 'Admin Dashboard Unlocked', 'success');
+        } else {
+          Swal.fire('Error', 'Incorrect PIN code', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Failed to connect to authentication', 'error');
+      }
+    }
+
+    function adminLogout() {
+      sessionStorage.removeItem('wishmaster_admin_auth');
+      window.location.reload();
+    }
+
+    // ======================== APP INITIALIZATION ========================
+    function initializeApp() {
+      loadStatus();
+      loadActiveWishes();
+      loadContacts();
+      loadSettings();
+
+      // Real-Time Socket.IO Synchronization
+      try {
+        const socket = io();
+        socket.on('wish-opened', (data) => {
+          console.log('⚡ Real-time event: wish-opened', data);
+          loadActiveWishes();
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'info',
+            title: `🎉 ${data.name || 'Recipient'} opened their wish page!`,
+            showConfirmButton: false,
+            timer: 4000
+          });
+        });
+
+        socket.on('wish-thanked', (data) => {
+          console.log('⚡ Real-time event: wish-thanked', data);
+          loadActiveWishes();
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: `💌 ${data.name || 'Recipient'} clicked Send Thank You!`,
+            showConfirmButton: false,
+            timer: 5000
+          });
+        });
+      } catch (e) {
+        console.warn('Socket.IO real-time connect failed:', e);
+      }
+
+      // Poll QR and Pairing status periodically
+      setInterval(pollStatus, 3000);
+    }
+
+    // Load System Status
+    async function loadStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+
+        // Google Status
+        const googleText = document.getElementById('google-status-text');
+        if (data.google.linked) {
+          googleText.innerText = 'Connected';
+          googleText.className = 'text-sm font-bold text-blue-600';
+        } else {
+          googleText.innerHTML = '<a href="/contacts" class="text-blue-500 underline">Connect Google</a>';
+        }
+
+        // WhatsApp Status
+        const waText = document.getElementById('wa-status-text');
+        if (data.whatsapp.linked) {
+          const raw = String(data.whatsapp.number || '');
+          const clean = raw.split('@')[0].split(':')[0].replace(/[^\d+]/g, '');
+          const displayNum = clean ? (clean.startsWith('+') ? clean : `+${clean}`) : 'Connected';
+          waText.innerHTML = `
+            <div class="text-xs font-bold text-green-600 flex items-center gap-1.5">
+              <span class="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Linked
+            </div>
+            <div class="text-xs font-mono font-bold text-slate-800 tracking-wide">${displayNum}</div>
+          `;
+          document.getElementById('setup-section').classList.add('hidden');
+        } else {
+          waText.innerHTML = '<span class="text-sm font-bold text-amber-500">Not Linked</span>';
+          document.getElementById('setup-section').classList.remove('hidden');
+        }
+
+        // Supabase DB Status
+        const dbText = document.getElementById('db-status-text');
+        if (data.database && data.database.connected) {
+          dbText.innerText = 'Connected';
+          dbText.className = 'text-sm font-bold text-emerald-600';
+        } else {
+          dbText.innerText = 'Local Fallback';
+          dbText.className = 'text-sm font-bold text-slate-500';
+        }
+
+      } catch (err) {
+        console.error('Error loading status:', err);
+      }
+    }
+
+    async function pollStatus() {
+      try {
+        const res = await fetch('/status');
+        const data = await res.json();
+
+        if (data.status === 'qr-received') {
+          const qrRes = await fetch('/qr-img');
+          if (qrRes.ok) {
             const blob = await qrRes.blob();
-            qrImg.src = URL.createObjectURL(blob);
-            qrImg.style.display = 'block';
-          } else if (data.status === 'paired') {
-            sendTest();
-            qrImg.style.display = 'none';
-            showAlert('success', 'Paired', 'WhatsApp has been successfully paired!');
-            document.getElementById('linknum').innerText = data.linked || 'Unknown';
+            document.getElementById('qr-code-img').src = URL.createObjectURL(blob);
+            document.getElementById('setup-section').classList.remove('hidden');
+          }
+        } else if (data.status === 'paired') {
+          document.getElementById('setup-section').classList.add('hidden');
+        }
+      } catch (err) {}
+    }
+
+    // ======================== ACTIVE 7-DAY WISHES ========================
+    async function loadActiveWishes() {
+      const container = document.getElementById('active-wishes-list');
+      try {
+        const res = await fetch('/api/active-wishes');
+        const wishes = await res.json();
+
+        // Deduplicate wishes per contact: 1 entry per contact only (no repeats)
+        const seenRecipients = new Set();
+        const uniqueWishes = (wishes || []).filter(w => {
+          const key = String(w.phone || '').replace(/\D/g, '').slice(-9) || (w.contact_name || '').toLowerCase().trim();
+          if (seenRecipients.has(key)) return false;
+          seenRecipients.add(key);
+          return true;
+        });
+
+        document.getElementById('active-wishes-count').innerText = `${uniqueWishes.length} active`;
+
+        if (uniqueWishes.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-8 text-slate-400 text-xs">
+              <i class="fas fa-gift text-2xl mb-2 text-slate-300"></i><br>
+              No active birthday wishes in the last 7 days.
+            </div>`;
+          return;
+        }
+
+        container.innerHTML = uniqueWishes.map(w => {
+          const created = new Date(w.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+          const expires = new Date(w.expires_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+          const isOpened = w.is_opened;
+          const openBadge = isOpened
+            ? `<span class="px-2.5 py-1 bg-green-100 text-green-700 font-bold text-[11px] rounded-full flex items-center gap-1">
+                 <i class="fas fa-check-circle"></i> Opened (${w.open_count}x)
+               </span>`
+            : `<span class="px-2.5 py-1 bg-amber-100 text-amber-700 font-semibold text-[11px] rounded-full flex items-center gap-1">
+                 <i class="fas fa-clock"></i> Not Opened Yet
+               </span>`;
+
+          const waBadge = (w.wa_status === 'sent')
+            ? `<span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 font-bold text-[10px] rounded-md flex items-center gap-1"><i class="fab fa-whatsapp"></i> WA: Sent</span>`
+            : (w.wa_status === 'failed'
+              ? `<span class="px-2 py-0.5 bg-rose-100 text-rose-700 font-bold text-[10px] rounded-md flex items-center gap-1"><i class="fab fa-whatsapp"></i> WA: Failed</span>`
+              : `<span class="px-2 py-0.5 bg-slate-100 text-slate-600 font-bold text-[10px] rounded-md flex items-center gap-1"><i class="fab fa-whatsapp"></i> WA: Sent</span>`);
+
+          const smsBadge = (w.sms_status === 'success' || w.sms_status === 'sent')
+            ? `<span class="px-2 py-0.5 bg-sky-100 text-sky-700 font-bold text-[10px] rounded-md flex items-center gap-1"><i class="fas fa-sms"></i> SMS: Sent</span>`
+            : (w.sms_status === 'failed'
+              ? `<span class="px-2 py-0.5 bg-rose-100 text-rose-700 font-bold text-[10px] rounded-md flex items-center gap-1"><i class="fas fa-sms"></i> SMS: Failed</span>`
+              : `<span class="px-2 py-0.5 bg-slate-100 text-slate-500 font-medium text-[10px] rounded-md flex items-center gap-1"><i class="fas fa-sms"></i> SMS: Not Sent</span>`);
+
+          const wishUrl = `${window.location.origin}/wish/${w.unique_code}`;
+
+          return `
+            <div class="py-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <img src="${w.photo_url || '/assets/img/default_avatar.png'}" class="w-10 h-10 rounded-full object-cover border border-pink-200">
+                <div>
+                  <div class="font-bold text-sm text-slate-800">${escapeHTML(w.contact_name)}</div>
+                  <div class="text-[11px] text-slate-400">Phone: ${w.phone} • Sent: ${created}</div>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2 self-end md:self-center flex-wrap">
+                ${openBadge}
+                ${waBadge}
+                ${smsBadge}
+                <button onclick="copyToClipboard('${wishUrl}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs rounded-lg transition" title="Copy Wish Link">
+                  <i class="fas fa-copy"></i>
+                </button>
+                <a href="${wishUrl}?preview=admin" target="_blank" class="px-3 py-1 bg-pink-50 hover:bg-pink-100 text-pink-600 font-medium text-xs rounded-lg transition" title="Preview without counting views">
+                  Preview
+                </a>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+      } catch (err) {
+        container.innerHTML = `<div class="text-center py-6 text-red-400 text-xs">Error loading wishes.</div>`;
+      }
+    }
+
+    // ======================== CONTACTS LIST ========================
+    // Helper to render individual contact card
+    function renderContactCard(c, isToday) {
+      const phones = Array.isArray(c.phones) ? c.phones : (c.phone ? [c.phone] : []);
+      const cleanPhones = phones.map(p => String(p).replace(/\D/g, '')).filter(Boolean);
+      const primaryPhone = cleanPhones[0] || '';
+      const phoneDisplay = phones.join(' • ') || 'No phone';
+      const bdayText = c.birthday ? `${c.birthday.month}/${c.birthday.day}` : 'Unknown';
+
+      const pref = allContactPreferences[primaryPhone] || 
+        Object.values(allContactPreferences).find(p => primaryPhone && p.phone && primaryPhone.endsWith(p.phone.slice(-9)));
+
+      let customBadges = '';
+      if (pref) {
+        if (pref.assigned_frame_id && pref.assigned_frame_id !== 'default') {
+          customBadges += `<span class="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-md">Frame: Style ${pref.assigned_frame_id}</span>`;
+        }
+        if (pref.letter_type === 'custom') {
+          customBadges += `<span class="px-2 py-0.5 bg-purple-100 text-purple-800 text-[10px] font-bold rounded-md">Custom Letter</span>`;
+        } else if (pref.letter_type === 'saved') {
+          customBadges += `<span class="px-2 py-0.5 bg-indigo-100 text-indigo-800 text-[10px] font-bold rounded-md">Saved Letter</span>`;
+        }
+      }
+
+      const phonesParam = cleanPhones.join(',');
+      const cardBorder = isToday ? 'border-pink-300 bg-white/95 shadow-sm ring-1 ring-pink-200' : 'border-slate-100 bg-slate-50 hover:bg-pink-50/40';
+
+      return `
+        <div class="p-3.5 ${cardBorder} rounded-2xl border transition flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <img src="${c.photo || '/assets/img/default_avatar.png'}" class="w-11 h-11 rounded-full object-cover border-2 ${isToday ? 'border-pink-400' : 'border-slate-200'} shadow-2xs">
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-bold text-sm text-slate-800">${escapeHTML(c.name)}</span>
+                ${isToday ? `<span class="px-2.5 py-0.5 bg-gradient-to-r from-rose-500 to-pink-500 text-white font-bold text-[10px] rounded-full shadow-xs animate-pulse flex items-center gap-1">🎉 TODAY</span>` : ''}
+                ${customBadges}
+              </div>
+              <div class="text-xs text-slate-400 mt-0.5">Birthday: ${bdayText} • ${phoneDisplay}</div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-1.5 flex-shrink-0">
+            <button onclick="openPersonalizeContactModal('${escapeHTML(c.name)}', '${primaryPhone}')" class="px-3 py-1.5 bg-white hover:bg-pink-50 text-slate-700 hover:text-pink-600 border border-slate-200 hover:border-pink-300 text-xs font-semibold rounded-xl transition flex items-center gap-1 shadow-2xs" title="Assign custom secret letter and frame style">
+              <i class="fas fa-sliders-h text-pink-500"></i>
+              <span class="hidden sm:inline">Personalize</span>
+            </button>
+
+            <button onclick="sendDirectContactSms('${primaryPhone}', '${escapeHTML(c.name)}')" class="px-2.5 py-1.5 bg-white hover:bg-sky-50 text-slate-700 hover:text-sky-600 border border-slate-200 hover:border-sky-300 text-xs font-semibold rounded-xl transition flex items-center gap-1 shadow-2xs" title="Send birthday SMS via Text.lk">
+              <i class="fas fa-sms text-sky-500"></i>
+              <span class="hidden sm:inline">SMS</span>
+            </button>
+
+            <button onclick="openSendWishModal('${escapeHTML(c.name)}', '${phonesParam}')" class="px-3.5 py-1.5 ${isToday ? 'bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600' : 'bg-pink-500 hover:bg-pink-600'} text-white text-xs font-semibold rounded-xl shadow transition flex items-center gap-1.5">
+              <i class="fas fa-gift"></i>
+              <span>Send</span>
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    async function loadContacts(forceFresh = false) {
+      try {
+        const url = '/contacts' + (forceFresh ? '?fresh=true' : '');
+        const [contactsRes, prefsRes] = await Promise.all([
+          fetch(url),
+          fetch('/api/contact-preferences').catch(() => null)
+        ]);
+        const contacts = await contactsRes.json();
+        const prefsData = prefsRes ? await prefsRes.json() : { preferences: {} };
+        allContactPreferences = prefsData?.preferences || {};
+
+        const today = new Date();
+        const tMonth = today.getMonth() + 1;
+        const tDay = today.getDate();
+
+        const todayStr = today.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+        const dateEl = document.getElementById('today-date-text');
+        if (dateEl) dateEl.textContent = `Today: ${todayStr}`;
+
+        // Separate Today's birthdays from other upcoming birthdays
+        const todayContacts = [];
+        const upcomingContacts = [];
+
+        (contacts || []).forEach(c => {
+          if (c.birthday && Number(c.birthday.month) === tMonth && Number(c.birthday.day) === tDay) {
+            todayContacts.push(c);
+          } else {
+            upcomingContacts.push(c);
+          }
+        });
+
+        // 1. Render Today's Birthdays
+        const todayContainer = document.getElementById('today-birthdays-list');
+        const todayBadge = document.getElementById('today-birthdays-badge');
+        const btnSendAll = document.getElementById('btn-send-all-today');
+
+        if (todayBadge) todayBadge.textContent = `${todayContacts.length} Today`;
+
+        if (todayContainer) {
+          if (todayContacts.length === 0) {
+            todayContainer.innerHTML = `
+              <div class="py-5 text-center text-slate-400 text-xs italic bg-white/60 rounded-xl border border-pink-100">
+                <i class="fas fa-calendar-check text-pink-300 text-xl mb-1.5 block"></i>
+                No birthdays today (${todayStr}). Upcoming birthdays are shown below!
+              </div>
+            `;
+            if (btnSendAll) btnSendAll.classList.add('hidden');
+          } else {
+            todayContainer.innerHTML = todayContacts.map(c => renderContactCard(c, true)).join('');
+            if (btnSendAll) btnSendAll.classList.remove('hidden');
           }
         }
-       
-        refresh();
-        setInterval(refresh, 2000);
 
-el('styleSelect').addEventListener('change', (e) => {
-  const style = e.target.value;
-  updateUserStyle(style).then((res) => {
-    if (res.error) {
-      showAlert('error', 'Error', res.error);
-    } else {
-      showAlert('success', 'Style Updated', `Your style has been changed to Frame ${style}.`);
-    }
-  });
-});
+        // 2. Render Upcoming Birthdays
+        const upcomingContainer = document.getElementById('upcoming-birthdays-list');
+        const upcomingCount = document.getElementById('upcoming-birthdays-count');
+        if (upcomingCount) upcomingCount.textContent = `(${upcomingContacts.length})`;
 
-  // SweetAlert wrapper
-  function showAlert(type, title, text) {
-    return Swal.fire({
-      icon: type, title, text,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33'
-    });
-  }
-
-  function reset(){
-    Swal.fire({
-      title: 'Reset Settings',
-      text: "This will clear all local data and reload the page.",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Yes, reset!',
-      cancelButtonText: 'Cancel'
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-        await fetch('/api/reset', { method: 'GET' });
-        showAlert('success', 'Reset Successful', 'Settings have been cleared.');
-        location.reload();
-      }
-    });
-  }
-   let qral = 0;
-
-sweetAlert = (type, title, text) => {
-    return Swal.fire({
-      icon: type,
-      title: title,
-      text: text,
-      confirmButtonColor: '#3085d6',
-      toast: true,
-      position: 'top-end',
-      timer: 2000
-
-    });
-  };
-
-
-document.addEventListener("DOMContentLoaded", async () => {
-  try {
-    const res = await fetch("/api/user-style");
-    const data = await res.json();
-
-    const { frameStyles, user_selected_style } = data;
-    const select = document.getElementById("styleSelect");
-
-    // Clear & repopulate dropdown from frameStyles
-    select.innerHTML = "";
-    for (const [id, style] of Object.entries(frameStyles)) {
-      const opt = document.createElement("option");
-      opt.value = id;
-      opt.textContent = `Style ${id}`;
-      select.appendChild(opt);
-    }
-
-    // Set current selection
-    select.value = user_selected_style;
-
-    // Show preview
-    document.getElementById("style_image").src =
-      frameStyles[user_selected_style].framePath;
-  } catch (err) {
-    console.error("⚠️ Failed to load styles:", err);
-  }
-});
-
-// On change → update preview + save
-document.getElementById("styleSelect").addEventListener("change", async (e) => {
-  const newStyle = e.target.value;
-
-  // preview
-  const res = await fetch("/api/user-style");
-  const data = await res.json();
-  document.getElementById("style_image").src =
-    data.frameStyles[newStyle].framePath;
-
-  // save to backend
-  await fetch("/api/user-style", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user_selected_style: newStyle }),
-  });
-});
-
-
-
-  async function loadStatus() {
-    try {
-      const res = await fetch('/api/status');
-      const s = await res.json();
-
-      // Google
-      if (s.google?.linked) {
-        el('google-linked').classList.remove('d-none');
-        el('google-not-linked').classList.add('d-none');
-        el('btn-logout-google').classList.remove('d-none');
-      } else {
-        el('google-linked').classList.add('d-none');
-        el('google-not-linked').classList.remove('d-none');
-        el('btn-contacts-login').classList.remove('d-none');
-        el('btn-logout-google').classList.add('d-none');
-      }
-
-      // WhatsApp
-      if (s.whatsapp?.linked) {
-        el('wa-linked').classList.remove('d-none');
-        el('wa-not-linked').classList.add('d-none');
-        el('wa-qr').classList.add('d-none');
-        el('s-s').classList.add('d-none');
-        el('qr-timer').classList.add('d-none');
-
-        const avatarUrl = s.whatsapp.profilePicUrl || '/assets/img/default_avatar.png';
-        el('wa-avatar').src = avatarUrl;
-        el('wa-avatar').classList.remove('d-none');
-        el('wa-modal-photo').src = avatarUrl;
-        el('wa-modal-name').textContent = s.whatsapp.me;
-                el('btn-logout-wa').classList.remove('d-none');
-
-        el('wa-modal-id').textContent = s.whatsapp.number || '';
-
-      } else {
-
-                el('btn-logout-wa').classList.add('d-none');
-
-        el('wa-linked').classList.add('d-none');
-        el('wa-not-linked').classList.remove('d-none');
-
-        try {
-   
-          
-         } catch {
-          el('wa-qr').classList.add('d-none');
+        if (upcomingContainer) {
+          if (upcomingContacts.length === 0) {
+            upcomingContainer.innerHTML = `
+              <div class="py-6 text-center text-slate-400 text-xs italic bg-slate-50 rounded-xl">
+                No upcoming birthdays found.
+              </div>
+            `;
+          } else {
+            upcomingContainer.innerHTML = upcomingContacts.map(c => renderContactCard(c, false)).join('');
+          }
         }
+
+        const heading = document.getElementById('contacts-heading');
+        if (heading) {
+          heading.innerText = `Birthdays (${contacts.length})${todayContacts.length > 0 ? ` • 🎉 ${todayContacts.length} Today!` : ''}`;
+        }
+
+      } catch (err) {
+        console.error('loadContacts error:', err);
+        const upEl = document.getElementById('upcoming-birthdays-list');
+        if (upEl) upEl.innerHTML = `<div class="text-center py-6 text-red-400 text-xs">Failed to load contacts.</div>`;
       }
-    } catch (e) {
-      console.error('status error', e);
     }
-  }
 
-  // Avatar -> modal
-  el('wa-avatar').addEventListener('click', async () => {
-    try {
-      const r = await fetch('/api/status');
-      if (r.ok) {
-        const p = await r.json();
-        el('wa-modal-photo').src = p.whatsapp.profilePicUrl || '/assets/img/default_av_web.png';
-        el('wa-modal-name').textContent = p.whatsapp.me || 'Me';
-        el('wa-modal-id').textContent = p.whatsapp.number || '';
-      }
-    } catch {}
-    new bootstrap.Modal('#waProfileModal').show();
-  });
-
-
-  el('btn-change-frame').addEventListener('click', async () => {
-  
-    new bootstrap.Modal('#styleModal').show();
-  });
-  
-
-
-  // Google logout
-  el('btn-logout-google').addEventListener('click', async () => {
-    const confirm = await Swal.fire({
-      title: 'Log out Google?',
-      text: "This will delete your local token.",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Yes, log out!',
-      cancelButtonText: 'Cancel'
-    });
-    if (!confirm.isConfirmed) return;
-
-    const r = await fetch('/api/logout/google', { method: 'POST' });
-    if (r.ok) {
-      showAlert('success', 'Success!', 'Google session removed.');
-      await loadStatus(); await loadBirthdays();
-    } else {
-      showAlert('error', 'Error', 'Failed to log out Google.');
-    }
-  });
-
-  // WhatsApp logout
-  el('btn-logout-wa').addEventListener('click', async () => {
-    const confirm = await Swal.fire({
-      title: 'Log out WhatsApp?',
-      text: "This will clear your session and show a new QR.",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Yes, log out!',
-      cancelButtonText: 'Cancel'
-    });
-    if (!confirm.isConfirmed) return;
-
-    const r = await fetch('/api/logout/whatsapp', { method: 'POST' });
-    if (r.ok) {
-      showAlert('success', 'Success!', 'WhatsApp session removed.');
-      const m = bootstrap.Modal.getInstance(document.getElementById('waProfileModal'));
-      m?.hide();
-      setTimeout(loadStatus, 1000);
-    } else {
-      showAlert('error', 'Error', 'Failed to log out WhatsApp.');
-    }
-  });
-
-  el('btn-refresh').addEventListener('click', async () => {
-    await loadStatus();
-    await loadBirthdays();
-    showAlert('success', 'Refreshed', 'Status and birthdays updated!');
-  });
-
-  // ------------------ BIRTHDAYS ------------------
-  async function loadBirthdays() {
-    try {
-      const response = await fetch('/contacts');
-      if (!response.ok) return;
-      const data = await response.json();
-      let contacts = (data || []).filter(c =>  c.birthday && c.birthday.month && c.birthday.day);
-
-      const today = new Date();
-      const currentYear = today.getFullYear();
-      const todayMonth = today.getMonth() + 1;
-      const todayDay = today.getDate();
-
-      contacts = contacts.map(c => {
-        const next = getNextBirthdayDate(c.birthday, today);
-        const isToday = Number(c.birthday.month) === todayMonth && Number(c.birthday.day) === todayDay;
-        return { ...c, _nextDate: next, _nextYear: next.getFullYear(), _isToday: isToday };
+    // ======================== ACTIONS ========================
+    async function triggerBirthdayCheck() {
+      const confirm = await Swal.fire({
+        title: "Send Today's Wishes?",
+        text: "This will send personalized surprise gift page links to contacts having birthdays today.",
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Yes, Send!",
+        confirmButtonColor: "#ec4899"
       });
 
-      contacts.sort((a, b) => a._nextDate - b._nextDate);
+      if (!confirm.isConfirmed) return;
 
-      const todayCurrentYear = contacts.filter(c => c._isToday && c._nextYear === currentYear);
-      const yearCurrent = contacts.filter(c => c._nextYear === currentYear && !c._isToday);
-      const yearNext = contacts.filter(c => c._nextYear === currentYear + 1);
-
-      const list = document.getElementById('birthday-list');
-      const count = document.getElementById('birthday-count');
-      count.textContent = `Upcoming Birthdays (${contacts.length})`;
-      list.innerHTML = '';
-
-      if (todayCurrentYear.length) {
-        addSectionHeader(list, `🎉 Today — ${formatFullDate(today)} `);
-
-        todayCurrentYear.forEach(c => list.appendChild(renderItem(c, { highlight: true })));
-      }
-
-      addSectionHeader(list, `${currentYear}`);
-      yearCurrent.forEach(c => list.appendChild(renderItem(c, { highlight: false })));
-
-      addSectionHeader(list, `${currentYear + 1}`);
-      yearNext.forEach(c => list.appendChild(renderItem(c, { highlight: false })));
-
-    } catch (error) {
-      console.error('Error loading birthdays:', error);
-    }
-  }
-
-  function addSectionHeader(ul, title) {
-    const li = document.createElement('li');
-    li.className = 'list-group-item list-group-item-secondary fw-semibold section-header';
-    li.textContent = title;
-    ul.appendChild(li);
-  }
-
-
-function sendsiglepersion(name, number) {
-  Swal.fire({
-    title: "Are You Sent the message From " + name,
-    text: "You won't be able to revert this!",
-    icon: "warning",
-    showCancelButton: true,
-    confirmButtonColor: "#3085d6",
-    cancelButtonColor: "#d33",
-    confirmButtonText: "Yes, Send it!"
-  }).then((result) => {
-    if (result.isConfirmed) {
-      // Show "sending" loading alert
       Swal.fire({
-        title: "Sending message...",
-        html: "Please wait...",
+        title: "Processing Wishes...",
         allowOutsideClick: false,
-        didOpen: () => {
-          Swal.showLoading();
+        didOpen: () => Swal.showLoading()
+      });
+
+      try {
+        const res = await fetch('/sendbirthday');
+        const data = await res.json();
+        Swal.fire("Initiated!", data.message || "Birthday surprise links are being dispatched.", "success");
+        setTimeout(loadActiveWishes, 3000);
+      } catch (err) {
+        Swal.fire("Error", "Failed to initiate birthday check.", "error");
+      }
+    }
+
+    async function sendSingleWish(name, phone) {
+      if (!phone) {
+        Swal.fire("Error", "No phone number available for this contact", "error");
+        return;
+      }
+
+      Swal.fire({
+        title: `Sending Surprise to ${name}...`,
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      try {
+        const res = await fetch(`/api/send/${phone}/${encodeURIComponent(name)}`);
+        const data = await res.json();
+        if (data.success) {
+          Swal.fire("Surprise Sent!", `Unique gift page successfully sent to ${name}.`, "success");
+          loadActiveWishes();
+        } else {
+          Swal.fire("Failed", data.error || "Could not deliver message.", "error");
+        }
+      } catch (err) {
+        Swal.fire("Error", "Failed to communicate with server.", "error");
+      }
+    }
+
+    async function syncContactsToSupabase() {
+      Swal.fire({
+        title: "Syncing Contacts with Supabase...",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      try {
+        const res = await fetch('/api/contacts/sync', { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+          Swal.fire("Synced!", `Successfully synced ${data.syncedCount} contacts to Supabase DB.`, "success");
+        } else {
+          Swal.fire("Sync Notice", data.error || "Check Supabase connection settings.", "warning");
+        }
+      } catch (err) {
+        Swal.fire("Error", "Sync request failed.", "error");
+      }
+    }
+
+    // Settings
+    async function loadSettings() {
+      try {
+        const res = await fetch('/api/settings/song');
+        const data = await res.json();
+        if (data.songUrl) {
+          document.getElementById('setting-song-url').value = data.songUrl;
+        }
+      } catch (err) {}
+
+      try {
+        const res = await fetch('/api/settings/general');
+        const data = await res.json();
+        if (data.success) {
+          if (data.bot_footer) {
+            document.getElementById('setting-bot-footer').value = data.bot_footer;
+          }
+          if (data.wish_expiry_days) {
+            document.getElementById('setting-expiry-days').value = data.wish_expiry_days;
+          }
+        }
+      } catch (err) {}
+    }
+
+    async function saveGeneralSettings() {
+      const botFooter = document.getElementById('setting-bot-footer').value;
+      const expiryDays = parseInt(document.getElementById('setting-expiry-days').value, 10);
+      try {
+        const res = await fetch('/api/settings/general', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bot_footer: botFooter, wish_expiry_days: expiryDays })
+        });
+        const data = await res.json();
+        if (data.success) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Settings Saved',
+            text: 'Bot Footer and Wish Expiry Days updated!',
+            timer: 2000
+          });
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Failed to save general settings', 'error');
+      }
+    }
+
+    async function saveSongUrl() {
+      const url = document.getElementById('setting-song-url').value;
+      if (!url) return;
+      try {
+        const res = await fetch('/api/settings/song', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ songUrl: url })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          Swal.fire("Saved!", "Birthday song URL updated.", "success");
+        }
+      } catch (err) {
+        Swal.fire("Error", "Failed to save song URL", "error");
+      }
+    }
+
+    async function changeAdminPin() {
+      const cur = document.getElementById('current-pin').value;
+      const nxt = document.getElementById('new-pin').value;
+      if (!cur || !nxt) {
+        Swal.fire("Error", "Please fill both PIN fields", "error");
+        return;
+      }
+      try {
+        const res = await fetch('/api/admin/change-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ currentPassword: cur, newPassword: nxt })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          Swal.fire("Updated!", "Admin PIN has been changed.", "success");
+          document.getElementById('current-pin').value = '';
+          document.getElementById('new-pin').value = '';
+        } else {
+          Swal.fire("Failed", data.message, "error");
+        }
+      } catch (err) {
+        Swal.fire("Error", "Failed to update PIN", "error");
+      }
+    }
+
+    async function logoutWhatsApp() {
+      const confirm = await Swal.fire({ title: "Logout WhatsApp?", icon: "warning", showCancelButton: true });
+      if (!confirm.isConfirmed) return;
+      await fetch('/api/logout/whatsapp', { method: 'POST' });
+      Swal.fire("Logged Out", "WhatsApp session cleared", "info");
+      loadStatus();
+    }
+
+    async function logoutGoogle() {
+      const confirm = await Swal.fire({ title: "Logout Google?", icon: "warning", showCancelButton: true });
+      if (!confirm.isConfirmed) return;
+      await fetch('/api/logout/google', { method: 'POST' });
+      Swal.fire("Logged Out", "Google credentials removed", "info");
+      loadStatus();
+    }
+
+    function openSettingsModal() {
+      document.getElementById('settings-modal').classList.remove('hidden');
+    }
+    function closeSettingsModal() {
+      document.getElementById('settings-modal').classList.add('hidden');
+    }
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text);
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: 'Wish link copied to clipboard',
+        showConfirmButton: false,
+        timer: 2000
+      });
+    }
+
+    function escapeHTML(str) {
+      return String(str || '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+    }
+
+    // ======================== FRAME TEMPLATE STUDIO & DRAG-AND-DROP LOGIC ========================
+    let studioData = { frameStyles: {}, user_selected_style: '1' };
+    let activeStudioStyleId = '1';
+    let isDraggingBadge = false;
+    let badgeDragOffset = { x: 0, y: 0 };
+    let studioImgNatural = { width: 1080, height: 1080 };
+
+    function openFrameStudioModal() {
+      document.getElementById('frame-studio-modal').classList.remove('hidden');
+      loadStudioStyles();
+      setupStudioDragEvents();
+    }
+
+    function closeFrameStudioModal() {
+      document.getElementById('frame-studio-modal').classList.add('hidden');
+    }
+
+    async function loadStudioStyles() {
+      try {
+        const res = await fetch('/api/user-style');
+        const data = await res.json();
+        if (data && data.frameStyles) {
+          studioData = data;
+          activeStudioStyleId = data.user_selected_style || Object.keys(data.frameStyles)[0] || '1';
+          renderStudioStyleSelect();
+          loadStudioStyleDetails(activeStudioStyleId);
+        }
+      } catch (err) {
+        console.error('❌ Failed to load styles:', err);
+        Swal.fire('Error', 'Failed to load frame templates from server', 'error');
+      }
+    }
+
+    function renderStudioStyleSelect() {
+      const select = document.getElementById('studio-style-select');
+      select.innerHTML = '';
+      const styles = studioData.frameStyles || {};
+      for (const id of Object.keys(styles)) {
+        const opt = document.createElement('option');
+        opt.value = id;
+        const isActive = id === String(studioData.user_selected_style);
+        opt.textContent = `Style ${id} ${isActive ? '★ (Active)' : ''}`;
+        if (id === activeStudioStyleId) opt.selected = true;
+        select.appendChild(opt);
+      }
+      updateActiveTag();
+    }
+
+    function updateActiveTag() {
+      const tag = document.getElementById('studio-active-tag');
+      const activeId = studioData.user_selected_style || '1';
+      tag.textContent = `Active: Style ${activeId}`;
+    }
+
+    function onStudioSelectChange() {
+      const select = document.getElementById('studio-style-select');
+      activeStudioStyleId = select.value;
+      loadStudioStyleDetails(activeStudioStyleId);
+    }
+
+    let isDraggingProfile = false;
+    let profileDragOffset = { x: 0, y: 0 };
+
+    function loadStudioStyleDetails(styleId) {
+      const style = studioData.frameStyles?.[styleId];
+      if (!style) return;
+
+      const img = document.getElementById('studio-frame-img');
+      img.src = style.framePath.startsWith('/') ? style.framePath : `/${style.framePath}`;
+
+      // Populate text coordinates
+      const text = style.text || {};
+      const fSize = text.fontSize || '45';
+      document.getElementById('studio-font-size').value = fSize;
+      document.getElementById('studio-font-size-slider').value = fSize;
+      document.getElementById('studio-font-size-label').textContent = `${fSize} px`;
+
+      const colorVal = text.color || '#000000';
+      document.getElementById('studio-color-picker').value = colorVal.startsWith('#') ? colorVal : '#000000';
+      document.getElementById('studio-color-hex').value = colorVal;
+      
+      // Parse rotation from rotation or transform
+      let rot = text.rotation || 0;
+      if (!rot && text.transform && text.transform.includes('rotate(')) {
+        const m = text.transform.match(/rotate\(([-\d.]+)/);
+        if (m) rot = parseFloat(m[1]);
+      }
+      document.getElementById('studio-rotation').value = rot;
+
+      // Populate profile coordinates
+      const prof = style.profile || { width: 400, height: 400, left: 100, top: 100 };
+      const pSize = prof.width || 400;
+      document.getElementById('studio-profile-size-slider').value = pSize;
+      document.getElementById('studio-profile-size-label').textContent = `${pSize} px`;
+      document.getElementById('studio-profile-x').value = prof.left || 100;
+      document.getElementById('studio-profile-y').value = prof.top || 100;
+    }
+
+    function onStudioImageLoaded() {
+      const img = document.getElementById('studio-frame-img');
+      studioImgNatural.width = img.naturalWidth || 1080;
+      studioImgNatural.height = img.naturalHeight || 1080;
+      document.getElementById('studio-res-indicator').textContent = `${studioImgNatural.width} x ${studioImgNatural.height} px`;
+
+      const style = studioData.frameStyles?.[activeStudioStyleId];
+      if (!style) return;
+
+      // Position Profile Photo Guide Box
+      const prof = style.profile || { width: 400, height: 400, left: 100, top: 100 };
+      updateProfilePositionAndSize(prof.left, prof.top, prof.width, prof.height);
+
+      // Position Draggable Badge
+      const text = style.text || {};
+      let actualX = 540;
+      let actualY = 900;
+
+      if (text.x === '50%' || !text.x) {
+        actualX = Math.round(studioImgNatural.width * 0.5);
+      } else {
+        actualX = parseFloat(text.x);
+      }
+
+      if (text.y === '50%' || !text.y) {
+        actualY = Math.round(studioImgNatural.height * 0.7);
+      } else {
+        actualY = parseFloat(text.y);
+      }
+
+      document.getElementById('studio-coord-x').value = Math.round(actualX);
+      document.getElementById('studio-coord-y').value = Math.round(actualY);
+
+      updateBadgePositionFromCoords(actualX, actualY);
+      applyTypographyStyles();
+    }
+
+    function updateBadgePositionFromCoords(actualX, actualY) {
+      const badge = document.getElementById('studio-draggable-badge');
+      const pctX = (actualX / studioImgNatural.width) * 100;
+      const pctY = (actualY / studioImgNatural.height) * 100;
+      badge.style.left = `${pctX}%`;
+      badge.style.top = `${pctY}%`;
+    }
+
+    function updateProfilePositionAndSize(left, top, width, height) {
+      const profGuide = document.getElementById('studio-profile-guide');
+      const pLeftPct = (left / studioImgNatural.width) * 100;
+      const pTopPct = (top / studioImgNatural.height) * 100;
+      const pWidthPct = (width / studioImgNatural.width) * 100;
+      const pHeightPct = (height / studioImgNatural.height) * 100;
+
+      profGuide.style.left = `${pLeftPct}%`;
+      profGuide.style.top = `${pTopPct}%`;
+      profGuide.style.width = `${pWidthPct}%`;
+      profGuide.style.height = `${pHeightPct}%`;
+
+      document.getElementById('studio-profile-x').value = Math.round(left);
+      document.getElementById('studio-profile-y').value = Math.round(top);
+    }
+
+    function onStudioProfileSizeSlider(val) {
+      const size = parseFloat(val) || 400;
+      document.getElementById('studio-profile-size-label').textContent = `${size} px`;
+      const left = parseFloat(document.getElementById('studio-profile-x').value) || 0;
+      const top = parseFloat(document.getElementById('studio-profile-y').value) || 0;
+      updateProfilePositionAndSize(left, top, size, size);
+    }
+
+    function onStudioProfileManualChange() {
+      const left = parseFloat(document.getElementById('studio-profile-x').value) || 0;
+      const top = parseFloat(document.getElementById('studio-profile-y').value) || 0;
+      const size = parseFloat(document.getElementById('studio-profile-size-slider').value) || 400;
+      updateProfilePositionAndSize(left, top, size, size);
+    }
+
+    function onStudioFontSizeSlider(val) {
+      document.getElementById('studio-font-size').value = val;
+      document.getElementById('studio-font-size-label').textContent = `${val} px`;
+      applyTypographyStyles();
+    }
+
+    function onStudioFontSizeInput(val) {
+      document.getElementById('studio-font-size-slider').value = val;
+      document.getElementById('studio-font-size-label').textContent = `${val} px`;
+      applyTypographyStyles();
+    }
+
+    function onStudioCoordManualChange() {
+      const x = parseFloat(document.getElementById('studio-coord-x').value) || 0;
+      const y = parseFloat(document.getElementById('studio-coord-y').value) || 0;
+      updateBadgePositionFromCoords(x, y);
+    }
+
+    function onStudioTypographyChange() {
+      applyTypographyStyles();
+    }
+
+    function onStudioColorPickerInput(val) {
+      document.getElementById('studio-color-hex').value = val;
+      applyTypographyStyles();
+    }
+
+    function onStudioColorHexInput(val) {
+      if (val.startsWith('#') && (val.length === 4 || val.length === 7)) {
+        document.getElementById('studio-color-picker').value = val;
+      }
+      applyTypographyStyles();
+    }
+
+    function applyTypographyStyles() {
+      const color = document.getElementById('studio-color-hex').value || '#000000';
+      const rot = parseFloat(document.getElementById('studio-rotation').value) || 0;
+      const fontSize = parseFloat(document.getElementById('studio-font-size').value) || 45;
+      const badgeText = document.getElementById('studio-badge-text');
+      const badge = document.getElementById('studio-draggable-badge');
+
+      badgeText.style.color = color;
+      badge.style.transform = `translate(-50%, -50%) rotate(${rot}deg)`;
+      
+      // Dynamic preview scale for text based on frame resolution
+      const container = document.getElementById('studio-canvas-container');
+      const scale = (container.clientWidth || 380) / studioImgNatural.width;
+      const previewFontSize = Math.max(10, Math.round(fontSize * scale));
+      badgeText.style.fontSize = `${previewFontSize}px`;
+    }
+
+    // Drag-and-Drop Event Listeners for BOTH Name Badge and Profile Box
+    function setupStudioDragEvents() {
+      const badge = document.getElementById('studio-draggable-badge');
+      const profGuide = document.getElementById('studio-profile-guide');
+      const container = document.getElementById('studio-canvas-container');
+
+      // Start drag for Name Badge
+      function onBadgeStart(e) {
+        isDraggingBadge = true;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const badgeRect = badge.getBoundingClientRect();
+        badgeDragOffset.x = clientX - (badgeRect.left + badgeRect.width / 2);
+        badgeDragOffset.y = clientY - (badgeRect.top + badgeRect.height / 2);
+        document.body.style.userSelect = 'none';
+      }
+
+      // Start drag for Profile Photo
+      function onProfileStart(e) {
+        isDraggingProfile = true;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const profRect = profGuide.getBoundingClientRect();
+        profileDragOffset.x = clientX - profRect.left;
+        profileDragOffset.y = clientY - profRect.top;
+        document.body.style.userSelect = 'none';
+      }
+
+      function onMove(e) {
+        if (!isDraggingBadge && !isDraggingProfile) return;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const rect = container.getBoundingClientRect();
+
+        if (isDraggingBadge) {
+          let posX = clientX - rect.left - badgeDragOffset.x;
+          let posY = clientY - rect.top - badgeDragOffset.y;
+
+          posX = Math.max(0, Math.min(rect.width, posX));
+          posY = Math.max(0, Math.min(rect.height, posY));
+
+          const pctX = (posX / rect.width) * 100;
+          const pctY = (posY / rect.height) * 100;
+
+          badge.style.left = `${pctX}%`;
+          badge.style.top = `${pctY}%`;
+
+          const actualX = Math.round((pctX / 100) * studioImgNatural.width);
+          const actualY = Math.round((pctY / 100) * studioImgNatural.height);
+
+          document.getElementById('studio-coord-x').value = actualX;
+          document.getElementById('studio-coord-y').value = actualY;
+        }
+
+        if (isDraggingProfile) {
+          let posX = clientX - rect.left - profileDragOffset.x;
+          let posY = clientY - rect.top - profileDragOffset.y;
+
+          posX = Math.max(0, Math.min(rect.width - profGuide.clientWidth, posX));
+          posY = Math.max(0, Math.min(rect.height - profGuide.clientHeight, posY));
+
+          const pctX = (posX / rect.width) * 100;
+          const pctY = (posY / rect.height) * 100;
+
+          profGuide.style.left = `${pctX}%`;
+          profGuide.style.top = `${pctY}%`;
+
+          const actualX = Math.round((pctX / 100) * studioImgNatural.width);
+          const actualY = Math.round((pctY / 100) * studioImgNatural.height);
+
+          document.getElementById('studio-profile-x').value = actualX;
+          document.getElementById('studio-profile-y').value = actualY;
+        }
+      }
+
+      function onEnd() {
+        if (isDraggingBadge || isDraggingProfile) {
+          isDraggingBadge = false;
+          isDraggingProfile = false;
+          document.body.style.userSelect = '';
+        }
+      }
+
+      badge.onmousedown = onBadgeStart;
+      badge.ontouchstart = onBadgeStart;
+
+      profGuide.onmousedown = onProfileStart;
+      profGuide.ontouchstart = onProfileStart;
+
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('touchmove', onMove, { passive: false });
+      window.addEventListener('mouseup', onEnd);
+      window.addEventListener('touchend', onEnd);
+    }
+
+    async function saveStudioCoordinates() {
+      const x = document.getElementById('studio-coord-x').value;
+      const y = document.getElementById('studio-coord-y').value;
+      const fontSize = document.getElementById('studio-font-size').value;
+      const color = document.getElementById('studio-color-hex').value;
+      const rotation = parseFloat(document.getElementById('studio-rotation').value) || 0;
+
+      const profX = parseFloat(document.getElementById('studio-profile-x').value) || 0;
+      const profY = parseFloat(document.getElementById('studio-profile-y').value) || 0;
+      const profSize = parseFloat(document.getElementById('studio-profile-size-slider').value) || 400;
+
+      Swal.fire({
+        title: 'Saving coordinates & layout to Database...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      try {
+        const textPayload = {
+          x: String(x),
+          y: String(y),
+          fontSize: String(fontSize),
+          color: color
+        };
+        if (rotation !== 0) {
+          textPayload.rotation = rotation;
+          textPayload.transform = `rotate(${rotation}deg, ${x}, ${y})`;
+        } else {
+          textPayload.rotation = 0;
+          textPayload.transform = '';
+        }
+
+        const profilePayload = {
+          left: Math.round(profX),
+          top: Math.round(profY),
+          width: Math.round(profSize),
+          height: Math.round(profSize)
+        };
+
+        const res = await fetch('/api/user-style/coordinates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            styleId: activeStudioStyleId,
+            text: textPayload,
+            profile: profilePayload
+          })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          if (studioData.frameStyles[activeStudioStyleId]) {
+            studioData.frameStyles[activeStudioStyleId].text = data.style.text;
+            studioData.frameStyles[activeStudioStyleId].profile = data.style.profile;
+          }
+          Swal.fire({
+            icon: 'success',
+            title: 'Layout & Coordinates Saved!',
+            text: `Style ${activeStudioStyleId} name & photo positions synced to Database.`,
+            timer: 2000
+          });
+        } else {
+          Swal.fire('Failed', data.error || 'Could not save coordinates', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Server communication failure', 'error');
+      }
+    }
+
+    async function setStudioActiveStyle() {
+      try {
+        const res = await fetch('/api/user-style/select', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_selected_style: activeStudioStyleId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          studioData.user_selected_style = activeStudioStyleId;
+          renderStudioStyleSelect();
+          updateActiveTag();
+          Swal.fire({
+            icon: 'success',
+            title: 'Active Frame Updated',
+            text: `Style ${activeStudioStyleId} is now set as the active birthday frame template.`,
+            timer: 2000
+          });
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Failed to update active frame', 'error');
+      }
+    }
+
+    async function uploadNewFrameTemplate(input) {
+      if (!input.files || !input.files[0]) return;
+      const file = input.files[0];
+
+      const formData = new FormData();
+      formData.append('frame', file);
+
+      Swal.fire({
+        title: 'Uploading New Frame...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      try {
+        const res = await fetch('/api/user-style/upload', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (data.success) {
+          Swal.fire('Template Added!', 'New frame uploaded. You can now drag the name placeholder.', 'success');
+          input.value = '';
+          await loadStudioStyles();
+          activeStudioStyleId = data.styleId;
+          document.getElementById('studio-style-select').value = data.styleId;
+          loadStudioStyleDetails(data.styleId);
+        } else {
+          Swal.fire('Upload Failed', data.error || 'Could not process frame image', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Failed to upload frame template', 'error');
+      }
+    }
+
+    async function deleteStudioCurrentStyle() {
+      const totalStyles = Object.keys(studioData.frameStyles || {}).length;
+      if (totalStyles <= 1) {
+        Swal.fire('Notice', 'At least one frame template must remain in the system.', 'warning');
+        return;
+      }
+
+      const confirm = await Swal.fire({
+        title: `Delete Style ${activeStudioStyleId}?`,
+        text: 'This frame template will be permanently removed.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e11d48',
+        confirmButtonText: 'Yes, Delete Frame'
+      });
+
+      if (!confirm.isConfirmed) return;
+
+      try {
+        const res = await fetch(`/api/user-style/${activeStudioStyleId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          Swal.fire('Deleted', `Style ${activeStudioStyleId} removed.`, 'success');
+          await loadStudioStyles();
+        } else {
+          Swal.fire('Failed', data.error || 'Could not delete style', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Failed to delete template', 'error');
+      }
+    }
+
+    // ======================== SECRET LETTERS MANAGER LOGIC ========================
+    let secretLettersData = { currentIndex: 0, letters: [] };
+
+    function openSecretLettersModal() {
+      document.getElementById('secret-letters-modal').classList.remove('hidden');
+      loadSecretLetters();
+    }
+
+    function closeSecretLettersModal() {
+      document.getElementById('secret-letters-modal').classList.add('hidden');
+    }
+
+    async function loadSecretLetters() {
+      try {
+        const res = await fetch('/api/secret-letters');
+        const data = await res.json();
+        secretLettersData = data;
+        renderSecretLettersList();
+      } catch (err) {
+        console.error('Failed to load secret letters:', err);
+        Swal.fire('Error', 'Failed to load secret letters from server', 'error');
+      }
+    }
+
+    function renderSecretLettersList() {
+      const container = document.getElementById('secret-letters-list');
+      const badge = document.getElementById('letters-pool-badge');
+      const letters = secretLettersData.letters || [];
+
+      badge.textContent = `${letters.length} Letters in Pool (Next: #${(secretLettersData.currentIndex || 0) + 1})`;
+      container.innerHTML = '';
+
+      if (letters.length === 0) {
+        container.innerHTML = '<div class="text-center py-8 text-slate-400 text-xs">No secret letters found. Click "Add New Letter" to start.</div>';
+        return;
+      }
+
+      letters.forEach((item, index) => {
+        const isNext = index === (secretLettersData.currentIndex || 0);
+        const card = document.createElement('div');
+        card.className = `p-4 sm:p-5 rounded-2xl bg-white border ${isNext ? 'border-purple-400 shadow-md ring-2 ring-purple-100' : 'border-pink-100 shadow-sm'} transition space-y-3`;
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${isNext ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-700'}">
+                #${index + 1}
+              </span>
+              ${isNext ? '<span class="text-[10px] font-bold uppercase tracking-wider text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">★ Next in line for incoming wish</span>' : ''}
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              <button onclick="setNextInLine(${index})" class="px-2.5 py-1 text-[11px] font-semibold text-purple-600 hover:bg-purple-50 rounded-lg transition" title="Set this letter as the next one to send">
+                Make Next
+              </button>
+              <button onclick="deleteSecretLetter('${item.id}', ${index})" class="text-rose-500 hover:text-rose-700 p-1.5 hover:bg-rose-50 rounded-lg transition" title="Delete letter">
+                <i class="fas fa-trash-alt text-xs"></i>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Letter Title / Label</label>
+            <input 
+              type="text" 
+              id="letter-title-${index}" 
+              value="${escapeHTML(item.title || `Letter ${index + 1}`)}" 
+              class="w-full px-3 py-1.5 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400"
+            />
+          </div>
+
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Letter Content (Supports \${name} placeholder)</label>
+            <textarea 
+              id="letter-text-${index}" 
+              rows="3" 
+              class="w-full px-3.5 py-2 text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 leading-relaxed font-sans"
+            >${escapeHTML(item.text || '')}</textarea>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function toggleJsonImportBox() {
+      const box = document.getElementById('json-import-container');
+      box.classList.toggle('hidden');
+    }
+
+    async function submitJsonImport() {
+      const textarea = document.getElementById('json-import-textarea');
+      const val = textarea.value.trim();
+      if (!val) {
+        Swal.fire('Error', 'Please paste a JSON array into the textarea', 'error');
+        return;
+      }
+
+      Swal.fire({
+        title: 'Importing Letters...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      try {
+        const res = await fetch('/api/secret-letters/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lettersJson: val })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          Swal.fire('Imported!', `Successfully imported ${data.count} secret letters into your pool.`, 'success');
+          textarea.value = '';
+          toggleJsonImportBox();
+          await loadSecretLetters();
+        } else {
+          Swal.fire('Import Failed', data.error || 'Invalid JSON format', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Failed to communicate with server', 'error');
+      }
+    }
+
+    function addNewSecretLetter() {
+      if (!secretLettersData.letters) secretLettersData.letters = [];
+      const newIdx = secretLettersData.letters.length + 1;
+      secretLettersData.letters.push({
+        id: `letter_${Date.now()}`,
+        title: `Heartfelt Wish ${newIdx}`,
+        text: "May your day be filled with endless smiles, pure happiness, and love! Wishing you a truly blessed and wonderful year ahead!"
+      });
+      renderSecretLettersList();
+      const container = document.getElementById('secret-letters-list');
+      container.lastElementChild?.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function setNextInLine(index) {
+      secretLettersData.currentIndex = index;
+      renderSecretLettersList();
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'info',
+        title: `Letter #${index + 1} will be sent for next birthday wish`,
+        showConfirmButton: false,
+        timer: 2000
+      });
+    }
+
+    async function deleteSecretLetter(id, index) {
+      if ((secretLettersData.letters || []).length <= 1) {
+        Swal.fire('Notice', 'At least one secret letter must remain in the pool.', 'warning');
+        return;
+      }
+
+      const confirm = await Swal.fire({
+        title: 'Delete this Secret Letter?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e11d48',
+        confirmButtonText: 'Yes, Delete'
+      });
+      if (!confirm.isConfirmed) return;
+
+      try {
+        const res = await fetch(`/api/secret-letters/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.ok) {
+          await loadSecretLetters();
+          Swal.fire('Deleted', 'Secret letter removed.', 'success');
+        } else {
+          Swal.fire('Failed', data.error || 'Could not delete letter', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Server communication failure', 'error');
+      }
+    }
+
+    async function saveAllSecretLetters() {
+      const letters = secretLettersData.letters || [];
+      letters.forEach((item, index) => {
+        const titleEl = document.getElementById(`letter-title-${index}`);
+        const textEl = document.getElementById(`letter-text-${index}`);
+        if (titleEl) item.title = titleEl.value.trim();
+        if (textEl) item.text = textEl.value.trim();
+      });
+
+      Swal.fire({
+        title: 'Saving Letters to Database...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      try {
+        const res = await fetch('/api/secret-letters', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            currentIndex: secretLettersData.currentIndex || 0,
+            letters: letters
+          })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Letters Saved!',
+            text: 'All secret birthday letters synced to Supabase Database and local storage.',
+            timer: 2000
+          });
+          await loadSecretLetters();
+        } else {
+          Swal.fire('Failed', data.error || 'Could not save letters', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Server communication failure', 'error');
+      }
+    }
+
+    // ======================== MESSAGE TEMPLATE LOGIC ========================
+    async function openMessageTemplateModal() {
+      document.getElementById('message-template-modal').classList.remove('hidden');
+      await loadMessageTemplate();
+    }
+
+    function closeMessageTemplateModal() {
+      document.getElementById('message-template-modal').classList.add('hidden');
+    }
+
+    async function loadMessageTemplate() {
+      try {
+        const res = await fetch('/api/message-template');
+        const data = await res.json();
+        if (data.success && data.template) {
+          document.getElementById('template-textarea').value = data.template;
+          updateTemplatePreview();
+        }
+      } catch (err) {
+        console.error('Failed to load template:', err);
+      }
+    }
+
+    function updateTemplatePreview() {
+      const val = document.getElementById('template-textarea').value || '';
+      const samplePreview = val
+        .replace(/\{name\}/gi, '<b>Kasun</b>')
+        .replace(/\{link\}/gi, '<span class="text-blue-600 underline">http://127.0.0.1:8000/wish/sample123</span>');
+      document.getElementById('template-live-preview').innerHTML = samplePreview;
+    }
+
+    function insertTemplatePlaceholder(tag) {
+      const area = document.getElementById('template-textarea');
+      const start = area.selectionStart;
+      const end = area.selectionEnd;
+      const text = area.value;
+      area.value = text.substring(0, start) + tag + text.substring(end);
+      area.focus();
+      area.selectionStart = area.selectionEnd = start + tag.length;
+      updateTemplatePreview();
+    }
+
+    async function saveMessageTemplate() {
+      const template = document.getElementById('template-textarea').value;
+      if (!template.trim()) {
+        Swal.fire('Warning', 'Message template cannot be empty.', 'warning');
+        return;
+      }
+
+      Swal.fire({
+        title: 'Saving Message Template...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      try {
+        const res = await fetch('/api/message-template', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ template })
+        });
+        const data = await res.json();
+        if (data.success) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Template Saved!',
+            text: 'Automated WhatsApp birthday message template updated.',
+            timer: 2000
+          });
+          closeMessageTemplateModal();
+        } else {
+          Swal.fire('Error', data.error || 'Failed to save template', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Server communication failure', 'error');
+      }
+    }
+
+    async function resetMessageTemplateDefault() {
+      const confirm = await Swal.fire({
+        title: 'Reset to Default Template?',
+        text: 'This will restore the original Sinhala birthday greeting template.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Reset',
+        confirmButtonColor: '#10b981'
+      });
+      if (!confirm.isConfirmed) return;
+
+      try {
+        const res = await fetch('/api/message-template/reset', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('template-textarea').value = data.template;
+          updateTemplatePreview();
+          Swal.fire('Reset!', 'Default template restored.', 'success');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Failed to reset template', 'error');
+      }
+    }
+
+    // ======================== CONTACT PERSONALIZATION LOGIC ========================
+    let currentPersonalizingContact = { name: '', phone: '' };
+
+    async function openPersonalizeContactModal(name, phone) {
+      currentPersonalizingContact = { name, phone };
+      document.getElementById('pref-contact-name-title').textContent = name;
+      document.getElementById('pref-contact-phone-subtitle').textContent = phone ? `+${phone}` : 'No phone';
+
+      // Always refresh frame styles fresh from server
+      try {
+        const res = await fetch('/api/user-style');
+        const data = await res.json();
+        if (data && data.frameStyles) studioData = data;
+      } catch (e) {
+        console.warn('Could not refresh studio data:', e);
+      }
+
+      // 1. Populate Frames Dropdown with all available frames
+      const frameSelect = document.getElementById('pref-frame-select');
+      frameSelect.innerHTML = '<option value="default">★ Default (Currently Active Global Frame)</option>';
+      const styles = studioData?.frameStyles || {};
+      for (const id of Object.keys(styles)) {
+        const opt = document.createElement('option');
+        opt.value = id;
+        const isGlobal = id === String(studioData?.user_selected_style);
+        opt.textContent = `Frame Style ${id} ${isGlobal ? '★ (Active Global Frame)' : ''}`;
+        frameSelect.appendChild(opt);
+      }
+
+      // 2. Populate Saved Letters Dropdown
+      const letterSelect = document.getElementById('pref-saved-letter-select');
+      letterSelect.innerHTML = '';
+      if (!secretLettersData?.letters || secretLettersData.letters.length === 0) {
+        await loadSecretLetters();
+      }
+      (secretLettersData?.letters || []).forEach((l, idx) => {
+        const opt = document.createElement('option');
+        opt.value = l.id;
+        const preview = (l.title || `Letter #${idx + 1}`) + ' - ' + (l.text ? l.text.substring(0, 45) + '...' : '');
+        opt.textContent = preview;
+        letterSelect.appendChild(opt);
+      });
+
+      // 3. Load existing preferences for this contact
+      let pref = allContactPreferences[phone];
+      if (!pref && phone) {
+        try {
+          const res = await fetch(`/api/contact-preferences/${phone}`);
+          const data = await res.json();
+          if (data.success && data.preference) {
+            pref = data.preference;
+          }
+        } catch (e) {}
+      }
+
+      // 4. Set values in form
+      if (pref) {
+        frameSelect.value = pref.assigned_frame_id || 'default';
+        const type = pref.letter_type || 'auto';
+        if (type === 'custom') {
+          document.getElementById('pref-type-custom').checked = true;
+        } else if (type === 'saved') {
+          document.getElementById('pref-type-saved').checked = true;
+          if (pref.saved_letter_id) letterSelect.value = pref.saved_letter_id;
+        } else {
+          document.getElementById('pref-type-auto').checked = true;
+        }
+        document.getElementById('pref-custom-letter-text').value = pref.custom_letter_text || '';
+      } else {
+        frameSelect.value = 'default';
+        document.getElementById('pref-type-auto').checked = true;
+        document.getElementById('pref-custom-letter-text').value = '';
+      }
+
+      onPrefLetterTypeChange();
+      onPrefFrameSelectChange();
+      document.getElementById('personalize-contact-modal').classList.remove('hidden');
+    }
+
+    function closePersonalizeContactModal() {
+      document.getElementById('personalize-contact-modal').classList.add('hidden');
+    }
+
+    function onPrefLetterTypeChange() {
+      const isSaved = document.getElementById('pref-type-saved').checked;
+      const isCustom = document.getElementById('pref-type-custom').checked;
+      document.getElementById('pref-saved-letter-select').disabled = !isSaved;
+      document.getElementById('pref-custom-letter-text').disabled = !isCustom;
+    }
+
+    async function saveContactPersonalization() {
+      const phone = currentPersonalizingContact.phone;
+      if (!phone) {
+        Swal.fire('Error', 'Contact phone number is missing.', 'error');
+        return;
+      }
+
+      let letterType = 'auto';
+      if (document.getElementById('pref-type-saved').checked) letterType = 'saved';
+      if (document.getElementById('pref-type-custom').checked) letterType = 'custom';
+
+      const savedLetterId = document.getElementById('pref-saved-letter-select').value;
+      const customLetterText = document.getElementById('pref-custom-letter-text').value.trim();
+      const assignedFrameId = document.getElementById('pref-frame-select').value;
+
+      Swal.fire({
+        title: 'Saving Preferences...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      try {
+        const res = await fetch('/api/contact-preferences', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone,
+            name: currentPersonalizingContact.name,
+            letter_type: letterType,
+            saved_letter_id: savedLetterId,
+            custom_letter_text: customLetterText,
+            assigned_frame_id: assignedFrameId
+          })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          allContactPreferences[phone] = data.preference;
+          Swal.fire({
+            icon: 'success',
+            title: 'Personalized!',
+            text: `Preferences saved for ${currentPersonalizingContact.name}.`,
+            timer: 2000
+          });
+          closePersonalizeContactModal();
+          await loadContacts(false);
+        } else {
+          Swal.fire('Error', data.error || 'Failed to save preferences', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Server communication failure', 'error');
+      }
+    }
+
+    // ======================== TEXT.LK SMS CENTER LOGIC ========================
+
+    function openSmsCenterModal() {
+      document.getElementById('sms-center-modal').classList.remove('hidden');
+      switchSmsTab('history');
+      loadSmsConfig();
+      loadSmsHistory();
+    }
+
+    function closeSmsCenterModal() {
+      document.getElementById('sms-center-modal').classList.add('hidden');
+    }
+
+    function switchSmsTab(tab) {
+      const tabs = ['history', 'send', 'settings'];
+      tabs.forEach(t => {
+        const content = document.getElementById(`sms-tab-${t}`);
+        const btn = document.getElementById(`tab-btn-${t}`);
+        if (t === tab) {
+          content.classList.remove('hidden');
+          btn.className = 'px-3.5 py-1.5 text-xs font-bold rounded-xl bg-sky-500 text-white shadow-xs flex items-center gap-1.5 transition';
+        } else {
+          content.classList.add('hidden');
+          btn.className = 'px-3.5 py-1.5 text-xs font-semibold rounded-xl text-slate-600 hover:bg-white flex items-center gap-1.5 transition';
         }
       });
-
-      fetch(`/api/send/${number}/${name}`)
-        .then(response => response.json())
-        .then(data => {
-          // Close the loading alert
-          Swal.close();
-          // Show success alert
-          Swal.fire("Sent!", data.message, "success");
-        })
-        .catch(error => {
-          // Close the loading alert
-          Swal.close();
-          // Show error alert
-          Swal.fire("Error!", "Failed to send message.", "error");
-        });
+      if (tab === 'history') loadSmsHistory();
     }
-  });
-}
 
- function renderItem(contact, { highlight = false } = {}) {
-  const li = document.createElement('li');
-  li.className = 'list-group-item d-flex align-items-center birthday-card';
-  if (highlight) li.classList.add('list-group-item-warning');
+    async function loadSmsConfig() {
+      try {
+        const res = await fetch('/api/sms/config');
+        const data = await res.json();
+        if (data.success) {
+          const config = data.config || {};
+          const credits = data.credits || {};
 
-  let largePhoto = 'https://via.placeholder.com/70?text=User';
-  if (contact.photo && contact.photo.startsWith('https://lh3.googleusercontent.com')) {
-    largePhoto = contact.photo.replace(/=s\d+$/, '=s8000');
-  }
+          // Update stats
+          document.getElementById('sms-month-credits').textContent = credits.monthly_count || 0;
+          document.getElementById('sms-total-credits').textContent = credits.total_count || 0;
+          const badgeEl = document.getElementById('badge-sms-monthly');
+          if (badgeEl) badgeEl.textContent = credits.monthly_count || 0;
+          document.getElementById('sms-month-label').textContent = `Resets monthly (${credits.current_month || ''})`;
 
-  const name = escapeHTML(contact.name || 'Unknown');
+          // Update Gateway Status
+          const statusEl = document.getElementById('sms-gateway-status');
+          const senderEl = document.getElementById('sms-sender-label');
+          if (config.token) {
+            statusEl.innerHTML = '<span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span> Connected';
+            statusEl.className = 'text-sm font-bold text-emerald-900 mt-1 flex items-center gap-1.5';
+          } else {
+            statusEl.innerHTML = '<span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Needs Token';
+            statusEl.className = 'text-sm font-bold text-amber-900 mt-1 flex items-center gap-1.5';
+          }
+          senderEl.textContent = `Sender: ${config.senderId || 'TextLKDemo'}`;
 
-  // Handle array or comma-separated string
-  let number = contact.phones || 'Unknown';
-  if (Array.isArray(number)) {
-    number = number[0];
-  } else if (typeof number === 'string' && number.includes(',')) {
-    number = number.split(',')[0].trim();
-  }
-
-  let data = {
-    name: name,
-    number: number
-  };
-
-
-  // Format birthday
-  const monthName = getMonthName(contact.birthday?.month);
-  const day = contact.birthday?.day || '';
-  const whenText = `${monthName} ${day}`.trim();
-
-li.innerHTML = `
-  <img src="${largePhoto}" class="rounded-circle me-3" alt="${name}">
-  <div class="flex-grow-1">
-    <div class="d-flex align-items-center gap-2">
-      <strong>${name}</strong>
-      ${highlight ? `<span class="badge bg-danger  today-pill">TODAY</span>` : ''}
-      <div class=" ms-auto d-flex gap-2 align-items-center">
-        
- <button id="btn-change-frame-per" class="btn btn-sm  btn-outline-danger " style="margin-left: auto;">Change Frame Style</button>
-
- 
-      <button type="button" 
-              onclick="sendsiglepersion('${name}','${number.replace(/\D/g, '')}')" 
-              class="btn btn-primary o">Send</button></div>
-
-
-              
-    </div>
-    <div class="text-muted">Birthday: ${whenText}</div>
-  </div>
-`;
-
-
-  return li;
-}
-
-
-  
-  function getMonthName(monthNumber) {
-    const date = new Date(); date.setMonth(Number(monthNumber) - 1);
-    return date.toLocaleString('default', { month: 'short' });
-  }
-  function getNextBirthdayDate(birthday, today) {
-    const y = today.getFullYear();
-    const m = Number(birthday.month) - 1;
-    const d = Number(birthday.day);
-    let next = safeDate(y, m, d);
-    if (stripTime(next) < stripTime(today)) next = safeDate(y + 1, m, d);
-    return next;
-  }
-  function safeDate(year, monthIndex, day) {
-    const dt = new Date(year, monthIndex, day);
-    if (dt.getMonth() !== monthIndex) return new Date(year, monthIndex, 28);
-    return dt;
-  }
-  function stripTime(dt) { return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()); }
-  function formatFullDate(dt) {
-    return dt.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
-  }
-  function escapeHTML(str) {
-    return String(str).replace(/[&<>\"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
-  }
-function sendBirthday(){
- Swal.fire({
-  title: "Are You Sure?",
-  text: "You won't be able to revert this!",
-  icon: "warning",
-  showCancelButton: true,
-  confirmButtonColor: "#3085d6",
-  cancelButtonColor: "#d33",
-  confirmButtonText: "Yes, Send it!"
-}).then((result) => {
-  if (result.isConfirmed) {
-    // Show "sending" loading alert
-    Swal.fire({
-      title: "Sending message...",
-      html: "Please wait...",
-      allowOutsideClick: false,
-      didOpen: () => {
-        Swal.showLoading();
+          // Form fields
+          document.getElementById('sms-setting-token').value = config.token || '';
+          document.getElementById('sms-setting-sender').value = config.senderId || 'TextLKDemo';
+          document.getElementById('sms-setting-template').value = config.template || '';
+          document.getElementById('sms-setting-autosend').checked = config.autoSend !== false;
+        }
+      } catch (err) {
+        console.error('Failed to load SMS config:', err);
       }
-    });
+    }
 
-    fetch(`/sendbirthday`)
-      .then(response => response.json())
-      .then(data => {
-        // Close the loading alert
-        Swal.close();
-        // Show success alert
-        Swal.fire("Sent!", data.message, "success");
-      })
-      .catch(error => {
-        // Close the loading alert
-        Swal.close();
-        // Show error alert
-        Swal.fire("Error!", "Failed to send message.", "error");
+    async function saveSmsSettings() {
+      const token = document.getElementById('sms-setting-token').value.trim();
+      const senderId = document.getElementById('sms-setting-sender').value.trim();
+      const template = document.getElementById('sms-setting-template').value.trim();
+      const autoSend = document.getElementById('sms-setting-autosend').checked;
+
+      try {
+        const res = await fetch('/api/sms/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, senderId, template, autoSend })
+        });
+        const data = await res.json();
+        if (data.success) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Settings Saved',
+            text: 'Text.lk SMS settings updated successfully!',
+            timer: 2000
+          });
+          loadSmsConfig();
+        } else {
+          Swal.fire('Error', data.error || 'Failed to save settings', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Server communication failure', 'error');
+      }
+    }
+
+    async function loadSmsHistory() {
+      const tbody = document.getElementById('sms-history-tbody');
+      tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">Fetching SMS records...</td></tr>`;
+
+      try {
+        const res = await fetch('/api/sms/history?limit=100');
+        const data = await res.json();
+        if (!data.success || !data.history || data.history.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">No SMS history recorded yet.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = data.history.map(item => {
+          const isSuccess = item.status === 'success';
+          const badgeClass = isSuccess 
+            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+            : 'bg-red-50 text-red-700 border border-red-200';
+          const badgeText = isSuccess ? '✅ Success' : '❌ Failed';
+          const dateStr = item.created_at ? new Date(item.created_at).toLocaleString() : 'Just now';
+          const errorNote = (!isSuccess && item.response_message) ? `<span class="text-[9px] text-red-500 block truncate max-w-xs" title="${escapeHTML(item.response_message)}">${escapeHTML(item.response_message)}</span>` : '';
+
+          return `
+            <tr class="hover:bg-slate-50/70 transition">
+              <td class="p-3">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeClass}">
+                  ${badgeText}
+                </span>
+                ${errorNote}
+              </td>
+              <td class="p-3 font-semibold text-slate-800">${escapeHTML(item.recipient_name || '—')}</td>
+              <td class="p-3 font-mono text-[11px] text-slate-600">+${escapeHTML(item.phone)}</td>
+              <td class="p-3 max-w-xs truncate text-[11px] text-slate-600" title="${escapeHTML(item.message)}">
+                ${escapeHTML(item.message)}
+              </td>
+              <td class="p-3 font-mono text-[11px] text-slate-600">${item.credits_used || 1}</td>
+              <td class="p-3 text-right text-[11px] text-slate-400 whitespace-nowrap">${dateStr}</td>
+            </tr>
+          `;
+        }).join('');
+
+        if (data.credits) {
+          document.getElementById('sms-month-credits').textContent = data.credits.monthly_count || 0;
+          document.getElementById('sms-total-credits').textContent = data.credits.total_count || 0;
+          const badgeEl = document.getElementById('badge-sms-monthly');
+          if (badgeEl) badgeEl.textContent = data.credits.monthly_count || 0;
+        }
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-red-400">Failed to load history.</td></tr>`;
+      }
+    }
+
+    async function sendQuickSms() {
+      const phone = document.getElementById('quick-sms-phone').value.trim();
+      const name = document.getElementById('quick-sms-name').value.trim();
+      const message = document.getElementById('quick-sms-message').value.trim();
+
+      if (!phone || !message) {
+        Swal.fire('Missing Details', 'Please provide both phone number and message content.', 'warning');
+        return;
+      }
+
+      Swal.fire({
+        title: 'Sending SMS...',
+        text: `Dispatching via Text.lk to ${phone}`,
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
       });
-  }
-});
-}
-  loadStatus();
-  loadBirthdays();
-</script>
+
+      try {
+        const res = await fetch('/api/sms/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recipientPhone: phone, recipientName: name, message })
+        });
+        const data = await res.json();
+        if (data.success) {
+          Swal.fire('SMS Sent!', 'The message was queued/delivered successfully.', 'success');
+          document.getElementById('quick-sms-message').value = '';
+          switchSmsTab('history');
+          loadSmsConfig();
+        } else {
+          Swal.fire('Delivery Failed', data.error || 'Failed to dispatch SMS', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Server communication failure', 'error');
+      }
+    }
+
+    async function sendDirectContactSms(phone, name) {
+      if (!phone) {
+        Swal.fire('Error', 'Contact does not have a valid phone number.', 'error');
+        return;
+      }
+
+      const confirm = await Swal.fire({
+        title: `Send Birthday SMS?`,
+        html: `Send an automated Text.lk Birthday SMS to <b>${escapeHTML(name)}</b> (+${phone})?<br><small class="text-slate-400">(Wish link validity is set to Never Expiring)</small>`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Send SMS',
+        confirmButtonColor: '#0284c7'
+      });
+
+      if (!confirm.isConfirmed) return;
+
+      Swal.fire({
+        title: `Dispatching SMS to ${name}...`,
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      try {
+        const res = await fetch(`/api/sms/send-birthday/${phone}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (data.success) {
+          Swal.fire({
+            icon: 'success',
+            title: 'SMS Sent Successfully!',
+            html: `Birthday SMS dispatched to ${name}.<br><a href="${data.wishUrl}" target="_blank" class="text-sky-600 underline text-xs mt-1 block">View Wish Page (Validity: Never)</a>`
+          });
+          loadSmsConfig();
+        } else {
+          Swal.fire('SMS Failed', data.error || 'Failed to send SMS via Text.lk', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Failed to connect to server', 'error');
+      }
+    }
+
+    
+    // ======================== MULTI-NUMBER & MULTI-CHANNEL SEND MODAL ========================
+    let currentSendContact = { name: '', phones: [] };
+
+    function openSendWishModal(name, phoneListStr) {
+      const phones = (phoneListStr || '').split(',').map(p => p.trim()).filter(Boolean);
+      currentSendContact = { name, phones };
+
+      document.getElementById('send-modal-contact-name').textContent = name;
+      const optionsContainer = document.getElementById('send-modal-phone-options');
+      optionsContainer.innerHTML = '';
+
+      if (phones.length === 0) {
+        optionsContainer.innerHTML = `<div class="p-3 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold">No phone number found for this contact.</div>`;
+        document.getElementById('btn-execute-send-wish').disabled = true;
+      } else if (phones.length === 1) {
+        optionsContainer.innerHTML = `
+          <label class="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer">
+            <input type="radio" name="send-modal-phone" value="${phones[0]}" checked class="accent-pink-500">
+            <div>
+              <div class="text-xs font-bold text-slate-800">+${phones[0]}</div>
+              <div class="text-[10px] text-slate-400">Primary Contact Number</div>
+            </div>
+          </label>
+        `;
+        document.getElementById('btn-execute-send-wish').disabled = false;
+      } else {
+        // Multiple numbers: Number 1, Number 2, Both Numbers
+        let htmlOptions = phones.map((ph, idx) => `
+          <label class="flex items-center gap-3 p-3 bg-slate-50 hover:bg-pink-50/50 border border-slate-200 rounded-xl cursor-pointer transition">
+            <input type="radio" name="send-modal-phone" value="${ph}" ${idx === 0 ? 'checked' : ''} class="accent-pink-500">
+            <div>
+              <div class="text-xs font-bold text-slate-800">Number ${idx + 1}: +${ph}</div>
+              <div class="text-[10px] text-slate-400">Send to this number only</div>
+            </div>
+          </label>
+        `).join('');
+
+        htmlOptions += `
+          <label class="flex items-center gap-3 p-3 bg-pink-50/70 hover:bg-pink-50 border border-pink-200 rounded-xl cursor-pointer transition">
+            <input type="radio" name="send-modal-phone" value="all" class="accent-pink-500">
+            <div>
+              <div class="text-xs font-bold text-pink-700">Both / All Numbers (${phones.length} numbers)</div>
+              <div class="text-[10px] text-slate-500">Dispatch celebration wish to all linked numbers</div>
+            </div>
+          </label>
+        `;
+
+        optionsContainer.innerHTML = htmlOptions;
+        document.getElementById('btn-execute-send-wish').disabled = false;
+      }
+
+      // Reset results box
+      document.getElementById('send-modal-results').classList.add('hidden');
+      document.getElementById('send-modal-results-list').innerHTML = '';
+      document.getElementById('send-wish-modal').classList.remove('hidden');
+    }
+
+    function closeSendWishModal() {
+      document.getElementById('send-wish-modal').classList.add('hidden');
+    }
+
+    async function executeSendWish() {
+      const selectedRadio = document.querySelector('input[name="send-modal-phone"]:checked');
+      if (!selectedRadio) {
+        Swal.fire('Error', 'Please select a destination phone number.', 'warning');
+        return;
+      }
+
+      let targetPhones = [];
+      if (selectedRadio.value === 'all') {
+        targetPhones = currentSendContact.phones;
+      } else {
+        targetPhones = [selectedRadio.value];
+      }
+
+      const channels = [];
+      if (document.getElementById('send-channel-wa').checked) channels.push('whatsapp');
+      if (document.getElementById('send-channel-sms').checked) channels.push('sms');
+
+      if (channels.length === 0) {
+        Swal.fire('Channels Required', 'Please select at least one dispatch channel (WhatsApp or Text.lk SMS).', 'warning');
+        return;
+      }
+
+      const btn = document.getElementById('btn-execute-send-wish');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-1.5"></i> Dispatching...`;
+
+      const resultsBox = document.getElementById('send-modal-results');
+      const resultsList = document.getElementById('send-modal-results-list');
+      const statusBadge = document.getElementById('send-modal-status-badge');
+      resultsBox.classList.remove('hidden');
+      resultsList.innerHTML = `<div class="text-slate-400 italic py-2">Sending to ${targetPhones.length} number(s) over [${channels.join(', ')}]...</div>`;
+
+      try {
+        const res = await fetch('/api/send-wish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: currentSendContact.name,
+            phones: targetPhones,
+            channels
+          })
+        });
+
+        const data = await res.json();
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fas fa-paper-plane mr-1.5"></i> Send Surprise Wish Now`;
+
+        if (data.success) {
+          statusBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700';
+          statusBadge.textContent = 'Dispatched Successfully';
+        } else {
+          statusBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700';
+          statusBadge.textContent = 'Delivery Errors';
+        }
+
+        let summaryHtml = '';
+        const waResults = data.results?.whatsapp || [];
+        const smsResults = data.results?.sms || [];
+
+        targetPhones.forEach(phone => {
+          const wa = waResults.find(r => r.phone === phone);
+          const sms = smsResults.find(r => r.phone === phone);
+
+          summaryHtml += `
+            <div class="p-2.5 bg-white rounded-xl border border-slate-200 space-y-1">
+              <div class="font-bold text-slate-700 text-xs flex items-center justify-between">
+                <span>Phone: +${phone}</span>
+              </div>
+              <div class="flex items-center gap-3 text-[11px]">
+                ${channels.includes('whatsapp') ? `
+                  <span class="${wa?.success ? 'text-emerald-600' : 'text-rose-600'} font-semibold flex items-center gap-1">
+                    <i class="fab fa-whatsapp"></i> WA: ${wa?.success ? 'Sent' : ('Failed: ' + (wa?.error || 'Unknown'))}
+                  </span>
+                ` : ''}
+                ${channels.includes('sms') ? `
+                  <span class="${sms?.success ? 'text-sky-600' : 'text-rose-600'} font-semibold flex items-center gap-1">
+                    <i class="fas fa-sms"></i> SMS: ${sms?.success ? `Sent (${sms?.credits || 1} cr)` : ('Failed: ' + (sms?.error || 'Unknown'))}
+                  </span>
+                ` : ''}
+              </div>
+            </div>
+          `;
+        });
+
+        resultsList.innerHTML = summaryHtml;
+        loadActiveWishes();
+      } catch (err) {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fas fa-paper-plane mr-1.5"></i> Send Surprise Wish Now`;
+        resultsList.innerHTML = `<div class="text-rose-500 font-bold">Failed to communicate with server: ${err.message}</div>`;
+      }
+    }
+
+    // ======================== FRAME PREVIEW UPDATE ========================
+    function onPrefFrameSelectChange() {
+      const frameSelect = document.getElementById('pref-frame-select');
+      const previewImg = document.getElementById('pref-frame-preview-img');
+      const previewName = document.getElementById('pref-frame-preview-name');
+      if (!frameSelect || !previewImg) return;
+
+      const val = frameSelect.value;
+      if (val === 'default') {
+        const globalStyleId = String(studioData?.user_selected_style || '3');
+        const styleObj = studioData?.frameStyles?.[globalStyleId];
+        const path = styleObj?.framePath ? ('/' + styleObj.framePath.replace(/^\/+/, '')) : `/assets/img/frame${globalStyleId}.png`;
+        previewImg.src = path;
+        if (previewName) previewName.textContent = `Default (Active Style ${globalStyleId})`;
+      } else {
+        const styleObj = studioData?.frameStyles?.[val];
+        const path = styleObj?.framePath ? ('/' + styleObj.framePath.replace(/^\/+/, '')) : `/assets/img/frame${val}.png`;
+        previewImg.src = path;
+        if (previewName) previewName.textContent = `Frame Style ${val}`;
+      }
+    }
+
+    // ======================== BACKUP MODAL CONTROLS ========================
+    function openBackupModal() {
+      document.getElementById('backup-modal').classList.remove('hidden');
+    }
+
+    function closeBackupModal() {
+      document.getElementById('backup-modal').classList.add('hidden');
+    }
+
+    async function uploadBackupZip() {
+      const fileInput = document.getElementById('backup-zip-input');
+      if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        Swal.fire('No File Selected', 'Please select a WishMaster .zip backup file to restore.', 'warning');
+        return;
+      }
+
+      const file = fileInput.files[0];
+      if (!file.name.endsWith('.zip')) {
+        Swal.fire('Invalid File', 'Only .zip backup archives are supported.', 'error');
+        return;
+      }
+
+      const confirm = await Swal.fire({
+        title: 'Restore System Backup?',
+        text: 'This will extract all photo frames, voice notes, and restore database configurations from this ZIP archive.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Restore Now',
+        confirmButtonColor: '#0d9488'
+      });
+
+      if (!confirm.isConfirmed) return;
+
+      Swal.fire({
+        title: 'Restoring System Backup...',
+        text: 'Unpacking assets and updating configurations...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      const formData = new FormData();
+      formData.append('backupZip', file);
+
+      try {
+        const res = await fetch('/api/backup/import', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Backup Restored Successfully! 🎉',
+            text: data.message || 'All frames, audio, and settings restored.',
+            timer: 2500
+          }).then(() => {
+            window.location.reload();
+          });
+        } else {
+          Swal.fire('Restore Failed', data.error || 'Could not restore backup archive.', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Server error while uploading backup.', 'error');
+      }
+    }
+
+    // Run auth check on page load
+    checkAuth();
+  </script>
 </body>
 </html>

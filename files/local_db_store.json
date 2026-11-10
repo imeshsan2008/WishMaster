@@ -1,0 +1,101 @@
+{
+  "admin_password": "1224",
+  "birthday_song_url": "/assets/voice/song_1794340486027_rpf7vp.ogg",
+  "contacts": [
+    {
+      "name": "TEST",
+      "emails": [],
+      "phones": [
+        "+94 72 290 1950"
+      ],
+      "birthday": {
+        "month": 11,
+        "day": 8
+      },
+      "photo": "https://lh3.googleusercontent.com/contacts/AG6tpzE7FGo5uiAH0WFY7_jTpyfxsPCN1TuxkF_x-vhdsTApnXpFz9GC=s100"
+    },
+    {
+      "name": "imehs",
+      "emails": [],
+      "phones": [
+        "94768902513"
+      ],
+      "birthday": {
+        "year": 2026,
+        "month": 11,
+        "day": 8
+      },
+      "photo": "https://lh3.googleusercontent.com/contacts/AG6tpzHp6qCufW_65bL8VstGO-PiRKS98EnSlHco-wP51ySGNaSnJz_k=s100"
+    }
+  ],
+  "birthday_wishes": [
+    {
+      "id": 1794154205802,
+      "unique_code": "c2e249e6933f6d1c1890d4c20c4f3bdb",
+      "contact_name": "TEST",
+      "phone": "94722901950",
+      "photo_url": "https://lh3.googleusercontent.com/contacts/AG6tpzE7FGo5uiAH0WFY7_jTpyfxsPCN1TuxkF_x-vhdsTApnXpFz9GC=s10000",
+      "message": "🎂✨ Happy Birthday, TEST! 🎈  \r\nMay your day be filled with laughter, love, cake, and all the things that make you smile. 🎁🥳\r\n\r\n\r\n> WishMaster V4.0",
+      "song_url": "/assets/voice/voice.ogg",
+      "is_opened": true,
+      "opened_at": "2026-11-08T16:10:17.901Z",
+      "open_count": 5,
+      "created_at": "2026-11-08T16:10:05.801Z",
+      "expires_at": "2026-11-15T16:10:05.801Z",
+      "framed_image_url": "/assets/img/wishes/wish_c2e249e6933f6d1c1890d4c20c4f3bdb.png",
+      "card_delivered_wa": true,
+      "wa_status": "sent",
+      "sms_status": "success"
+    },
+    {
+      "id": 1794335768545,
+      "unique_code": "ddf9c8e54a2903ad02f00fbc4b1a8135",
+      "contact_name": "Kasun Perera",
+      "phone": "94771234567",
+      "photo_url": null,
+      "framed_image_url": null,
+      "message": "Wishing you all the joy and happiness!",
+      "song_url": "https://cdn.vexorait.com/WebProd/mr_voice.ogg",
+      "is_opened": false,
+      "opened_at": null,
+      "open_count": 0,
+      "steps_completed": false,
+      "created_at": "2026-11-10T18:36:08.542Z",
+      "expires_at": "2026-11-17T18:36:08.542Z"
+    }
+  ],
+  "contact_preferences": {
+    "94768902513": {
+      "phone": "94768902513",
+      "name": "imehs",
+      "letter_type": "custom",
+      "saved_letter_id": "letter_1794158197119_0",
+      "custom_letter_text": "sfdfdsf",
+      "assigned_frame_id": "default",
+      "updated_at": "2026-11-10T18:46:43.827Z"
+    }
+  },
+  "bot_footer": "> WishMaster V4.0",
+  "wish_expiry_days": 7,
+  "textlk_api_token": "7290|Q49iW5Ei9EBOpXJENqAPUBZWEWe4d5lKcZRjgZwq265977a0",
+  "textlk_sender_id": "VEXORA",
+  "textlk_sms_template": "🎂 Happy Birthday, {name}! Open your gift: {link} (Validity: Never)",
+  "sms_auto_send": true,
+  "sms_history": [
+    {
+      "id": 1794337539728,
+      "recipient_name": "Amal Silva",
+      "phone": "94771234567",
+      "message": "Test SMS message",
+      "status": "success",
+      "response_message": "Message queued successfully",
+      "credits_used": 1,
+      "created_at": "2026-11-10T19:05:39.726Z"
+    }
+  ],
+  "sms_credits": {
+    "current_month": "2026-11",
+    "monthly_count": 5,
+    "total_count": 5
+  }
+}

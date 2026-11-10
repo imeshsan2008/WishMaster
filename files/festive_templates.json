@@ -1,0 +1,31 @@
+[
+  {
+    "id": "tpl_new_year_si",
+    "title": "🌸 Sinhala & Tamil New Year (සුබ අලුත් අවුරුද්දක්)",
+    "caption": "🌸✨ සුබ අලුත් අවුරුද්දක් වේවා ${name}! ඔබ සැමට සාමය, සතුට, සෞභාග්‍යය සහ නිරෝගී සුවය පිරි සුබම සුබ අලුත් අවුරුද්දක් වේවා! 💫🎉",
+    "image": "assets/img/festive_img.png",
+    "withImage": true
+  },
+  {
+    "id": "tpl_new_year_global",
+    "title": "🎆 Happy New Year 2026 (නව වසරේ සුබ පැතුම්)",
+    "caption": "🎆 Happy New Year ${name}! May the coming year bring you boundless happiness, peace, success, and prosperity! ✨🥂",
+    "image": "assets/img/festive_img_New Year 2026.png",
+    "withImage": true
+  },
+  {
+    "id": "tpl_christmas",
+    "title": "🎄 Merry Christmas (නත්තල් සුබ පැතුම්)",
+    "caption": "🎄 Merry Christmas ${name}! May the peace, joy, and warmth of this festive season remain with you and your loved ones always! 🎅✨",
+    "image": "assets/img/festive_img.png",
+    "withImage": true
+  },
+  {
+    "id": "tpl_general",
+    "title": "🎉 Festive Celebrations (සාමාන්‍ය උත්සව සුබ පැතුම්)",
+    "caption": "🎉 Warm festive greetings ${name}! Wishing you and your family days filled with joy, prosperity, and blessings! 💫✨",
+    "image": "assets/img/festive_img.png",
+    "withImage": true
+  }
+]
+

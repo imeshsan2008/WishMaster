@@ -1,801 +1,852 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>WishMaster</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WishMaster - Festive Mode Broadcast Manager</title>
   <link rel="icon" href="/assets/img/logo.png" type="image/png">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- SweetAlert2 -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <style>
-    body { background-color: #fefaf2; }
-    .birthday-card img { width: 70px; height: 70px; object-fit: cover; }
-    .today-pill { font-size:.75rem; padding:.25rem .5rem; border-radius:999px; }
-    .section-header { position: sticky; top: 0; z-index: 1; }
-    .status-bar { position: sticky; top: 0; z-index: 5; background: #fffbe9; border: 1px solid rgba(0,0,0,.05); }
-    .wa-avatar { width: 100px; height: 100px; object-fit: cover; border-radius: 50%; cursor: pointer; }
-    .qr-box img { width: 140px; height: 140px; }
-    .small-note { font-size: .8rem; color: #6c757d; }
-    .container{
-      display: none;
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: #fdfbf7;
+      color: #334155;
     }
-    .container_setup{
-      display: block;
-      margin:0 auto ;
-      width:fit-content;
-      
-      
-    }
-    .setup_img{
-      width:150px;
-      height:150px;
-      
-position: relative;
-    
-margin: 0 auto;
-}
-.img_div{
-  text-align: center;
-}
-#gogle_sta{
-  color: #fff;
-  font-size: 15px;
-  font-weight: bold;
-background-color: green;
-}
   </style>
 </head>
-<body><div class="container_setup my-4">
-<div class="card" style="width: 600px; ">
-  <div class="card-body">
-    <h5 class="img_div"><img class="setup_img" src="./assets/img/logo.png" alt=""></h5>
-  </div>
-<center class="card-body">
-  <div class="step_1">  <h3 >Welcome to WishMaster!</h3>
-    <p >To get started, please log in to your Google account to access your contacts and birthdays.</p>
-    <a href="/contacts" class="btn btn-primary btn-lg">Log in with Google</a></div>
-    <div class="step_2">  <h3 >Welcome to WishMaster!</h3>
-          <p>Google Account : <span id="gogle_sta"></span></p>
+<body class="min-h-screen flex flex-col bg-[#fdfbf7]">
 
-    <p >To get started, please Link in to your Whatsapp account </p>
-      <p>Status: <span id="status">loading...</span></p>
-        <p>Linked: <span id="linknum">none</span></p>
- 
-   
-          <img id="qr" src="" width="300" alt="QR Code will appear here" />
+  <!-- ======================== ADMIN PIN LOGIN MODAL ======================== -->
+  <div id="login-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 hidden">
+    <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-purple-100 text-center animate-fade-in">
+      <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4 text-purple-600 text-2xl shadow-inner">
+        <i class="fas fa-lock"></i>
+      </div>
+      <h2 class="text-2xl font-bold text-slate-800">Admin Login</h2>
+      <p class="text-xs text-slate-500 mt-1 mb-6">Enter your PIN to access Festive Broadcast Manager</p>
+
+      <form id="admin-login-form" onsubmit="handleLogin(event)" class="space-y-4">
+        <div>
+          <input 
+            type="password" 
+            id="login-pin" 
+            maxlength="10" 
+            placeholder="Enter PIN (Default: 1224)" 
+            class="w-full text-center text-xl tracking-widest px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+            required
+            autofocus
+          />
+        </div>
+        <button type="submit" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold rounded-xl shadow-lg transition">
+          Unlock Dashboard
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================== TOP NAVIGATION ======================== -->
+  <header class="bg-white/80 backdrop-blur-md border-b border-purple-100 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      
+      <div class="flex items-center gap-3">
+        <img src="/assets/img/logo.png" alt="WishMaster" class="w-12 h-12 object-contain rounded-xl p-1 bg-purple-50 border border-purple-200">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-purple-600">WishMaster Festive Mode</span>
+          <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            Festive Broadcaster <span class="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">Seasonal Wishes</span>
+          </h1>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 sm:gap-3">
+        <!-- Test Send Button (Linked Account Only) -->
+        <button onclick="triggerFestiveTestSend()" class="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs sm:text-sm font-semibold rounded-xl border border-purple-200 transition flex items-center gap-1.5 shadow-sm" title="Send a test greeting only to your linked WhatsApp">
+          <i class="fas fa-vial text-purple-600"></i>
+          <span class="hidden sm:inline">Send Test Message</span>
+          <span class="sm:hidden">Test</span>
+        </button>
+
+        <!-- Broadcast Button -->
+        <button onclick="triggerFestiveBroadcast()" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-md transition flex items-center gap-2">
+          <i class="fas fa-bullhorn"></i>
+          <span class="hidden sm:inline">Start Festive Broadcast</span>
+          <span class="sm:hidden">Broadcast</span>
+        </button>
+
+        <a href="/" class="px-3.5 py-2 bg-pink-50 hover:bg-pink-100 text-pink-700 text-xs sm:text-sm font-semibold rounded-xl border border-pink-200 transition flex items-center gap-1.5">
+          <i class="fas fa-birthday-cake text-pink-500"></i>
+          <span class="hidden md:inline">Birthday Mode</span>
+        </a>
+
+        <button onclick="adminLogout()" class="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition" title="Lock Dashboard">
+          <i class="fas fa-sign-out-alt"></i>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ======================== MAIN CONTENT ======================== -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow space-y-8">
+
+    <!-- METRICS & STATUS -->
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      
+      <!-- WhatsApp Status -->
+      <div class="bg-white p-4 rounded-2xl border border-purple-100 shadow-sm flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-green-50 text-green-600 text-lg">
+          <i class="fab fa-whatsapp"></i>
+        </div>
+        <div>
+          <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">WhatsApp Bot</div>
+          <div id="wa-status-text" class="text-sm font-bold text-slate-700">Checking...</div>
+        </div>
+      </div>
+
+      <!-- Google Status -->
+      <div class="bg-white p-4 rounded-2xl border border-purple-100 shadow-sm flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600 text-lg">
+          <i class="fab fa-google"></i>
+        </div>
+        <div>
+          <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Google Contacts</div>
+          <div id="google-status-text" class="text-sm font-bold text-slate-700">Checking...</div>
+        </div>
+      </div>
+
+      <!-- Success Count -->
+      <div class="bg-white p-4 rounded-2xl border border-purple-100 shadow-sm flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-emerald-50 text-emerald-600 text-lg">
+          <i class="fas fa-check-double"></i>
+        </div>
+        <div>
+          <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Broadcast Delivered</div>
+          <div id="success-count" class="text-sm font-bold text-emerald-600">0</div>
+        </div>
+      </div>
+
+      <!-- Error Count -->
+      <div class="bg-white p-4 rounded-2xl border border-purple-100 shadow-sm flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-rose-50 text-rose-600 text-lg">
+          <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div>
+          <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Failed Dispatches</div>
+          <div id="error-count" class="text-sm font-bold text-rose-600">0</div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- FESTIVE TEMPLATES & CONFIGURATION PANEL -->
+    <section class="bg-white rounded-3xl border border-purple-100 shadow-sm p-6 sm:p-8 space-y-6">
+      
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-purple-50 pb-5">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-purple-600 bg-purple-50 px-2.5 py-1 rounded-full">Templates & Customization</span>
+          <h2 class="text-xl font-bold text-slate-800 mt-2">Festive Broadcast Manager</h2>
+          <p class="text-xs text-slate-400">Save custom greetings, pick seasonal presets, test send to your number, and broadcast to all contacts.</p>
+        </div>
+
+        <!-- Quick Test Send Pill -->
+        <div class="flex items-center gap-2">
+          <button onclick="triggerFestiveTestSend()" class="px-4 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-xs font-semibold rounded-xl shadow-md hover:opacity-95 transition flex items-center gap-2">
+            <i class="fas fa-vial"></i>
+            <span>Test Send to My WhatsApp</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- SAVED TEMPLATES SELECTOR BAR -->
+      <div class="p-4 bg-purple-50/60 rounded-2xl border border-purple-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-purple-200 text-purple-700 flex items-center justify-center font-bold text-sm shadow-sm">
+            <i class="fas fa-bookmark"></i>
           </div>
-          <br>
-  </div>
-  </center>
-  
-</div>
-</div>
-<div class="container my-4">
-
-  <!-- Status Bar -->
-  <div class="status-bar rounded-3 p-3 mb-3 d-flex align-items-center justify-content-between">
-    <div class="d-flex align-items-center gap-3">
-  <center class="mb-3"><img src="/assets/img/logo.png" alt="WishMaster" style="width: 100px; height: 100px;"></center>
-
-      <!-- WhatsApp block -->
-
-      <div id="wa-block" class="d-flex align-items-center gap-2">
-   <a onclick="sendFestive()" class="btn btn-primary">Send Festive Message</a>
-        <a href="/" class="btn btn-outline-danger">Switch to Birthday Mode</a>        <span class="badge text-bg-success d-none" id="wa-linked">WhatsApp: Linked</span>
-        <span class="badge text-bg-warning d-none" id="wa-not-linked">WhatsApp: Not linked</span>
-             <span class="badge text-bg-warning " ><a href="/api/birthday-logs" target="_blank">sent list Json</a></span>
- 
-      </div>
-
-      <!-- Google block -->
-      <div id="google-block" class="d-flex align-items-center gap-2">
-        <span class="badge text-bg-info d-none" id="google-linked">Google: Connected</span>
-        <span class="badge text-bg-secondary d-none" id="google-not-linked">Google: Not connected</span>
+          <div>
+            <div class="text-xs font-bold text-slate-800">Saved Festive Templates</div>
+            <div class="text-[11px] text-slate-500">Select a preset to load into the editor, or save your own</div>
+          </div>
         </div>
-        <div class="d-flex align-items-center gap-2">
-        <span class="badge text-bg-warning " >success : <span id="successCount"></span></span>
-        <span class="badge text-bg-danger " >error : <span id="errorCount"></span></span>
- 
-      </div>
-    </div>       
-     <img id="wa-avatar" class="wa-avatar " srcset="/assets/img/default_avatar.png" alt="WA"  title="Open WhatsApp profile"/>
 
-  </div>
+        <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <select id="template-selector" onchange="onSelectTemplate(this.value)" class="text-xs bg-white border border-purple-200 rounded-xl px-3 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-purple-400 min-w-[200px]">
+            <option value="">-- Choose a Preset --</option>
+          </select>
 
-    <button id="btn-refresh" class="btn btn-sm btn-outline-primary">Refresh</button>
+          <button type="button" onclick="saveAsNewTemplate()" class="px-3.5 py-2 bg-white hover:bg-purple-100 text-purple-700 text-xs font-semibold rounded-xl border border-purple-200 shadow-sm transition whitespace-nowrap flex items-center gap-1.5" title="Save current caption & image as a reusable template">
+            <i class="fas fa-plus"></i> Save as Template
+          </button>
 
-  <!-- Birthday Card -->
-  <div class="card mt-2">
-    <div class="card-header">
-      <h4 id="birthday-count" class="m-0">Upcoming Birthdays (0)</h4>
-    </div>
-    <ul class="list-group list-group-flush" id="birthday-list">
-    </ul>
-  </div>
-</div>
-
-<!-- WhatsApp Profile Modal -->
-<div class="modal fade" id="waProfileModal" tabindex="-1" aria-hidden="true" >
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-body text-center p-4">
-         <div class="card-body p-2 text-center d-none" id="qr-card">
-         
-            <img id="wa-qr" src="" alt="Scan QR"/>
-            <div class="small-note  mt-1" id="s-s">Scan with WhatsApp to link</div>
-<div id="qr-timer"></div>
-           </div>
-     <img id="wa-modal-photo" src="" class="rounded-circle mb-3" alt="WhatsApp Profile" style="width: 100%; height: auto; max-width: 200px; max-height: 200px; object-fit: cover;" >
-        <h5 id="wa-modal-name"></h5>
-        <p class="text-muted" id="wa-modal-id"></p>
-        <div class="d-grid gap-2 mt-3">
-          <button id="btn-reset" class="btn btn-outline-danger" onclick="reset()">Reset Settings</button>
-          
-          <button id="btn-logout-wa" class="btn btn-outline-danger">Log out WhatsApp</button>
-          <button id="btn-logout-google" class="btn btn-sm btn-outline-danger d-none">Log out Google</button>
-        <a href="/contacts" class="btn btn-sm btn-outline-primary d-none" id="btn-contacts-login">Log in google </a>
- <button id="btn-change-frame" class="btn btn-sm btn-outline-danger ">Change Frame Style</button>
-          <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-          <form id="festiveForm" enctype="multipart/form-data">
- 
-  <input type="text" name="caption" placeholder="Enter message..." required />
-  <button type="submit">Update Message</button>
-</form>
-
+          <button type="button" onclick="deleteCurrentTemplate()" id="btn-delete-tpl" class="hidden px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-semibold rounded-xl border border-rose-200 transition" title="Delete current template">
+            <i class="fas fa-trash-alt"></i>
+          </button>
         </div>
-        <div class="small-note mt-2">Logging out clears the local WhatsApp session and shows a new QR.</div>
       </div>
-    </div>
-  </div>
-</div>
 
-<div class="modal fade" id="styleModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-body text-center p-4">
-        <img id="wa-modal-photo" src="" class="rounded-circle mb-3" alt="WhatsApp Profile" style="width: 100%; height: auto; max-width: 200px; max-height: 200px; object-fit: cover;">
-        <h5 id="wa-modal-name"></h5>
-        <p class="text-muted" id="wa-modal-id"></p>
-        <div class="d-grid gap
--2 mt-3">
-  <div id="preview-container"><img id="style_image" src="" alt="Preview" class="img-fluid mt-2"/>
-</div>
-<select id="styleSelect" class="form-select">
-  <option value="1">Style 1</option>
-  <option value="2">Style 2</option>
-  <option value="3">Style 3</option>
-</select>
-
-
-<div class="modal fade" id="perstyleModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-body text-center p-4">
-        <img id="wa-modal-photo" src="" class="rounded-circle mb-3" alt="WhatsApp Profile" style="width: 100%; height: auto; max-width: 200px; max-height: 200px; object-fit: cover;">
-        <h5 id="wa-modal-name"></h5>
-        <p class="text-muted" id="wa-modal-id"></p>
-        <div class="d-grid gap
--2 mt-3">
-  <div id="preview-container"><img id="style_image" src="" alt="Preview" class="img-fluid mt-2"/>
-</div>
-<select id="perstyleSelect" class="form-select">
-  <option value="1">Style 1</option>
-  <option value="2">Style 2</option>
-  <option value="3">Style 3</option>
-
-</select>
-
-
-
-
-<script>
-  document.getElementById("festiveForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-
-  const formData = new FormData();
-  formData.append("caption", document.querySelector("[name=caption]").value);
-
-
-
-  const res = await fetch("/api/festive/update", {
-    method: "POST",
-    body: formData
-  });
-
-  const data = await res.json();
-  alert(data.message);
-});
-</script>
-
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-
-<script>
-  const el = (id) => document.getElementById(id);
-function first_step() {
-  
-    document.querySelector('.step_1').style.display = 'block';
-    document.querySelector('.step_2').style.display = 'none'; 
-
-
-}
-function second_step() {
-    document.querySelector('.step_1').style.display = 'none';
-    document.querySelector('.step_2').style.display = 'block';
-            document.getElementById('gogle_sta').innerText = "Connected";
-
-}
-function initial_setup() {
-   fetch('api/status')
-    .then(response => response.json())
-    .then(data => {
-      if (!data.google.linked) {
-        first_step();
-      } else if (data.whatsapp.linked) {
-                    document.querySelector('.container_setup').style.display = 'none';
-
-            document.querySelector('.step_1').style.display = 'none';
-    document.querySelector('.step_2').style.display = 'none';
-    document.querySelector('.container').style.display = 'block';
-      }else{
-        second_step();
-      }
-    })
-    .catch(error => {
-      console.error('Error fetching status:', error);
-    });
-}
-initial_setup();
- async function sendTest() {
-          const res = await fetch('/send-test');
-          const data = await res.json();
-          alert(data.message);
-        }    async function refresh() {
-          const qrImg = document.getElementById('qr');
-          const res = await fetch('/status');
-          const data = await res.json();
-          document.getElementById('status').innerText = data.status;
-          if (data.status === 'qr-received') {
-            const qrRes = await fetch('/qr-img');
-            const blob = await qrRes.blob();
-            qrImg.src = URL.createObjectURL(blob);
-            qrImg.style.display = 'block';
-          } else if (data.status === 'paired') {
-            sendTest();
-            qrImg.style.display = 'none';
-            showAlert('success', 'Paired', 'WhatsApp has been successfully paired!');
-            document.getElementById('linknum').innerText = data.linked || 'Unknown';
-          }
-        }
-       
-        refresh();
-        setInterval(refresh, 2000);
-
-el('styleSelect').addEventListener('change', (e) => {
-  const style = e.target.value;
-  updateUserStyle(style).then((res) => {
-    if (res.error) {
-      showAlert('error', 'Error', res.error);
-    } else {
-      showAlert('success', 'Style Updated', `Your style has been changed to Frame ${style}.`);
-    }
-  });
-});
-
-  // SweetAlert wrapper
-  function showAlert(type, title, text) {
-    return Swal.fire({
-      icon: type, title, text,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33'
-    });
-  }
-
-  function reset(){
-    Swal.fire({
-      title: 'Reset Settings',
-      text: "This will clear all local data and reload the page.",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Yes, reset!',
-      cancelButtonText: 'Cancel'
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-        await fetch('/api/reset', { method: 'GET' });
-        showAlert('success', 'Reset Successful', 'Settings have been cleared.');
-        location.reload();
-      }
-    });
-  }
-   let qral = 0;
-
-sweetAlert = (type, title, text) => {
-    return Swal.fire({
-      icon: type,
-      title: title,
-      text: text,
-      confirmButtonColor: '#3085d6',
-      toast: true,
-      position: 'top-end',
-      timer: 2000
-
-    });
-  };
-
-let qrTimer; // to track countdown
-
-  function qrtimer(expireTime) {
-      // Create timer element if it doesn't exist
-    let timerEl = document.getElementById('qr-timer');
-    if (!timerEl) {
-        timerEl = document.createElement('div');
-        timerEl.id = 'qr-timer';
-        timerEl.className = 'mt-2 text-center fw-bold';
-        document.getElementById('qr-card').appendChild(timerEl);
-    }
-
-    // Clear previous timer
-    clearInterval(qrTimer);
-
-    qrTimer = setInterval(() => {
-        if (expireTime <= 0) {
-            clearInterval(qrTimer);
-            timerEl.innerText = "QR Code expired. Refreshing...";
-            // Automatically request a new QR code
-qrcode();        } else {
-            timerEl.innerText = `QR Code expires in ${expireTime}s`;
-            expireTime--;
-        }
-    }, 1000);
-
-  }
-document.addEventListener("DOMContentLoaded", async () => {
-  try {
-    const res = await fetch("/api/user-style");
-    const data = await res.json();
-
-    const { frameStyles, user_selected_style } = data;
-    const select = document.getElementById("styleSelect");
-
-    // Clear & repopulate dropdown from frameStyles
-    select.innerHTML = "";
-    for (const [id, style] of Object.entries(frameStyles)) {
-      const opt = document.createElement("option");
-      opt.value = id;
-      opt.textContent = `Style ${id}`;
-      select.appendChild(opt);
-    }
-
-    // Set current selection
-    select.value = user_selected_style;
-
-    // Show preview
-    document.getElementById("style_image").src =
-      frameStyles[user_selected_style].framePath;
-  } catch (err) {
-    console.error("⚠️ Failed to load styles:", err);
-  }
-});
-
-// On change → update preview + save
-document.getElementById("styleSelect").addEventListener("change", async (e) => {
-  const newStyle = e.target.value;
-
-  // preview
-  const res = await fetch("/api/user-style");
-  const data = await res.json();
-  document.getElementById("style_image").src =
-    data.frameStyles[newStyle].framePath;
-
-  // save to backend
-  await fetch("/api/user-style", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user_selected_style: newStyle }),
-  });
-});
-
-
-async function qrcode() {
-  const socket = io("http://localhost:3000");
- qral++;
- socket.on('connect', () => console.log("✅ Socket connected!"));
-
-
-qrtimer(20);
-socket.on('qr', (data) => {
-
-    document.getElementById('wa-qr').src = data.dataUrl;
-    document.getElementById('qr-card').classList.remove('d-none');
-
-                el('wa-modal-photo').classList.add('d-none');
-
-        if (qral === 1) {
-            Swal.fire({
-                title: 'New QR Code',
-                text: 'A new QR code has been generated. Please scan it to link WhatsApp.',
-                icon: 'info',
-                confirmButtonText: 'Got it!'
-            });
-
-                        new bootstrap.Modal('#waProfileModal').show();
-
-
-        }else if (qral === 6) {
-            Swal.fire({
-                title: 'QR Limit Reached',
-                text: 'You have reached the maximum number of QR codes. Please refresh the page.',
-                icon: 'error',
-                confirmButtonText: 'Refresh'
-            });
-            document.getElementById('qr-card').style.display = "none";
-        }
-            
-
-});
-
-    
-
-
-  socket.on('connected', () => {
-    console.log("✅ server connected!");
-    el('wa-avatar').classList.add('d-none');
-    Swal.fire('Connected', 'WhatsApp is now linked successfully.', 'success');
-  });
-
-  socket.on('disconnected', () => {
-        el('wa-avatar').classList.remove('d-none');
-     Swal.fire({
-                title: 'QR Limit Reached',
-                text: 'You have reached the maximum number of QR codes. Please refresh the page.',
-                icon: 'error',
-                confirmButtonText: 'Refresh'
-            });
-                clearInterval(qrTimer);
-    // Swal.fire('Disconnected', 'WhatsApp is disconnected. Please refresh to get a new QR code.', 'warning');
-  });
-
-  socket.on('qr_limit', (data) => {
-    document.getElementById('qr-card').style.display = "none";
-    Swal.fire('QR Limit Reached', data.message, 'error');
-  });
-}
-
-  async function loadStatus() {
-    try {
-      const res = await fetch('/api/status');
-      const s = await res.json();
-
-      // Google
-      if (s.google?.linked) {
-        el('google-linked').classList.remove('d-none');
-        el('google-not-linked').classList.add('d-none');
-        el('btn-logout-google').classList.remove('d-none');
-      } else {
-        el('google-linked').classList.add('d-none');
-        el('google-not-linked').classList.remove('d-none');
-        el('btn-contacts-login').classList.remove('d-none');
-        el('btn-logout-google').classList.add('d-none');
-      }
-
-      // WhatsApp
-      if (s.whatsapp?.linked) {
-        el('wa-linked').classList.remove('d-none');
-        el('wa-not-linked').classList.add('d-none');
-        el('wa-qr').classList.add('d-none');
-        el('s-s').classList.add('d-none');
-        el('qr-timer').classList.add('d-none');
-
-        const avatarUrl = s.whatsapp.profilePicUrl || '/assets/img/default_avatar.png';
-        el('wa-avatar').src = avatarUrl;
+      <!-- ACTIVE CONFIGURATION FORM -->
+      <form id="festive-update-form" onsubmit="handleFestiveUpdate(event)" class="space-y-5">
         
-        el('wa-avatar').classList.remove('d-none');
-        el('wa-modal-photo').src = avatarUrl;
-        el('wa-modal-name').textContent = s.whatsapp.me;
-                el('btn-logout-wa').classList.remove('d-none');
+        <div>
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-semibold uppercase text-slate-500 tracking-wider">Greeting Caption Template</label>
+            <span class="text-[11px] text-purple-600 font-medium">Auto-inserts recipient's name</span>
+          </div>
+          <textarea 
+            id="festive-caption" 
+            name="caption" 
+            rows="5" 
+            class="w-full mt-1.5 p-4 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 leading-relaxed font-sans"
+            placeholder="Dear ${name}, Wishing you a joyous festive season..."
+            required
+          ></textarea>
+          <div class="flex items-center justify-between text-[11px] text-slate-400 mt-1.5">
+            <div>Tip: Use <code class="bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-mono font-semibold">${name}</code> to dynamically replace with contact's name.</div>
+            <div id="caption-char-count">0 chars</div>
+          </div>
+        </div>
 
-        el('wa-modal-id').textContent = s.whatsapp.number.split(":")[0] || '';
-
-      } else {
-          qrcode();
-
-                el('btn-logout-wa').classList.add('d-none');
-
-        el('wa-linked').classList.add('d-none');
-        el('wa-not-linked').classList.remove('d-none');
-
-        try {
-          // setInterval(() => {
-          //   qrcode();
-          // }, 5000);
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
           
-         } catch {
-          el('wa-qr').classList.add('d-none');
+          <!-- Image Upload Field -->
+          <div>
+            <label class="text-xs font-semibold uppercase text-slate-500 tracking-wider">Flyer / Greeting Image (Optional)</label>
+            <input 
+              type="file" 
+              id="festive-image" 
+              name="image" 
+              accept="image/*" 
+              onchange="previewUploadedImage(this)"
+              class="w-full mt-1.5 p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200"
+            />
+            <p class="text-[11px] text-slate-400 mt-1">Upload JPG or PNG flyer sent alongside the greeting message.</p>
+          </div>
+
+          <!-- Current Image Preview -->
+          <div class="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-4">
+            <img 
+              id="festive-img-preview" 
+              src="/assets/img/festive_img.png" 
+              alt="Active Festive Flyer" 
+              class="w-20 h-20 object-cover rounded-xl border border-slate-200 bg-white shadow-sm"
+              onerror="this.src='/assets/img/logo.png'"
+            />
+            <div class="flex-grow text-xs">
+              <div class="font-bold text-slate-700" id="preview-image-title">Active Flyer Preview</div>
+              <div class="text-[11px] text-slate-400 mt-0.5" id="preview-image-path">assets/img/festive_img.png</div>
+              <span class="inline-block mt-1 px-2 py-0.5 bg-green-50 text-green-700 font-semibold text-[10px] rounded-full border border-green-200">Attached to Broadcast</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- CAMPAIGN TITLE & CHANNELS -->
+        <div class="p-4 bg-purple-50/50 rounded-2xl border border-purple-200/80 space-y-4">
+          <div class="space-y-1">
+            <label class="text-xs font-bold uppercase tracking-wider text-purple-900 flex items-center gap-1.5">
+              <i class="fas fa-bullhorn text-purple-600"></i> Broadcast Campaign Title
+            </label>
+            <input 
+              type="text" 
+              id="festive-campaign-title" 
+              value="Festive Greetings Campaign" 
+              placeholder="e.g. Sinhala & Tamil New Year 2026" 
+              class="w-full px-3.5 py-2.5 bg-white border border-purple-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold uppercase tracking-wider text-purple-900 flex items-center gap-1.5">
+              <i class="fas fa-satellite-dish text-purple-600"></i> Broadcast Channels
+            </label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label class="flex items-center gap-3 p-3 bg-white rounded-xl border border-emerald-200 cursor-pointer shadow-2xs hover:bg-emerald-50/40 transition">
+                <input type="checkbox" id="festive-channel-wa" checked class="w-4 h-4 text-emerald-600 rounded accent-emerald-600">
+                <div>
+                  <div class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <i class="fab fa-whatsapp text-emerald-600"></i> WhatsApp
+                  </div>
+                  <div class="text-[10px] text-slate-400">Greeting flyer, text & voice note</div>
+                </div>
+              </label>
+
+              <label class="flex items-center gap-3 p-3 bg-white rounded-xl border border-sky-200 cursor-pointer shadow-2xs hover:bg-sky-50/40 transition">
+                <input type="checkbox" id="festive-channel-sms" checked class="w-4 h-4 text-sky-600 rounded accent-sky-600">
+                <div>
+                  <div class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <i class="fas fa-sms text-sky-600"></i> Text.lk SMS
+                  </div>
+                  <div class="text-[10px] text-slate-400">Direct festive SMS with credit tracking</div>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Submit & Action Controls -->
+        <div class="flex flex-wrap items-center gap-3 pt-2">
+          
+          <button type="submit" class="px-6 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-xs sm:text-sm font-semibold rounded-xl shadow transition flex items-center gap-2">
+            <i class="fas fa-save"></i> Save Active Configuration
+          </button>
+
+          <button type="button" onclick="triggerFestiveTestSend()" class="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow transition flex items-center gap-2">
+            <i class="fas fa-paper-plane"></i> Send Test to My WhatsApp
+          </button>
+
+          <button type="button" onclick="triggerFestiveBroadcast()" class="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow transition flex items-center gap-2">
+            <i class="fas fa-bullhorn"></i> Start Broadcast to All Contacts
+          </button>
+
+        </div>
+
+      </form>
+    </section>
+
+    <!-- LIVE LOGS & RECIPIENTS -->
+    <section class="bg-white rounded-3xl border border-purple-100 shadow-sm overflow-hidden">
+      <div class="p-6 border-b border-purple-50 flex items-center justify-between">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-purple-600 bg-purple-50 px-2.5 py-1 rounded-full">Delivery History</span>
+          <h2 class="text-lg font-bold text-slate-800 mt-1">Recent Festive Broadcast Logs</h2>
+        </div>
+        <button onclick="loadFestiveLogs()" class="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-medium rounded-xl border border-slate-200 transition flex items-center gap-1.5">
+          <i class="fas fa-sync-alt"></i> Refresh Logs
+        </button>
+      </div>
+
+      <div class="p-6">
+        <div id="festive-logs-container" class="space-y-2">
+          <div class="text-center py-8 text-slate-400 text-xs">No broadcast logs yet.</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="bg-white border-t border-purple-100 py-6 text-center text-xs text-slate-400">
+    <p>WishMaster • Festive Broadcaster with Throttled Anti-Ban Engine</p>
+  </footer>
+
+  <script>
+    let savedTemplates = [];
+    let activeConfig = {};
+    let linkedNumber = null;
+
+    // Authentication Check
+    function checkAuth() {
+      const auth = sessionStorage.getItem('wishmaster_admin_auth');
+      if (auth !== 'true') {
+        document.getElementById('login-modal').classList.remove('hidden');
+      } else {
+        document.getElementById('login-modal').classList.add('hidden');
+        initializeApp();
+      }
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const pin = document.getElementById('login-pin').value;
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pin })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          sessionStorage.setItem('wishmaster_admin_auth', 'true');
+          document.getElementById('login-modal').classList.add('hidden');
+          initializeApp();
+          Swal.fire('Welcome!', 'Festive Manager Unlocked', 'success');
+        } else {
+          Swal.fire('Error', 'Incorrect PIN code', 'error');
         }
+      } catch (err) {
+        Swal.fire('Error', 'Authentication request failed', 'error');
       }
-    } catch (e) {
-      console.error('status error', e);
     }
-  }
 
-  // Avatar -> modal
-  el('wa-avatar').addEventListener('click', async () => {
-    try {
-      const r = await fetch('/api/status');
-      if (r.ok) {
-        const p = await r.json();
-        el('wa-modal-photo').src = p.whatsapp.profilePicUrl || '/assets/img/default_av_web.png';
-        el('wa-modal-name').textContent = p.whatsapp.me || 'Me';
-        el('wa-modal-id').textContent = p.whatsapp.number || '';
+    function adminLogout() {
+      sessionStorage.removeItem('wishmaster_admin_auth');
+      window.location.reload();
+    }
+
+    function initializeApp() {
+      loadStatus();
+      loadFestiveConfigAndTemplates();
+      loadFestiveLogs();
+
+      const captionEl = document.getElementById('festive-caption');
+      captionEl.addEventListener('input', () => {
+        document.getElementById('caption-char-count').innerText = `${captionEl.value.length} chars`;
+      });
+    }
+
+    async function loadStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+
+        const waText = document.getElementById('wa-status-text');
+        if (data.whatsapp.linked) {
+          const raw = String(data.whatsapp.number || '');
+          const clean = raw.split('@')[0].split(':')[0].replace(/[^\d+]/g, '');
+          const displayNum = clean ? (clean.startsWith('+') ? clean : `+${clean}`) : 'Connected';
+          linkedNumber = clean.replace(/\D/g, '');
+          waText.innerText = `Connected (${displayNum})`;
+          waText.className = 'text-sm font-bold text-green-600';
+        } else {
+          waText.innerText = 'Not Linked';
+          waText.className = 'text-sm font-bold text-amber-500';
+        }
+
+        const googleText = document.getElementById('google-status-text');
+        if (data.google.linked) {
+          googleText.innerText = 'Connected';
+          googleText.className = 'text-sm font-bold text-blue-600';
+        } else {
+          googleText.innerText = 'Not Connected';
+          googleText.className = 'text-sm font-bold text-slate-500';
+        }
+      } catch (e) {}
+    }
+
+    // Load active config and template list
+    async function loadFestiveConfigAndTemplates() {
+      try {
+        const res = await fetch('/api/festive/config');
+        const data = await res.json();
+        if (data.ok) {
+          activeConfig = data.config || {};
+          savedTemplates = data.templates || [];
+
+          // Populate caption
+          if (activeConfig.caption) {
+            const cap = document.getElementById('festive-caption');
+            cap.value = activeConfig.caption;
+            document.getElementById('caption-char-count').innerText = `${activeConfig.caption.length} chars`;
+          }
+
+          // Populate active image preview
+          if (activeConfig.image) {
+            document.getElementById('festive-img-preview').src = `/${activeConfig.image.replace(/^\/+/, '')}`;
+            document.getElementById('preview-image-path').innerText = activeConfig.image;
+          }
+
+          // Populate template selector dropdown
+          renderTemplateSelector();
+        }
+      } catch (e) {
+        console.warn('Failed loading festive config:', e);
       }
-    } catch {}
-    new bootstrap.Modal('#waProfileModal').show();
-  });
-
-
-  el('btn-change-frame').addEventListener('click', async () => {
-  
-    new bootstrap.Modal('#styleModal').show();
-  });
-  
-
-
-  // Google logout
-  el('btn-logout-google').addEventListener('click', async () => {
-    const confirm = await Swal.fire({
-      title: 'Log out Google?',
-      text: "This will delete your local token.",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Yes, log out!',
-      cancelButtonText: 'Cancel'
-    });
-    if (!confirm.isConfirmed) return;
-
-    const r = await fetch('/api/logout/google', { method: 'POST' });
-    if (r.ok) {
-      showAlert('success', 'Success!', 'Google session removed.');
-      await loadStatus(); await loadBirthdays();
-    } else {
-      showAlert('error', 'Error', 'Failed to log out Google.');
     }
-  });
 
-  // WhatsApp logout
-  el('btn-logout-wa').addEventListener('click', async () => {
-    const confirm = await Swal.fire({
-      title: 'Log out WhatsApp?',
-      text: "This will clear your session and show a new QR.",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Yes, log out!',
-      cancelButtonText: 'Cancel'
-    });
-    if (!confirm.isConfirmed) return;
+    function renderTemplateSelector() {
+      const selector = document.getElementById('template-selector');
+      selector.innerHTML = '<option value="">-- Choose a Preset --</option>';
 
-    const r = await fetch('/api/logout/whatsapp', { method: 'POST' });
-    if (r.ok) {
-      showAlert('success', 'Success!', 'WhatsApp session removed.');
-      const m = bootstrap.Modal.getInstance(document.getElementById('waProfileModal'));
-      m?.hide();
-      setTimeout(loadStatus, 1000);
-    } else {
-      showAlert('error', 'Error', 'Failed to log out WhatsApp.');
+      savedTemplates.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.id;
+        opt.innerText = t.title || 'Untitled Template';
+        selector.appendChild(opt);
+      });
     }
-  });
 
-  el('btn-refresh').addEventListener('click', async () => {
-    await loadStatus();
-    await loadBirthdays();
-    showAlert('success', 'Refreshed', 'Status and birthdays updated!');
-  });
-
-  // ------------------ BIRTHDAYS ------------------
-  async function loadBirthdays() {
-    try {
-      const response = await fetch('/contacts_festive');
-      if (!response.ok) return;
-      const data = await response.json();
-      let contacts = data ;
-
-
-    
-
-      const list = document.getElementById('birthday-list');
-      const count = document.getElementById('birthday-count');
-      count.textContent = `Contacts (${contacts.length})`;
-      list.innerHTML = '';
-
-      if (contacts.length) {
-
-        contacts.forEach(c => list.appendChild(renderItem(c, { highlight: true })));
+    function onSelectTemplate(templateId) {
+      const deleteBtn = document.getElementById('btn-delete-tpl');
+      if (!templateId) {
+        deleteBtn.classList.add('hidden');
+        return;
       }
 
+      const tpl = savedTemplates.find(t => t.id === templateId);
+      if (!tpl) return;
 
-    } catch (error) {
-      console.error('Error loading birthdays:', error);
-    }
-  }
+      document.getElementById('festive-caption').value = tpl.caption;
+      document.getElementById('caption-char-count').innerText = `${tpl.caption.length} chars`;
 
-  function addSectionHeader(ul, title) {
-    const li = document.createElement('li');
-    li.className = 'list-group-item list-group-item-secondary fw-semibold section-header';
-    li.textContent = title;
-    ul.appendChild(li);
-  }
+      if (tpl.image) {
+        document.getElementById('festive-img-preview').src = `/${tpl.image.replace(/^\/+/, '')}`;
+        document.getElementById('preview-image-path').innerText = tpl.image;
+      }
 
-
-function sendsiglepersion(name, number) {
-  Swal.fire({
-    title: "Are You Sent the message From " + name,
-    text: "You won't be able to revert this!",
-    icon: "warning",
-    showCancelButton: true,
-    confirmButtonColor: "#3085d6",
-    cancelButtonColor: "#d33",
-    confirmButtonText: "Yes, Send it!"
-  }).then((result) => {
-    if (result.isConfirmed) {
-      // Show "sending" loading alert
+      deleteBtn.classList.remove('hidden');
       Swal.fire({
-        title: "Sending message...",
-        html: "Please wait...",
-        allowOutsideClick: false,
-        didOpen: () => {
-          Swal.showLoading();
-        }
+        toast: true,
+        position: 'top-end',
+        icon: 'info',
+        title: `Loaded: ${tpl.title}`,
+        showConfirmButton: false,
+        timer: 1800
+      });
+    }
+
+    async function saveAsNewTemplate() {
+      const currentCaption = document.getElementById('festive-caption').value.trim();
+      if (!currentCaption) {
+        return Swal.fire('Error', 'Please enter a caption first', 'warning');
+      }
+
+      const { value: title } = await Swal.fire({
+        title: 'Save Template Preset',
+        input: 'text',
+        inputLabel: 'Template Name / Festival Title',
+        placeholder: 'e.g. Sinhala & Tamil New Year 2026',
+        showCancelButton: true,
+        confirmButtonText: 'Save Template',
+        confirmButtonColor: '#9333ea',
+        inputValidator: (v) => (!v ? 'Please enter a name for the template' : null)
       });
 
-      fetch(`/api/send/${number}/${name}`)
-        .then(response => response.json())
-        .then(data => {
-          // Close the loading alert
-          Swal.close();
-          // Show success alert
-          Swal.fire("Sent!", data.message, "success");
-        })
-        .catch(error => {
-          // Close the loading alert
-          Swal.close();
-          // Show error alert
-          Swal.fire("Error!", "Failed to send message.", "error");
+      if (!title) return;
+
+      try {
+        const res = await fetch('/api/festive/templates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            caption: currentCaption,
+            image: activeConfig.image || 'assets/img/festive_img.png',
+            withImage: true
+          })
         });
+
+        const data = await res.json();
+        if (data.ok) {
+          Swal.fire('Saved!', `Template "${title}" has been saved.`, 'success');
+          loadFestiveConfigAndTemplates();
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Failed to save template', 'error');
+      }
     }
-  });
-}
 
- function renderItem(contact, { highlight = false } = {}) {
-  const li = document.createElement('li');
-  li.className = 'list-group-item d-flex align-items-center birthday-card';
-  if (highlight) li.classList.add('list-group-item-warning');
+    async function deleteCurrentTemplate() {
+      const selector = document.getElementById('template-selector');
+      const templateId = selector.value;
+      if (!templateId) return;
 
-  let largePhoto = 'https://via.placeholder.com/70?text=User';
-  if (contact.photo && contact.photo.startsWith('https://lh3.googleusercontent.com')) {
-    largePhoto = contact.photo.replace(/=s\d+$/, '=s8000');
-  }
+      const confirm = await Swal.fire({
+        title: 'Delete Template?',
+        text: 'Are you sure you want to delete this template preset?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e11d48',
+        confirmButtonText: 'Yes, Delete'
+      });
 
-  const name = escapeHTML(contact.name || 'Unknown');
+      if (!confirm.isConfirmed) return;
 
-  // Handle array or comma-separated string
-  let number = contact.phones || 'Unknown';
-  if (Array.isArray(number)) {
-    number = number[0];
-  } else if (typeof number === 'string' && number.includes(',')) {
-    number = number.split(',')[0].trim();
-  }
+      try {
+        const res = await fetch(`/api/festive/templates/${templateId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.ok) {
+          Swal.fire('Deleted', 'Template removed.', 'success');
+          document.getElementById('btn-delete-tpl').classList.add('hidden');
+          loadFestiveConfigAndTemplates();
+        }
+      } catch (e) {
+        Swal.fire('Error', 'Failed to delete template', 'error');
+      }
+    }
 
-  let data = {
-    name: name,
-    number: number
-  };
+    function previewUploadedImage(input) {
+      if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          document.getElementById('festive-img-preview').src = e.target.result;
+          document.getElementById('preview-image-title').innerText = input.files[0].name;
+          document.getElementById('preview-image-path').innerText = 'Selected for upload';
+        };
+        reader.readAsDataURL(input.files[0]);
+      }
+    }
 
+    async function handleFestiveUpdate(e) {
+      e.preventDefault();
+      const formData = new FormData(document.getElementById('festive-update-form'));
 
+      Swal.fire({
+        title: 'Saving...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
 
-   // <button type="button" 
-      //         onclick="sendsiglepersion('${name}','${number.replace(/\D/g, '')}')" 
-      //         class="btn btn-primary o">Send</button>
-li.innerHTML = `
-  <img src="${largePhoto}" class="rounded-circle me-3" alt="${name}">
-  <div class="flex-grow-1">
-    <div class="d-flex align-items-center gap-2">
-      <strong>${name}</strong>
-      <div class=" ms-auto d-flex gap-2 align-items-center">
-        
+      try {
+        const res = await fetch('/api/festive/update', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        Swal.fire('Saved!', data.message || 'Festive message saved successfully', 'success');
+        loadFestiveConfigAndTemplates();
+      } catch (err) {
+        Swal.fire('Error', 'Failed to update festive configuration', 'error');
+      }
+    }
 
- 
-   
-              
+    // ======================== TEST SEND (LINKED NUMBER ONLY) ========================
+    async function triggerFestiveTestSend() {
+      const caption = document.getElementById('festive-caption').value.trim();
+      if (!caption) {
+        return Swal.fire('Missing Caption', 'Please enter a caption first', 'warning');
+      }
+
+      const recipientText = linkedNumber ? `Linked WhatsApp account (+${linkedNumber})` : 'your connected WhatsApp account';
+
+      const confirm = await Swal.fire({
+        title: 'Send Test Festive Message?',
+        html: `This will send a test message <b>ONLY</b> to ${recipientText} so you can preview the flyer and greeting without contacting any other users.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Send Test!',
+        confirmButtonColor: '#9333ea'
+      });
+
+      if (!confirm.isConfirmed) return;
+
+      Swal.fire({
+        title: 'Sending Test Message...',
+        text: 'Delivering to linked WhatsApp account',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      try {
+        const res = await fetch('/api/festive/test-send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ caption })
+        });
+
+        const data = await res.json();
+        if (data.ok) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Test Message Delivered! 🧪',
+            html: `Successfully sent test greeting to <b>+${data.recipient}</b>.<br><small class="text-slate-500">Check your WhatsApp to verify the appearance.</small>`
+          });
+        } else {
+          Swal.fire('Failed', data.error || 'Could not send test message', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Failed to connect to test send endpoint', 'error');
+      }
+    }
+
+    // ======================== BROADCAST TO ALL CONTACTS ========================
+    // ======================== CAMPAIGN BASED BROADCASTER ========================
+    let pastCampaigns = [];
+
+    async function triggerFestiveBroadcast() {
+      const title = (document.getElementById('festive-campaign-title')?.value || '').trim() || 'Festive Campaign';
+      const channels = [];
+      if (document.getElementById('festive-channel-wa')?.checked) channels.push('whatsapp');
+      if (document.getElementById('festive-channel-sms')?.checked) channels.push('sms');
+
+      if (channels.length === 0) {
+        Swal.fire('Channels Required', 'Please select at least one broadcast channel (WhatsApp or Text.lk SMS).', 'warning');
+        return;
+      }
+
+      const caption = document.getElementById('festive-caption')?.value || '';
+      const imagePath = activeConfig?.image || null;
+
+      const confirm = await Swal.fire({
+        title: `Start "${escapeHTML(title)}" Broadcast?`,
+        html: `Broadcast to all Google synced contacts over <b>[${channels.join(', ').toUpperCase()}]</b>?<br><small class="text-slate-400">Safe rate-limiting and SMS credit tracking enabled.</small>`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Launch Campaign!',
+        confirmButtonColor: '#9333ea'
+      });
+
+      if (!confirm.isConfirmed) return;
+
+      Swal.fire({
+        title: 'Broadcasting Festive Campaign...',
+        html: `Dispatching campaign "${escapeHTML(title)}" to all contacts. Please wait...`,
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      try {
+        const res = await fetch('/api/festive/campaigns/broadcast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            channels,
+            caption,
+            imagePath
+          })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          const c = data.campaign || {};
+          Swal.fire({
+            icon: 'success',
+            title: 'Campaign Complete! 🎉',
+            html: `
+              <b>${escapeHTML(c.title || title)}</b><br><br>
+              <div class="text-left text-xs bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1.5 font-mono">
+                <div>👥 Total Contacts: <b>${c.total_contacts || 0}</b></div>
+                <div class="text-emerald-600">📱 WhatsApp: <b>${c.wa_success_count || 0} sent</b> / ${c.wa_failed_count || 0} failed</div>
+                <div class="text-sky-600">💬 SMS: <b>${c.sms_success_count || 0} sent</b> / ${c.sms_failed_count || 0} failed</div>
+                <div class="text-purple-600">💎 SMS Credits Used: <b>${c.sms_credits_used || 0} credits</b></div>
+              </div>
+            `
+          });
+          loadFestiveLogs();
+        } else {
+          Swal.fire('Broadcast Failed', data.error || 'Failed to dispatch broadcast', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Communication failure with server', 'error');
+      }
+    }
+
+    async function loadFestiveLogs() {
+      try {
+        const [cRes, lRes] = await Promise.all([
+          fetch('/api/festive/campaigns').catch(() => null),
+          fetch('/api/festive-logs').catch(() => null)
+        ]);
+
+        const cData = cRes ? await cRes.json() : { campaigns: [] };
+        pastCampaigns = cData.campaigns || [];
+
+        const container = document.getElementById('festive-logs-container');
+        if (!container) return;
+
+        if (pastCampaigns.length === 0) {
+          container.innerHTML = '<div class="text-center py-8 text-slate-400 text-xs">No festive broadcast campaigns launched yet.</div>';
+          return;
+        }
+
+        container.innerHTML = pastCampaigns.map((camp, idx) => {
+          const dateStr = new Date(camp.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+          const channels = Array.isArray(camp.channels) ? camp.channels : (typeof camp.channels === 'string' ? JSON.parse(camp.channels || '[]') : ['whatsapp']);
+          
+          return `
+            <div class="p-4 bg-slate-50 hover:bg-purple-50/40 rounded-2xl border border-slate-200/80 transition space-y-2.5">
+              <div class="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <h4 class="font-bold text-sm text-slate-800">${escapeHTML(camp.title || 'Festive Broadcast')}</h4>
+                  <div class="text-[11px] text-slate-400">${dateStr} • ${camp.total_contacts || 0} contacts</div>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  ${channels.includes('whatsapp') ? '<span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-md flex items-center gap-1"><i class="fab fa-whatsapp"></i> WA</span>' : ''}
+                  ${channels.includes('sms') ? '<span class="px-2 py-0.5 bg-sky-100 text-sky-700 text-[10px] font-bold rounded-md flex items-center gap-1"><i class="fas fa-sms"></i> SMS</span>' : ''}
+                </div>
               </div>
 
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-mono bg-white p-2.5 rounded-xl border border-slate-100">
+                <div class="text-emerald-600">WA: <b>${camp.wa_success_count || 0}</b> sent / ${camp.wa_failed_count || 0} fail</div>
+                <div class="text-sky-600">SMS: <b>${camp.sms_success_count || 0}</b> sent / ${camp.sms_failed_count || 0} fail</div>
+                <div class="text-purple-600 col-span-2 sm:col-span-1">Credits: <b>${camp.sms_credits_used || 0}</b> used</div>
+              </div>
 
-              
+              <div class="flex justify-end">
+                <button onclick="viewCampaignLogs(${idx})" class="px-3 py-1.5 bg-white hover:bg-purple-50 text-purple-600 hover:text-purple-700 border border-purple-200 text-xs font-semibold rounded-xl transition flex items-center gap-1">
+                  <i class="fas fa-list-ul text-[10px]"></i> View Recipient Logs
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+      } catch (err) {
+        console.warn('loadFestiveLogs error:', err);
+      }
+    }
+
+    function viewCampaignLogs(campIdx) {
+      const camp = pastCampaigns[campIdx];
+      if (!camp) return;
+
+      document.getElementById('campaign-modal-title').textContent = camp.title || 'Campaign Logs';
+      document.getElementById('campaign-modal-stats').textContent = `WA: ${camp.wa_success_count || 0} sent • SMS: ${camp.sms_success_count || 0} sent • ${camp.sms_credits_used || 0} SMS credits used`;
+
+      const listContainer = document.getElementById('campaign-modal-logs-list');
+      const logs = Array.isArray(camp.logs) ? camp.logs : (typeof camp.logs === 'string' ? JSON.parse(camp.logs || '[]') : []);
+
+      if (logs.length === 0) {
+        listContainer.innerHTML = '<div class="text-center py-6 text-slate-400 text-xs">No recipient log details stored for this campaign.</div>';
+      } else {
+        listContainer.innerHTML = logs.map(l => {
+          const waBadge = l.whatsapp === 'success' 
+            ? '<span class="text-emerald-600 font-bold"><i class="fab fa-whatsapp"></i> Sent</span>' 
+            : (l.whatsapp === 'failed' ? '<span class="text-rose-600 font-bold"><i class="fab fa-whatsapp"></i> Fail</span>' : '<span class="text-slate-400"><i class="fab fa-whatsapp"></i> Skipped</span>');
+
+          const smsBadge = l.sms === 'success'
+            ? '<span class="text-sky-600 font-bold"><i class="fas fa-sms"></i> Sent</span>'
+            : (l.sms === 'failed' ? '<span class="text-rose-600 font-bold"><i class="fas fa-sms"></i> Fail</span>' : '<span class="text-slate-400"><i class="fas fa-sms"></i> Skipped</span>');
+
+          return `
+            <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between text-xs">
+              <div>
+                <span class="font-bold text-slate-800">${escapeHTML(l.name || 'Friend')}</span>
+                <span class="text-slate-400 text-[11px] ml-1.5">(+${l.phone})</span>
+              </div>
+              <div class="flex items-center gap-3">
+                ${waBadge}
+                ${smsBadge}
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      document.getElementById('campaign-logs-modal').classList.remove('hidden');
+    }
+
+    function closeCampaignLogsModal() {
+      document.getElementById('campaign-logs-modal').classList.add('hidden');
+    }
+
+    function escapeHTML(str) {
+      return String(str || '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+    }
+
+    checkAuth();
+  </script>
+
+  <!-- ======================== CAMPAIGN LOGS MODAL ======================== -->
+  <div id="campaign-logs-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl border border-purple-100 overflow-hidden animate-fade-in">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center text-lg">
+            <i class="fas fa-clipboard-list"></i>
+          </div>
+          <div>
+            <h3 id="campaign-modal-title" class="text-base font-bold text-slate-800">Campaign Logs</h3>
+            <p id="campaign-modal-stats" class="text-xs text-slate-400">Details</p>
+          </div>
+        </div>
+        <button onclick="closeCampaignLogsModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+          <i class="fas fa-times text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto space-y-2" id="campaign-modal-logs-list">
+        <!-- Logs populated dynamically -->
+      </div>
     </div>
   </div>
-`;
 
-
-  return li;
-}
-  function safeDate(year, monthIndex, day) {
-    const dt = new Date(year, monthIndex, day);
-    if (dt.getMonth() !== monthIndex) return new Date(year, monthIndex, 28);
-    return dt;
-  }
-  function stripTime(dt) { return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()); }
-  function formatFullDate(dt) {
-    return dt.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
-  }
-  function escapeHTML(str) {
-    return String(str).replace(/[&<>\"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
-  }
-
-function sendFestive() {
-  Swal.fire({
-    title: "Sending message...",
-    html: "Please wait...",
-    allowOutsideClick: false,
-    didOpen: () => {
-      Swal.showLoading();
-    }
-  });
-  fetch('/sendfestive')
-    .then(response => response.json())
-    .then(data => {
-      // Close the loading alert
-      Swal.close();
-      if(data.ok){
-        Swal.fire("Sent!", data.message, "success");
-        setTimeout(() => {
-          loadFestiveLogs();
-          
-        }, 1000);
-        setInterval(async () => {
-
-          loadFestiveLogs();
-
-}, 1000);
-
-      }else{
-        Swal.fire("Error!", data.message, "error");
-      }
-    })
-    .catch(error => {
-      // Close the loading alert
-      Swal.close();
-      // Show error alert
-      Swal.fire("Error!", "Failed to send message.", "error");
-    });
-  
-}
-
-
-function loadFestiveLogs() {
-  fetch('/api/festive-logs')
-    .then(response => response.json())
-    .then(data => {
-      // Close the loading alert
-      Swal.close();
-      if(data){
-        
-        document.getElementById('successCount').textContent = data.successCount;
-        document.getElementById('errorCount').textContent = data.errorCount;
-      }else{
-        Swal.fire("Error!", data.message, "error");
-      }
-    })
-    .catch(error => {
-      // Close the loading alert
-      Swal.close();
-      // Show error alert
-      Swal.fire("Error!", "Failed to send message.", "error");
-    });
-  
-}
-  loadStatus();
-  loadBirthdays();
-  loadFestiveLogs();
-</script>
 </body>
 </html>

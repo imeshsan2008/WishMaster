@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="page-title">Happy Birthday! ✨ A Special Celebration</title>
+  <link rel="icon" href="/assets/img/logo.png" type="image/png">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Poppins:wght@300;400;500;600;700;800&family=Noto+Sans+Sinhala:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Poppins', 'Noto Sans Sinhala', sans-serif;
+      background-color: #fcf6f0;
+      color: #334155;
+    }
+
+    .font-cursive {
+      font-family: 'Dancing Script', cursive;
+    }
+
+    /* Soft Floating Background Balloons */
+    .balloon {
+      position: absolute;
+      border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+      bottom: -120px;
+      animation: floatUp 14s linear infinite;
+      opacity: 0.25;
+      pointer-events: none;
+    }
+    .balloon::before {
+      content: '';
+      position: absolute;
+      bottom: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 1px;
+      height: 18px;
+      background: rgba(148, 163, 184, 0.4);
+    }
+    @keyframes floatUp {
+      0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 0.25;
+      }
+      50% {
+        transform: translateY(-55vh) rotate(8deg);
+      }
+      100% {
+        transform: translateY(-115vh) rotate(-8deg);
+        opacity: 0;
+      }
+    }
+
+    /* Animated Candle Flame */
+    .flame {
+      background: linear-gradient(to bottom, #fff7ed 0%, #fef08a 25%, #f59e0b 60%, #ea580c 100%);
+      border-radius: 50% 50% 20% 20% / 60% 60% 40% 40%;
+      box-shadow: 0 0 16px rgba(251, 191, 36, 0.8), 0 0 32px rgba(245, 158, 11, 0.4);
+      transform-origin: center bottom;
+      animation: flicker 1.4s ease-in-out infinite alternate;
+    }
+    @keyframes flicker {
+      0% { transform: scale(1) rotate(-1.5deg); opacity: 0.95; }
+      25% { transform: scale(1.05, 1.1) rotate(1.5deg); }
+      50% { transform: scale(0.96, 0.94) rotate(-1deg); }
+      75% { transform: scale(1.04, 1.08) rotate(2deg); }
+      100% { transform: scale(1) rotate(-1.5deg); opacity: 1; }
+    }
+
+    /* Smoke Puff Effect */
+    .smoke-puff {
+      animation: smokeRise 1.2s ease-out forwards;
+    }
+    @keyframes smokeRise {
+      0% { opacity: 0.8; transform: translateY(0) scale(0.6); }
+      50% { opacity: 0.5; transform: translateY(-24px) scale(1.2); }
+      100% { opacity: 0; transform: translateY(-48px) scale(1.8); }
+    }
+
+    /* Modal Animation */
+    @keyframes modalPop {
+      0% { opacity: 0; transform: scale(0.88) translateY(18px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .animate-modal-pop {
+      animation: modalPop 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Smooth Slide Down for Letter */
+    .letter-collapse {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: max-height 0.7s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s ease-in-out, margin 0.5s ease;
+    }
+    .letter-collapse.open {
+      max-height: 1400px;
+      opacity: 1;
+      margin-top: 1.5rem;
+    }
+  </style>
+</head>
+<body class="relative flex flex-col items-center justify-between min-h-screen px-4 py-8 sm:py-12 bg-[#fcf6f0] overflow-x-hidden selection:bg-pink-100 selection:text-pink-800">
+
+  <!-- Ambient Balloons Container -->
+  <div id="balloon-container" class="fixed inset-0 pointer-events-none z-0 overflow-hidden"></div>
+
+  <!-- ======================== FLOATING TOP CONTROLS (LANGUAGE & MUSIC) ======================== -->
+  <div class="fixed top-4 left-4 z-50">
+    <button 
+      id="lang-toggle-btn"
+      onclick="toggleLanguage()"
+      class="flex items-center gap-2 bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-full border border-pink-200/90 shadow-[0_6px_20px_rgba(244,114,182,0.15)] hover:shadow-md hover:scale-105 active:scale-95 transition text-xs font-bold text-[#831843]"
+      title="Switch Language / භාෂාව මාරු කරන්න"
+    >
+      <i class="fas fa-language text-sm text-pink-500"></i>
+      <span id="lang-toggle-text">සිංහල</span>
+    </button>
+  </div>
+
+  <div class="fixed top-4 right-4 z-50 flex items-center gap-2.5 bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-full border border-pink-200/90 shadow-[0_6px_20px_rgba(244,114,182,0.15)] transition hover:shadow-md">
+    <button 
+      id="audio-toggle" 
+      onclick="toggleAudio()" 
+      class="w-8 h-8 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white flex items-center justify-center shadow hover:scale-105 active:scale-95 transition"
+      title="Play / Pause Birthday Song"
+    >
+      <i id="audio-icon" class="fas fa-play ml-0.5 text-xs"></i>
+    </button>
+    <div class="pr-1 text-left select-none">
+      <div id="audio-status" class="text-[10px] font-bold text-[#831843] tracking-wide uppercase leading-tight">Play Song</div>
+      <div id="audio-substatus" class="text-[9px] text-slate-400 font-medium">Click to listen 🎵</div>
+    </div>
+  </div>
+
+  <!-- Admin Preview Banner -->
+  <div id="admin-preview-banner" class="hidden z-40 w-full max-w-xl mx-auto mb-6 bg-amber-500 text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow-lg flex items-center justify-between gap-2">
+    <div class="flex items-center gap-2">
+      <i class="fas fa-eye text-base"></i>
+      <span id="preview-banner-text">Admin Preview Mode — Views and open status are NOT tracked.</span>
+    </div>
+    <span class="bg-black/20 px-2 py-0.5 rounded text-[10px] uppercase font-mono">Preview</span>
+  </div>
+
+  <!-- ======================== INITIAL LANGUAGE PICKER MODAL ======================== -->
+  <div id="lang-picker-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 hidden">
+    <div class="relative w-full max-w-sm bg-white rounded-[32px] p-7 shadow-2xl border-4 border-pink-200 animate-modal-pop text-center space-y-5">
+      <div class="w-16 h-16 bg-pink-50 text-pink-500 rounded-full flex items-center justify-center mx-auto text-3xl shadow-inner">
+        🎂
+      </div>
+      <div class="space-y-1">
+        <h3 class="text-xl font-extrabold text-[#701a75]">Choose Language</h3>
+        <p class="text-xs text-slate-500">කරුණාකර ඔබ කැමති භාෂාව තෝරන්න</p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 pt-2">
+        <button 
+          onclick="selectInitialLanguage('si')" 
+          class="flex flex-col items-center justify-center gap-1.5 py-4 px-3 rounded-2xl bg-gradient-to-b from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition"
+        >
+          <span class="text-2xl">🇱🇰</span>
+          <span class="text-sm font-bold">සිංහල</span>
+          <span class="text-[10px] text-pink-100 font-medium">Sinhala</span>
+        </button>
+
+        <button 
+          onclick="selectInitialLanguage('en')" 
+          class="flex flex-col items-center justify-center gap-1.5 py-4 px-3 rounded-2xl bg-slate-800 hover:bg-slate-900 text-white shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition"
+        >
+          <span class="text-2xl">🇬🇧</span>
+          <span class="text-sm font-bold">English</span>
+          <span class="text-[10px] text-slate-300 font-medium">ඉංග්‍රීසි</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== EXPIRED SCREEN ======================== -->
+  <div id="expired-box" class="hidden z-20 max-w-md w-full bg-white/95 backdrop-blur-lg p-8 rounded-3xl border border-red-200 shadow-2xl text-center my-auto">
+    <div class="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+      <i class="fas fa-hourglass-end"></i>
+    </div>
+    <h2 id="expired-title" class="text-xl font-bold text-slate-800">Wish Link Expired</h2>
+    <p id="expired-desc" class="text-slate-500 mt-2 text-xs leading-relaxed">
+      This special celebration link has reached its expiration.
+    </p>
+    <div class="mt-6">
+      <a href="/" id="expired-home-btn" class="px-5 py-2 bg-slate-800 text-white text-xs font-semibold rounded-xl hover:bg-slate-700 transition">Return Home</a>
+    </div>
+  </div>
+
+  <!-- ======================== MAIN SEQUENTIAL CONTAINER ======================== -->
+  <div id="wish-container" class="w-full max-w-2xl z-10 flex flex-col items-center gap-8 sm:gap-10">
+
+    <!-- 1. ELEGANT HEADER -->
+    <header class="text-center space-y-3 pt-2">
+      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#fce7f3]/80 border border-[#fbcfe8] text-[#831843] text-[11px] sm:text-xs font-semibold tracking-widest uppercase shadow-sm">
+        <span id="header-badge">✨ HAPPY BIRTHDAY CELEBRATION ✨</span>
+      </div>
+
+      <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold text-[#701a75] tracking-tight leading-tight">
+        <span id="title-greeting-prefix">Happy Birthday, </span><span id="display-name" class="text-transparent bg-clip-text bg-gradient-to-r from-pink-600 via-rose-500 to-purple-600"></span><span id="title-greeting-suffix">!</span>
+      </h1>
+
+      <div class="text-3xl sm:text-4xl">🎉</div>
+
+      <p id="step-guide-text" class="text-slate-500 text-xs sm:text-sm max-w-md mx-auto leading-relaxed">
+        Step 1: Blow out the candle below! 🎂
+      </p>
+    </header>
+
+    <!-- ======================== FIRST: INTERACTIVE BIRTHDAY CAKE ======================== -->
+    <section id="cake-card-section" class="w-full bg-white rounded-[32px] border border-pink-100 shadow-[0_16px_48px_rgba(244,114,182,0.08)] p-8 sm:p-12 text-center flex flex-col items-center relative transition hover:shadow-[0_20px_54px_rgba(244,114,182,0.12)]">
+      
+      <h2 id="cake-title" class="text-2xl sm:text-3xl font-extrabold text-[#701a75] flex items-center justify-center gap-2.5">
+        <span>Blow Out the Candle! 🎂</span>
+      </h2>
+      <p id="cake-subtitle" class="text-xs text-slate-400 mt-1 mb-8">Click the flame or tap the button to blow out your candle!</p>
+
+      <!-- Cake Illustration & Flame -->
+      <div class="relative my-2 flex flex-col items-center select-none">
+        
+        <!-- Flame Element -->
+        <div 
+          id="candle-flame" 
+          onclick="blowOutCandle()" 
+          class="flame w-6 h-9 cursor-pointer relative z-20 mb-[-2px] transition-all duration-300 hover:scale-125" 
+          title="Click to blow out the candle!"
+        ></div>
+
+        <!-- Smoke Element -->
+        <div id="smoke-curl" class="hidden absolute -top-8 w-4 h-6 text-slate-400 text-lg pointer-events-none z-30">
+          <i class="fas fa-smog"></i>
+        </div>
+
+        <!-- Candle Stick -->
+        <div class="w-4 h-14 bg-gradient-to-b from-yellow-100 via-pink-200 to-yellow-200 rounded-t-sm shadow-sm border-x border-yellow-300/60 z-10 relative"></div>
+
+        <!-- Cake Tier 1 -->
+        <div class="w-44 sm:w-48 h-12 bg-pink-400 rounded-t-2xl relative shadow-inner flex items-center justify-around overflow-hidden border-t-4 border-white/70">
+          <div class="w-6 h-6 bg-white rounded-full -mt-6 shadow-sm"></div>
+          <div class="w-6 h-6 bg-white rounded-full -mt-4 shadow-sm"></div>
+          <div class="w-6 h-6 bg-white rounded-full -mt-6 shadow-sm"></div>
+          <div class="w-6 h-6 bg-white rounded-full -mt-4 shadow-sm"></div>
+          <div class="w-6 h-6 bg-white rounded-full -mt-6 shadow-sm"></div>
+        </div>
+
+        <!-- Cake Tier 2 -->
+        <div class="w-52 sm:w-56 h-14 bg-[#9333ea] relative border-t-2 border-pink-300/40 flex items-center justify-center shadow-inner">
+          <span id="cake-banner-text" class="text-[11px] sm:text-xs font-bold text-white tracking-widest uppercase">★ HAPPY BIRTHDAY ★</span>
+        </div>
+
+        <!-- Cake Tier 3 -->
+        <div class="w-60 sm:w-64 h-14 bg-rose-500 rounded-b-xl relative shadow-md border-t-2 border-purple-300 flex items-center justify-around">
+          <i class="fas fa-star text-yellow-300 text-xs"></i>
+          <i class="fas fa-heart text-white text-xs"></i>
+          <i class="fas fa-star text-yellow-300 text-xs"></i>
+          <i class="fas fa-heart text-white text-xs"></i>
+        </div>
+
+        <!-- Plate -->
+        <div class="w-68 sm:w-72 h-4 bg-slate-200 rounded-full shadow-md border-t border-white mt-0.5"></div>
+
+      </div>
+
+      <!-- Action Button -->
+      <div class="mt-8">
+        <button 
+          id="btn-blow-candle" 
+          onclick="blowOutCandle()" 
+          class="px-7 py-3 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white text-xs sm:text-sm font-semibold rounded-full shadow-md hover:shadow-lg transition hover:scale-[1.02] active:scale-95 flex items-center gap-2 mx-auto"
+        >
+          <i class="fas fa-wind text-sm"></i>
+          <span id="btn-blow-text">Blow Out the Candle 🎂</span>
+        </button>
+      </div>
+
+      <!-- Wish Granted Alert Box -->
+      <div 
+        id="wish-message" 
+        class="hidden mt-6 p-5 sm:p-6 bg-gradient-to-r from-pink-50 via-purple-50 to-pink-50 border border-pink-200 rounded-2xl text-center max-w-md w-full"
+      >
+        <p id="wish-granted-title" class="text-[#701a75] font-bold text-2xl font-cursive">✨ Candle Blown! ✨</p>
+        <p id="wish-granted-desc" class="text-xs text-slate-600 mt-1.5 leading-relaxed">May your upcoming year be filled with immense joy, peace, and prosperity!</p>
+        <button id="btn-open-gift" onclick="openScratchModal()" class="mt-3.5 px-5 py-2.5 bg-[#9333ea] hover:bg-[#7e22ce] text-white text-xs font-bold rounded-full shadow transition flex items-center gap-1.5 mx-auto">
+          <i class="fas fa-gift"></i>
+          <span id="btn-open-gift-text">Open Birthday Gift Card 🎁</span>
+        </button>
+      </div>
+
+    </section>
+
+    <!-- ======================== AFTER SCRATCH: REVEALED CARD CONTAINER (IN PAGE) ======================== -->
+    <section id="revealed-inpage-section" class="hidden w-full flex flex-col items-center">
+      <div id="inpage-card-badge" class="text-xs font-bold uppercase tracking-wider text-[#831843] bg-pink-100/80 border border-pink-200 px-4 py-1.5 rounded-full mb-3 shadow-sm">
+        ★ YOUR BIRTHDAY GIFT CARD ★
+      </div>
+      <div class="relative w-full max-w-sm sm:max-w-md h-[460px] sm:h-[500px] rounded-[32px] overflow-hidden shadow-[0_16px_48px_rgba(244,114,182,0.14)] border-4 border-amber-300 bg-white p-3">
+        <img 
+          id="inpage-revealed-img" 
+          src="/assets/img/default_avatar.png" 
+          alt="Birthday Card" 
+          class="w-full h-full object-contain rounded-2xl drop-shadow-md select-none"
+        />
+      </div>
+    </section>
+
+    <!-- ======================== AFTER CARD: SECRET BIRTHDAY LETTER ======================== -->
+    <section id="secret-letter-section" class="hidden w-full bg-white rounded-[32px] border border-pink-100 shadow-[0_16px_48px_rgba(244,114,182,0.08)] p-6 sm:p-8 text-center transition">
+      
+      <!-- Sealed Lock Icon & Title -->
+      <div class="w-12 h-12 bg-pink-50 border border-pink-200 text-pink-600 rounded-2xl flex items-center justify-center text-xl mx-auto mb-3 shadow-inner">
+        <i id="letter-icon" class="fas fa-envelope-open-text"></i>
+      </div>
+      
+      <h3 id="letter-title" class="text-xl sm:text-2xl font-bold text-[#701a75]">Secret Birthday Letter 💌</h3>
+      <p id="letter-subtitle" class="text-xs text-slate-400 mt-1">A heartfelt birthday message written specially for you</p>
+
+      <!-- Letter Body Container -->
+      <div id="letter-content" class="letter-collapse open text-left">
+        <div class="p-6 sm:p-8 bg-[#fdf8f4] border border-pink-200 rounded-2xl shadow-inner space-y-4">
+          
+          <div class="text-base sm:text-lg font-bold text-[#701a75] font-serif">
+            <span id="letter-prefix">Dear </span><span id="letter-recipient"></span><span id="letter-suffix">,</span>
+          </div>
+
+          <p id="display-message" class="text-slate-700 text-xs sm:text-sm leading-relaxed whitespace-pre-line font-sans">
+            "On this special milestone of your life, remember that you are appreciated, valued, and loved. Thank you for bringing laughter and joy into the lives of those around you. Wishing you endless health, radiant happiness, prosperity, and success in everything you set out to achieve!"
+          </p>
+
+          <div class="pt-4 border-t border-pink-100 text-right">
+            <span id="letter-signoff" class="text-[#831843] font-bold text-xs sm:text-sm font-serif">
+              With Love & Warmest Wishes ❤️
+            </span>
+          </div>
+
+          <!-- ======================== BACK TO WHATSAPP & REPLAY BUTTONS ======================== -->
+          <div class="pt-5 border-t border-pink-200/60 flex flex-col items-center gap-3">
+            <a 
+              id="back-to-wa-btn" 
+              href="https://api.whatsapp.com" 
+              target="_blank" 
+              class="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-3.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-bold text-xs sm:text-sm rounded-full shadow-lg hover:shadow-xl transition transform hover:scale-[1.02]"
+            >
+              <i class="fab fa-whatsapp text-lg"></i>
+              <span id="back-to-wa-text">Back to WhatsApp 💬</span>
+            </a>
+            <p id="back-to-wa-sub" class="text-[10px] text-slate-400 text-center">Tap above to return to WhatsApp and reply with a thank you note</p>
+
+            <button 
+              id="btn-replay"
+              onclick="replayCelebration()" 
+              class="mt-2 inline-flex items-center gap-2 px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 text-xs font-semibold rounded-full border border-slate-200 transition"
+              title="Experience this surprise again from the beginning"
+            >
+              <i class="fas fa-redo-alt text-xs text-pink-500"></i>
+              <span id="btn-replay-text">Replay Celebration 🔄</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <!-- ======================== POPUP MODAL: DIGITAL SCRATCH CARD ======================== -->
+  <div id="scratch-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 hidden">
+    
+    <div class="relative w-full max-w-sm sm:max-w-md bg-white rounded-[32px] p-6 shadow-2xl border-4 border-amber-300 animate-modal-pop text-center space-y-4">
+      
+      <!-- Modal Header -->
+      <div>
+        <span id="modal-step-badge" class="text-[11px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
+          🎁 Step 2: Surprise Gift Card
+        </span>
+        <h3 id="modal-scratch-title" class="text-xl sm:text-2xl font-bold text-slate-800 mt-2">Scratch to Reveal!</h3>
+        <p id="modal-scratch-desc" class="text-xs text-slate-500">Scratch 90% of the gold foil to unlock your custom photo card!</p>
+      </div>
+
+      <!-- Scratch Wrapper inside Modal -->
+      <div class="relative w-full h-[400px] sm:h-[440px] rounded-2xl overflow-hidden shadow-inner border-2 border-amber-200 bg-white mx-auto">
+        
+        <!-- Underlying Framed Image -->
+        <div class="absolute inset-0 w-full h-full flex items-center justify-center p-2 bg-gradient-to-br from-pink-50 via-white to-amber-50">
+          <img 
+            id="scratch-revealed-img" 
+            src="/assets/img/default_avatar.png" 
+            alt="Personalized Birthday Frame" 
+            class="w-full h-full object-contain rounded-xl select-none pointer-events-none drop-shadow-md"
+            onerror="this.onerror=null; this.src='/assets/img/default_avatar.png';"
+          />
+        </div>
+
+        <!-- Scratch Canvas (Gold Foil Overlay) -->
+        <canvas id="scratch-canvas" class="absolute inset-0 w-full h-full rounded-2xl z-20 cursor-crosshair"></canvas>
+
+        <!-- Scratch Progress Pill -->
+        <div id="scratch-pill" class="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 bg-slate-900/85 backdrop-blur-md text-white text-[11px] font-semibold px-4 py-1.5 rounded-full shadow-lg border border-amber-400/40 flex items-center gap-2 pointer-events-none transition-opacity">
+          <i class="fas fa-hand-sparkles text-amber-300"></i>
+          <span><span id="scratch-progress-label">Scratch Progress:</span> <b id="scratch-pct" class="text-amber-300">0%</b> / 90%</span>
+        </div>
+
+        <!-- Completion Tag inside Modal -->
+        <div id="scratch-completed-tag" class="hidden absolute top-3 right-3 z-30 bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-900 text-xs font-bold px-3 py-1 rounded-full shadow-lg border border-white animate-bounce flex items-center gap-1">
+          <i class="fas fa-check-circle"></i> <span id="scratch-completed-text">Revealed! 🎉</span>
+        </div>
+
+      </div>
+
+      <!-- Action Buttons in Modal -->
+      <div class="flex items-center justify-center gap-2 pt-1">
+        <button 
+          id="btn-auto-reveal" 
+          onclick="autoRevealScratch()" 
+          class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-full border border-slate-300 transition flex items-center gap-1.5"
+        >
+          <i class="fas fa-wand-magic-sparkles text-amber-600"></i>
+          <span id="btn-auto-reveal-text">Auto-Reveal ✨</span>
+        </button>
+
+        <button 
+          id="btn-proceed-letter" 
+          onclick="proceedToSecretLetter()" 
+          class="hidden px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-bold rounded-full shadow-lg hover:opacity-95 transition flex items-center gap-2 animate-bounce"
+        >
+          <span id="btn-proceed-letter-text">Read Secret Letter 💌</span>
+          <i class="fas fa-arrow-right"></i>
+        </button>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Minimal Footer with Dynamic Bot Footer & Expiry Days -->
+  <footer class="z-10 mt-12 text-center text-[11px] text-slate-400 tracking-wider space-y-1">
+    <p id="footer-credit">Crafted with ❤️ • Valid for 7 Days</p>
+    <p id="footer-tagline" class="font-semibold text-slate-500">> WishMaster V4.0</p>
+  </footer>
+
+  <!-- ======================== APPLICATION LOGIC & I18N ======================== -->
+  <script>
+    // I18N Dictionary (Pure Sinhala & Pure English)
+    const I18N = {
+      en: {
+        pageTitle: "Happy Birthday! ✨ A Special Celebration",
+        headerBadge: "✨ HAPPY BIRTHDAY CELEBRATION ✨",
+        greetingPrefix: "Happy Birthday, ",
+        greetingSuffix: "!",
+        fallbackName: "",
+        stepGuide: "Step 1: Blow out the candle below! 🎂",
+        cakeTitle: "Blow Out the Candle! 🎂",
+        cakeSubtitle: "Click the flame or tap the button to blow out your candle!",
+        cakeBanner: "★ HAPPY BIRTHDAY ★",
+        btnBlow: "Blow Out the Candle 🎂",
+        btnBlown: "Candle Blown! ✨",
+        wishGrantedTitle: "✨ Candle Blown! ✨",
+        wishGrantedDesc: "May your upcoming year be filled with immense joy, peace, and prosperity!",
+        btnOpenGift: "Open Birthday Gift Card 🎁",
+        inpageCardBadge: "★ YOUR BIRTHDAY GIFT CARD ★",
+        letterTitle: "Secret Birthday Letter 💌",
+        letterSubtitle: "A heartfelt birthday message written specially for you",
+        letterPrefix: "Dear ",
+        letterSuffix: ",",
+        letterSignoff: "With Love & Warmest Wishes ❤️",
+        backToWaText: "Back to WhatsApp 💬",
+        backToWaSub: "Tap above to return to WhatsApp and reply with a thank you note",
+        btnReplay: "Replay Celebration 🔄",
+        modalStepBadge: "🎁 Step 2: Surprise Gift Card",
+        modalScratchTitle: "Scratch to Reveal!",
+        modalScratchDesc: "Scratch 90% of the gold foil to unlock your custom photo card!",
+        scratchProgressLabel: "Scratch Progress:",
+        scratchCompletedText: "Revealed! 🎉",
+        btnAutoReveal: "Auto-Reveal ✨",
+        btnProceedLetter: "Read Secret Letter 💌",
+        audioPlay: "Play Song",
+        audioPause: "Pause Music",
+        audioSubPlay: "Click to listen 🎵",
+        audioSubPause: "Playing song 🎵",
+        foilTitle: "🎁 SCRATCH HERE 🎁",
+        foilLine1: "Scratch with your finger or mouse",
+        foilLine2: "to reveal your birthday photo card!",
+        foilBadge: "★ 90% CLEAR TO UNLOCK ★",
+        previewBanner: "Admin Preview Mode — Views and open status are NOT tracked.",
+        expiredTitle: "Wish Link Expired",
+        expiredDesc: "This special celebration link has reached its expiration.",
+        expiredHome: "Return Home",
+        footerCredit: "Crafted with ❤️ • Valid for {days} Days"
+      },
+      si: {
+        pageTitle: "සුභ උපන්දිනයක් වේවා! ✨ විශේෂ සැමරුම",
+        headerBadge: "✨ විශේෂ උපන්දින සැමරුම ✨",
+        greetingPrefix: "සුභ උපන්දිනයක් වේවා, ",
+        greetingSuffix: "!",
+        fallbackName: "",
+        stepGuide: "පියවර 1: පහත ඉටිපන්දම නිවන්න! 🎂",
+        cakeTitle: "ඉටිපන්දම නිවන්න 🎂",
+        cakeSubtitle: "දැල්ල මත click කරන්න හෝ පහත බොත්තම ඔබන්න!",
+        cakeBanner: "★ සුභ උපන්දිනයක් වේවා ★",
+        btnBlow: "ඉටිපන්දම නිවන්න 🎂",
+        btnBlown: "ඉටිපන්දම නිවන ලදී! ✨",
+        wishGrantedTitle: "✨ සුබ පැතුම් එක්විය! ✨",
+        wishGrantedDesc: "ඔබගේ ඉදිරි වසර සතුට, සාමය සහ ආශිර්වාදයෙන් පිරී ඉතිරී යේවා!",
+        btnOpenGift: "උපන්දින ත්‍යාගය විවෘත කරන්න 🎁",
+        inpageCardBadge: "★ ඔබගේ විශේෂ උපන්දින කාඩ්පත ★",
+        letterTitle: "හදවතින්ම ලියූ රහස් සුබපැතුම් ලිපිය 💌",
+        letterSubtitle: "ඔබ වෙනුවෙන්ම හදවතින්ම ලියූ විශේෂ උපන්දින සටහනක්",
+        letterPrefix: "ආදරණීය ",
+        letterSuffix: ",",
+        letterSignoff: "ආදරය සහ උණුසුම් සුබපැතුම් සමඟින් ❤️",
+        backToWaText: "WhatsApp වෙත ආපසු යන්න 💬",
+        backToWaSub: "ස්තූති පණිවිඩයක් යැවීමට ඉහත බොත්තම ඔබන්න",
+        btnReplay: "නැවත මුල සිට අත්විඳින්න 🔄",
+        modalStepBadge: "🎁 පියවර 2: විශේෂ ත්‍යාග කාඩ්පත",
+        modalScratchTitle: "Scratch කර කාඩ්පත බලන්න!",
+        modalScratchDesc: "රන් ආලේපය 90%ක් scratch කර ඔබගේ විශේෂ ඡායාරූප කාඩ්පත විවෘත කරගන්න!",
+        scratchProgressLabel: "Scratch ප්‍රමාණය:",
+        scratchCompletedText: "අනාවරණය විය! 🎉",
+        btnAutoReveal: "ස්වයංක්‍රීයව පෙන්වන්න ✨",
+        btnProceedLetter: "රහස් සුබපැතුම් ලිපිය කියවන්න 💌",
+        audioPlay: "උපන්දින ගීතය",
+        audioPause: "ගීතය නවත්වන්න",
+        audioSubPlay: "සවන් දීමට click කරන්න 🎵",
+        audioSubPause: "වාදනය වේ 🎵",
+        foilTitle: "🎁 මෙතනින් SCRATCH කරන්න 🎁",
+        foilLine1: "ඇඟිල්ලෙන් හෝ Mouse එකෙන්",
+        foilLine2: "Scratch කර කාඩ්පත බලන්න!",
+        foilBadge: "★ 90% ක් සම්පූර්ණ කරන්න ★",
+        previewBanner: "පරිපාලක පෙරදසුන් මාදිලිය — නැරඹුම් සහ විවෘත කිරීම් ගණන් නොගැනේ.",
+        expiredTitle: "ලින්ක් එකේ වලංගු කාලය අවසන්",
+        expiredDesc: "මෙම විශේෂ උපන්දින සැමරුම් ලින්ක් එකෙහි වලංගු කාලය අවසන් වී ඇත.",
+        expiredHome: "මුල් පිටුවට යන්න",
+        footerCredit: "ආදරයෙන් නිර්මාණය කරන ලදී ❤️ • දින {days}ක් වලංගුයි"
+      }
+    };
+
+    let currentLang = 'en';
+
+    // Audio Player State
+    const audio = new Audio();
+    audio.preload = 'auto';
+    let isPlaying = false;
+    let candleBlown = false;
+    let isScratched = false;
+    let isDrawing = false;
+    let canvas, ctx;
+    let totalPixels = 0;
+    let currentWishData = null;
+
+    audio.onerror = () => {
+      console.warn('⚠️ External audio source failed, switching to local backup audio.');
+      if (audio.src !== window.location.origin + '/assets/voice/voice.ogg') {
+        audio.src = '/assets/voice/voice.ogg';
+      }
+    };
+    audio.onplay = () => { updateAudioUI(true); };
+    audio.onpause = () => { updateAudioUI(false); };
+    audio.onended = () => { updateAudioUI(false); };
+
+    function updateAudioUI(playing) {
+      isPlaying = Boolean(playing);
+      const t = I18N[currentLang] || I18N.en;
+      if (isPlaying) {
+        audioIcon.className = 'fas fa-pause text-xs';
+        audioStatus.textContent = t.audioPause;
+        audioSubstatus.textContent = t.audioSubPause;
+        audioToggleBtn.classList.add('animate-pulse');
+      } else {
+        audioIcon.className = 'fas fa-play ml-0.5 text-xs';
+        audioStatus.textContent = t.audioPlay;
+        audioSubstatus.textContent = t.audioSubPlay;
+        audioToggleBtn.classList.remove('animate-pulse');
+      }
+    }
+
+    function attemptAutoplayOnLoad() {
+      if (isPlaying || !audio.src) return;
+      audio.play().then(() => {
+        updateAudioUI(true);
+        console.log('🎵 Audio autoplay started immediately on load!');
+      }).catch((err) => {
+        console.log('ℹ️ Browser autoplay restricted until user gesture:', err.message);
+        const startOnFirstGesture = () => {
+          if (!isPlaying && audio.src) {
+            audio.play().then(() => {
+              updateAudioUI(true);
+              console.log('🎵 Audio unlocked and playing on user interaction!');
+            }).catch(() => {});
+          }
+          ['click', 'touchstart', 'pointerdown', 'keydown', 'scroll'].forEach(evt => {
+            window.removeEventListener(evt, startOnFirstGesture);
+          });
+        };
+        ['click', 'touchstart', 'pointerdown', 'keydown', 'scroll'].forEach(evt => {
+          window.addEventListener(evt, startOnFirstGesture, { once: true, passive: true });
+        });
+      });
+    }
+
+    const audioToggleBtn = document.getElementById('audio-toggle');
+    const audioIcon = document.getElementById('audio-icon');
+    const audioStatus = document.getElementById('audio-status');
+    const audioSubstatus = document.getElementById('audio-substatus');
+
+    // Extract Wish Code from URL path (/wish/:code)
+    const pathParts = window.location.pathname.split('/');
+    const wishCode = pathParts[pathParts.length - 1];
+
+    // Check Admin Preview Flag (?preview=admin)
+    const urlParams = new URLSearchParams(window.location.search);
+    const isAdminPreview = urlParams.get('preview') === 'admin';
+
+    if (isAdminPreview) {
+      document.getElementById('admin-preview-banner').classList.remove('hidden');
+    }
+
+    // ======================== LANGUAGE SELECTION & SWITCHING ========================
+
+    function checkLanguagePreference() {
+      const stored = localStorage.getItem('wish_lang_' + wishCode) || localStorage.getItem('wish_lang');
+      if (stored && (stored === 'si' || stored === 'en')) {
+        currentLang = stored;
+        applyLanguage(currentLang);
+      } else {
+        // Show initial language picker modal
+        document.getElementById('lang-picker-modal').classList.remove('hidden');
+      }
+    }
+
+    function selectInitialLanguage(lang) {
+      currentLang = (lang === 'si') ? 'si' : 'en';
+      localStorage.setItem('wish_lang_' + wishCode, currentLang);
+      localStorage.setItem('wish_lang', currentLang);
+      document.getElementById('lang-picker-modal').classList.add('hidden');
+      applyLanguage(currentLang);
+      attemptAutoplayOnLoad();
+    }
+
+    function toggleLanguage() {
+      currentLang = (currentLang === 'si') ? 'en' : 'si';
+      localStorage.setItem('wish_lang_' + wishCode, currentLang);
+      localStorage.setItem('wish_lang', currentLang);
+      applyLanguage(currentLang);
+    }
+
+    function applyLanguage(lang) {
+      const t = I18N[lang] || I18N.en;
+
+      // Update Language toggle button label
+      document.getElementById('lang-toggle-text').textContent = (lang === 'si') ? 'English' : 'සිංහල';
+
+      // Header & Greetings
+      const rawName = (currentWishData && currentWishData.contact_name) ? currentWishData.contact_name.trim() : '';
+      if (rawName) {
+        document.getElementById('title-greeting-prefix').textContent = t.greetingPrefix;
+        document.getElementById('display-name').textContent = rawName;
+        document.getElementById('title-greeting-suffix').textContent = t.greetingSuffix;
+        document.getElementById('letter-prefix').textContent = t.letterPrefix;
+        document.getElementById('letter-recipient').textContent = rawName;
+        document.getElementById('letter-suffix').textContent = t.letterSuffix;
+        document.title = `${t.greetingPrefix}${rawName}${t.greetingSuffix} 🎉`;
+      } else {
+        document.getElementById('title-greeting-prefix').textContent = (lang === 'si') ? 'සුභ උපන්දිනයක් වේවා!' : 'Happy Birthday!';
+        document.getElementById('display-name').textContent = '';
+        document.getElementById('title-greeting-suffix').textContent = '';
+        document.getElementById('letter-prefix').textContent = (lang === 'si') ? 'ආදරණීය ඔබ' : 'Dear Friend';
+        document.getElementById('letter-recipient').textContent = '';
+        document.getElementById('letter-suffix').textContent = ',';
+        document.title = (lang === 'si') ? 'සුභ උපන්දිනයක් වේවා! 🎉' : 'Happy Birthday! 🎉';
+      }
+
+      document.getElementById('header-badge').textContent = t.headerBadge;
+      document.getElementById('step-guide-text').textContent = t.stepGuide;
+
+      // Cake Section
+      document.getElementById('cake-title').innerHTML = `<span>${t.cakeTitle}</span>`;
+      document.getElementById('cake-subtitle').textContent = t.cakeSubtitle;
+      document.getElementById('cake-banner-text').textContent = t.cakeBanner;
+      if (!candleBlown) {
+        document.getElementById('btn-blow-text').textContent = t.btnBlow;
+      } else {
+        document.getElementById('btn-blow-candle').innerHTML = `<i class="fas fa-check-circle text-sm"></i><span>${t.btnBlown}</span>`;
+      }
+
+      // Wish Message & Buttons
+      document.getElementById('wish-granted-title').textContent = t.wishGrantedTitle;
+      document.getElementById('wish-granted-desc').textContent = t.wishGrantedDesc;
+      document.getElementById('btn-open-gift-text').textContent = t.btnOpenGift;
+
+      // In-page Card & Secret Letter
+      document.getElementById('inpage-card-badge').textContent = t.inpageCardBadge;
+      document.getElementById('letter-title').textContent = t.letterTitle;
+      document.getElementById('letter-subtitle').textContent = t.letterSubtitle;
+      document.getElementById('letter-signoff').textContent = t.letterSignoff;
+      document.getElementById('back-to-wa-text').textContent = t.backToWaText;
+      document.getElementById('back-to-wa-sub').textContent = t.backToWaSub;
+      document.getElementById('btn-replay-text').textContent = t.btnReplay;
+
+      // Scratch Modal
+      document.getElementById('modal-step-badge').textContent = t.modalStepBadge;
+      document.getElementById('modal-scratch-title').textContent = t.modalScratchTitle;
+      document.getElementById('modal-scratch-desc').textContent = t.modalScratchDesc;
+      document.getElementById('scratch-progress-label').textContent = t.scratchProgressLabel;
+      document.getElementById('scratch-completed-text').textContent = t.scratchCompletedText;
+      document.getElementById('btn-auto-reveal-text').textContent = t.btnAutoReveal;
+      document.getElementById('btn-proceed-letter-text').textContent = t.btnProceedLetter;
+
+      // Audio Status
+      if (isPlaying) {
+        audioStatus.textContent = t.audioPause;
+        audioSubstatus.textContent = t.audioSubPause;
+      } else {
+        audioStatus.textContent = t.audioPlay;
+        audioSubstatus.textContent = t.audioSubPlay;
+      }
+
+      // Preview banner & Expired box
+      document.getElementById('preview-banner-text').textContent = t.previewBanner;
+      document.getElementById('expired-title').textContent = t.expiredTitle;
+      document.getElementById('expired-desc').textContent = t.expiredDesc;
+      document.getElementById('expired-home-btn').textContent = t.expiredHome;
+
+      // Dynamic Footer
+      const isNeverExpiring = currentWishData && (currentWishData.expires_at && new Date(currentWishData.expires_at).getFullYear() > 2090);
+      if (isNeverExpiring) {
+        document.getElementById('footer-credit').textContent = (lang === 'si') 
+          ? 'ආදරයෙන් නිර්මාණය කරන ලදී ❤️ • වලංගු කාලය: සදාකාලිකයි (Never)' 
+          : 'Crafted with ❤️ • Validity: Never Expiring';
+      } else {
+        const days = (currentWishData && currentWishData.expiry_days) ? currentWishData.expiry_days : 7;
+        document.getElementById('footer-credit').textContent = t.footerCredit.replace('{days}', days);
+      }
+      if (currentWishData && currentWishData.bot_footer) {
+        document.getElementById('footer-tagline').textContent = currentWishData.bot_footer;
+      }
+
+      // Re-draw canvas foil in updated language if scratch canvas is open and intact
+      if (canvas && ctx && !isScratched) {
+        drawFoilLayer();
+      }
+    }
+
+    // ======================== LOAD WISH FROM BACKEND ========================
+
+    async function loadWish() {
+      if (!wishCode) return;
+
+      try {
+        const res = await fetch(`/api/wish/${wishCode}${isAdminPreview ? '?preview=admin' : ''}`);
+        if (!res.ok) {
+          showExpired();
+          return;
+        }
+
+        const wishData = await res.json();
+        currentWishData = wishData;
+
+        // Check expiration
+        if (wishData.isExpired) {
+          showExpired();
+          return;
+        }
+
+        // Setup WhatsApp Back Button with pre-filled thank you note
+        const senderPhone = (wishData.sender_number || '').replace(/\D/g, '');
+        const thankYouText = encodeURIComponent(`ස්තූතියි! මගේ උපන්දිනයට සුබ පැතුවාට ❤️`);
+        const waLink = senderPhone 
+          ? `https://wa.me/${senderPhone}?text=${thankYouText}`
+          : `https://api.whatsapp.com/send?text=${thankYouText}`;
+        document.getElementById('back-to-wa-btn').href = waLink;
+
+        // Populate Underneath Framed Image for the Scratch Card
+        const frameSource = wishData.framed_image_url || wishData.photo_url || '/assets/img/default_avatar.png';
+        document.getElementById('scratch-revealed-img').src = frameSource;
+        document.getElementById('inpage-revealed-img').src = frameSource;
+
+        // Populate secret message
+        if (wishData.message) {
+          document.getElementById('display-message').innerText = wishData.message;
+        }
+
+        // Audio Stream URL
+        if (wishData.song_url) {
+          audio.src = wishData.song_url;
+        } else {
+          audio.src = '/assets/voice/voice.ogg';
+        }
+
+        // Automatic Song Play on Load
+        attemptAutoplayOnLoad();
+
+        // Apply chosen language
+        checkLanguagePreference();
+
+        // Check if steps were previously completed (PERSISTENCE)
+        const isPreviouslyCompleted = wishData.steps_completed || localStorage.getItem('wish_completed_' + wishCode) === 'true';
+        if (isPreviouslyCompleted) {
+          applyCompletedState();
+        }
+
+        // Notify backend of open event (ONLY if NOT in admin preview mode)
+        if (!isAdminPreview) {
+          fetch(`/api/wish/${wishCode}/open`, { method: 'POST' }).catch(() => {});
+        }
+
+      } catch (err) {
+        console.error('Failed to load wish:', err);
+      }
+    }
+
+    function showExpired() {
+      document.getElementById('wish-container').classList.add('hidden');
+      document.getElementById('expired-box').classList.remove('hidden');
+    }
+
+    // ======================== STEP 1: CANDLE BLOW INTERACTION ========================
+
+    function blowOutCandle() {
+      if (candleBlown) return;
+      candleBlown = true;
+
+      const flame = document.getElementById('candle-flame');
+      const smoke = document.getElementById('smoke-curl');
+      const wishMsg = document.getElementById('wish-message');
+      const blowBtn = document.getElementById('btn-blow-candle');
+      const t = I18N[currentLang] || I18N.en;
+
+      // 1. Extinguish Flame
+      flame.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+      flame.style.opacity = '0';
+      flame.style.transform = 'scale(0.2)';
+
+      smoke.classList.remove('hidden');
+      smoke.classList.add('smoke-puff');
+
+      setTimeout(() => {
+        flame.classList.add('hidden');
+      }, 400);
+
+      // 2. Confetti Fireworks
+      triggerConfettiShower();
+
+      // 3. Play Birthday Song
+      if (!isPlaying && audio.src) {
+        toggleAudio();
+      }
+
+      // 4. Update Button & Wish Message
+      setTimeout(() => {
+        wishMsg.classList.remove('hidden');
+        blowBtn.innerHTML = `<i class="fas fa-check-circle text-sm"></i><span>${t.btnBlown}</span>`;
+        blowBtn.className = 'px-7 py-3 bg-emerald-500 text-white text-xs sm:text-sm font-semibold rounded-full shadow cursor-default flex items-center gap-2 mx-auto';
+        
+        // 5. AUTO POPUP: Open Scratch Modal after 800ms
+        setTimeout(() => {
+          openScratchModal();
+        }, 800);
+      }, 500);
+    }
+
+    // ======================== STEP 2: SCRATCH CARD POPUP MODAL ========================
+
+    function openScratchModal() {
+      const modal = document.getElementById('scratch-modal');
+      modal.classList.remove('hidden');
+
+      setTimeout(() => {
+        initScratchCard();
+      }, 100);
+    }
+
+    function closeScratchModal() {
+      document.getElementById('scratch-modal').classList.add('hidden');
+    }
+
+    function initScratchCard() {
+      canvas = document.getElementById('scratch-canvas');
+      if (!canvas) return;
+      ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width || 360;
+      canvas.height = rect.height || 420;
+      totalPixels = canvas.width * canvas.height;
+
+      drawFoilLayer();
+
+      // Mouse Events
+      canvas.addEventListener('mousedown', startScratch);
+      canvas.addEventListener('mousemove', scratch);
+      window.addEventListener('mouseup', endScratch);
+
+      // Touch Events (Mobile friendly)
+      canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        startScratch(e.touches[0]);
+      }, { passive: false });
+
+      canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        scratch(e.touches[0]);
+      }, { passive: false });
+
+      window.addEventListener('touchend', endScratch);
+    }
+
+    function drawFoilLayer() {
+      if (!canvas || !ctx) return;
+      const t = I18N[currentLang] || I18N.en;
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Luxurious Gold metallic foil gradient
+      const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      gradient.addColorStop(0, '#fef08a');
+      gradient.addColorStop(0.3, '#d97706');
+      gradient.addColorStop(0.5, '#fde68a');
+      gradient.addColorStop(0.7, '#b45309');
+      gradient.addColorStop(1, '#fef3c7');
+
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Sparkles
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+      for (let i = 0; i < 35; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const r = Math.random() * 2.5 + 1;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Border line inside foil
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(14, 14, canvas.width - 28, canvas.height - 28);
+
+      // Pure Single-Language Typography (ZERO OVERLAPPING TEXT)
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      ctx.fillStyle = '#78350f';
+      ctx.font = 'bold 22px Poppins, "Noto Sans Sinhala", sans-serif';
+      ctx.fillText(t.foilTitle, canvas.width / 2, canvas.height / 2 - 35);
+
+      ctx.fillStyle = '#451a03';
+      ctx.font = '600 13px Poppins, "Noto Sans Sinhala", sans-serif';
+      ctx.fillText(t.foilLine1, canvas.width / 2, canvas.height / 2 + 5);
+      ctx.fillText(t.foilLine2, canvas.width / 2, canvas.height / 2 + 25);
+
+      ctx.font = 'bold 11px monospace, "Noto Sans Sinhala"';
+      ctx.fillStyle = '#92400e';
+      ctx.fillText(t.foilBadge, canvas.width / 2, canvas.height / 2 + 65);
+      ctx.restore();
+    }
+
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: (e.clientX || e.pageX) - rect.left,
+        y: (e.clientY || e.pageY) - rect.top
+      };
+    }
+
+    function startScratch(e) {
+      if (isScratched) return;
+      isDrawing = true;
+      scratch(e);
+
+      if (!isPlaying && audio.src) {
+        toggleAudio();
+      }
+    }
+
+    let checkThrottle = 0;
+    function scratch(e) {
+      if (!isDrawing || isScratched) return;
+      const pos = getPos(e);
+
+      // Finer thickness: 18px radius
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, 18, 0, Math.PI * 2);
+      ctx.fill();
+
+      checkThrottle++;
+      if (checkThrottle % 15 === 0) {
+        checkProgress();
+      }
+    }
+
+    function endScratch() {
+      isDrawing = false;
+      if (!isScratched) {
+        checkProgress();
+      }
+    }
+
+    function checkProgress() {
+      if (isScratched) return;
+      try {
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imgData.data;
+        let cleared = 0;
+
+        const step = 16;
+        for (let i = 3; i < data.length; i += 4 * step) {
+          if (data[i] === 0) cleared++;
+        }
+
+        const pct = Math.round((cleared / (totalPixels / step)) * 100);
+        document.getElementById('scratch-pct').innerText = `${Math.min(pct, 100)}%`;
+
+        // 90% THRESHOLD: Auto-reveal only when 90% completed
+        if (pct >= 90) {
+          autoRevealScratch();
+        }
+      } catch (e) {}
+    }
+
+    function autoRevealScratch() {
+      if (isScratched) return;
+      isScratched = true;
+
+      // Save state to localStorage & DB (PERSISTENCE)
+      localStorage.setItem('wish_completed_' + wishCode, 'true');
+      if (!isAdminPreview) {
+        fetch(`/api/wish/${wishCode}/complete`, { method: 'POST' }).catch(() => {});
+      }
+
+      // Smooth fade out of foil
+      if (canvas) {
+        canvas.style.transition = 'opacity 0.8s ease-out';
+        canvas.style.opacity = '0';
+        canvas.style.pointerEvents = 'none';
+      }
+
+      document.getElementById('scratch-pill').style.opacity = '0';
+      document.getElementById('scratch-completed-tag').classList.remove('hidden');
+      document.getElementById('btn-auto-reveal').style.display = 'none';
+      document.getElementById('btn-proceed-letter').classList.remove('hidden');
+
+      triggerConfettiShower();
+
+      if (!isPlaying && audio.src) {
+        toggleAudio();
+      }
+
+      // Reveal in page
+      document.getElementById('revealed-inpage-section').classList.remove('hidden');
+
+      setTimeout(() => {
+        if (canvas) canvas.remove();
+      }, 900);
+    }
+
+    // ======================== STEP 3: PROCEED TO SECRET LETTER & WHATSAPP ========================
+
+    function proceedToSecretLetter() {
+      closeScratchModal();
+
+      document.getElementById('revealed-inpage-section').classList.remove('hidden');
+      const letterSec = document.getElementById('secret-letter-section');
+      letterSec.classList.remove('hidden');
+
+      triggerConfettiShower();
+
+      setTimeout(() => {
+        letterSec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    }
+
+    // ======================== STATE PERSISTENCE & REPLAY ========================
+
+    function applyCompletedState() {
+      candleBlown = true;
+      isScratched = true;
+
+      // Hide candle flame
+      const flame = document.getElementById('candle-flame');
+      if (flame) flame.classList.add('hidden');
+
+      // Update Blow button
+      const blowBtn = document.getElementById('btn-blow-candle');
+      const t = I18N[currentLang] || I18N.en;
+      blowBtn.innerHTML = `<i class="fas fa-check-circle text-sm"></i><span>${t.btnBlown}</span>`;
+      blowBtn.className = 'px-7 py-3 bg-emerald-500 text-white text-xs sm:text-sm font-semibold rounded-full shadow cursor-default flex items-center gap-2 mx-auto';
+
+      // Show inpage revealed card & secret letter directly
+      document.getElementById('revealed-inpage-section').classList.remove('hidden');
+      document.getElementById('secret-letter-section').classList.remove('hidden');
+      document.getElementById('wish-message').classList.remove('hidden');
+    }
+
+    async function replayCelebration() {
+      // Clear persistence in localStorage & DB
+      localStorage.removeItem('wish_completed_' + wishCode);
+      if (!isAdminPreview) {
+        await fetch(`/api/wish/${wishCode}/reset`, { method: 'POST' }).catch(() => {});
+      }
+
+      candleBlown = false;
+      isScratched = false;
+
+      // Restore candle flame
+      const flame = document.getElementById('candle-flame');
+      flame.classList.remove('hidden');
+      flame.style.opacity = '1';
+      flame.style.transform = 'scale(1)';
+
+      const smoke = document.getElementById('smoke-curl');
+      smoke.classList.add('hidden');
+      smoke.classList.remove('smoke-puff');
+
+      // Restore blow button
+      const blowBtn = document.getElementById('btn-blow-candle');
+      const t = I18N[currentLang] || I18N.en;
+      blowBtn.innerHTML = `<i class="fas fa-wind text-sm"></i><span id="btn-blow-text">${t.btnBlow}</span>`;
+      blowBtn.className = 'px-7 py-3 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white text-xs sm:text-sm font-semibold rounded-full shadow-md hover:shadow-lg transition hover:scale-[1.02] active:scale-95 flex items-center gap-2 mx-auto';
+
+      // Hide wish message, in-page card, and secret letter
+      document.getElementById('wish-message').classList.add('hidden');
+      document.getElementById('revealed-inpage-section').classList.add('hidden');
+      document.getElementById('secret-letter-section').classList.add('hidden');
+
+      // Re-create scratch canvas inside modal if removed
+      const canvasWrapper = document.getElementById('scratch-canvas');
+      if (!canvasWrapper) {
+        const parent = document.getElementById('scratch-revealed-img').parentElement.parentElement;
+        const newCanvas = document.createElement('canvas');
+        newCanvas.id = 'scratch-canvas';
+        newCanvas.className = 'absolute inset-0 w-full h-full rounded-2xl z-20 cursor-crosshair';
+        parent.insertBefore(newCanvas, document.getElementById('scratch-pill'));
+      }
+
+      document.getElementById('scratch-pill').style.opacity = '1';
+      document.getElementById('scratch-pct').innerText = '0%';
+      document.getElementById('scratch-completed-tag').classList.add('hidden');
+      document.getElementById('btn-auto-reveal').style.display = 'inline-flex';
+      document.getElementById('btn-proceed-letter').classList.add('hidden');
+
+      // Scroll smoothly back to the top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ======================== AUDIO & VISUAL EFFECTS ========================
+
+    function toggleAudio() {
+      if (!audio.src) return;
+      if (isPlaying) {
+        audio.pause();
+        updateAudioUI(false);
+      } else {
+        audio.play().then(() => {
+          updateAudioUI(true);
+        }).catch((err) => {
+          console.log('Autoplay audio blocked:', err.message);
+        });
+      }
+    }
+
+    function triggerConfettiShower() {
+      if (typeof confetti !== 'function') return;
+
+      confetti({
+        particleCount: 80,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+
+      setTimeout(() => {
+        confetti({
+          particleCount: 50,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0, y: 0.7 }
+        });
+        confetti({
+          particleCount: 50,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1, y: 0.7 }
+        });
+      }, 200);
+    }
+
+    function createPastelBalloons() {
+      const container = document.getElementById('balloon-container');
+      const colors = ['#fbcfe8', '#f9a8d4', '#e9d5ff', '#fef08a', '#fed7aa', '#ddd6fe'];
+      for (let i = 0; i < 12; i++) {
+        const b = document.createElement('div');
+        b.className = 'balloon';
+        const size = Math.random() * 20 + 40;
+        b.style.width = `${size}px`;
+        b.style.height = `${size * 1.25}px`;
+        b.style.left = `${Math.random() * 100}%`;
+        b.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        b.style.animationDelay = `${Math.random() * 8}s`;
+        b.style.animationDuration = `${Math.random() * 6 + 12}s`;
+        container.appendChild(b);
+      }
+    }
+
+    createPastelBalloons();
+    loadWish();
+  </script>
+</body>
+</html>
