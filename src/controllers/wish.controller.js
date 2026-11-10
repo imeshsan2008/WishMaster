@@ -688,12 +688,13 @@ async function sendWishWithOptionsApi(req, res) {
 
       // 1. WhatsApp Dispatch
       if (selectedChannels.includes('whatsapp')) {
-        if (!sock) {
+        if (!sock || !sock.user || !sock.user.id) {
           results.whatsapp.push({
             phone: cleanPhone,
             success: false,
-            error: 'WhatsApp bot not linked/connected'
+            error: 'WhatsApp bot not linked/connected. Please link WhatsApp in Settings or scan QR.'
           });
+          await updateWishDeliveryStatus({ phone: cleanPhone, waStatus: 'failed' });
         } else {
           try {
             const waResult = await sendForcedBirthdayMessage(sock, cleanPhone, contactName);

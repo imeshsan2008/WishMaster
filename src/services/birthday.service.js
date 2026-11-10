@@ -121,6 +121,10 @@ async function dispatchBirthdayWishToNumber(sock, contact, rawPhone, auth, songU
 
   const number = String(rawPhone).replace(/\D/g, '');
   if (!number) return false;
+  if (!sock || !sock.user || !sock.user.id) {
+    console.warn('⚠️ WhatsApp bot not connected or user ID missing. Skipping WhatsApp send to', number);
+    return false;
+  }
   const jid = `${number}@s.whatsapp.net`;
 
   // 1. Resolve Contact Photo (Google API -> Contacts.json -> DB -> WhatsApp -> Default)
@@ -516,7 +520,9 @@ async function checkAndCatchUpTodaysBirthdays(sock) {
  * Manually forces sending a birthday surprise link to a specific number.
  */
 async function sendForcedBirthdayMessage(sock, senderId, contactName = 'there') {
-  if (!sock) throw new Error('WhatsApp socket not connected');
+  if (!sock || !sock.user || !sock.user.id) {
+    throw new Error('WhatsApp bot is not connected or session not paired yet. Please link WhatsApp in Settings or scan QR.');
+  }
 
   const number = senderId.replace(/\D/g, '');
   const jid = `${number}@s.whatsapp.net`;

@@ -19,6 +19,14 @@ const sentMessageWishMap = new Map();
 const sentMessageProtoCache = new Map();
 const deliveredCardRecipients = new Set();
 let lastSentWish = null;
+let reconnectTimer = null;
+
+function clearReconnectTimer() {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+}
 
 // Initialize Proto Cache from disk to persist across server restarts
 try {
@@ -355,10 +363,15 @@ async function startBot() {
         waState.starting = false;
         pairingStatus = 'disconnected';
 
+        clearReconnectTimer();
+
         if (shouldReconnect) {
-          setTimeout(() => {
+          reconnectTimer = setTimeout(() => {
+            reconnectTimer = null;
             startBot();
           }, 3000);
+        } else {
+          sockInstance = null;
         }
       }
     });
@@ -491,7 +504,38 @@ async function startBot() {
   }
 }
 
+async function restartWhatsAppBot() {
+  clearReconnectTimer();
+  waState.starting = false;
+  waState.isLinked = false;
+  pairingStatus = 'disconnected';
+
+  if (sockInstance) {
+    try {
+      sockInstance.ev.removeAllListeners();
+      sockInstance.end();
+    } catch (e) {}
+    sockInstance = null;
+  }
+
+  await new Promise(r => setTimeout(r, 1000));
+  return startBot();
+}
+
 function clearWhatsAppSession() {
+  clearReconnectTimer();
+  waState.starting = false;
+  waState.isLinked = false;
+  pairingStatus = 'disconnected';
+
+  if (sockInstance) {
+    try {
+      sockInstance.ev.removeAllListeners();
+      sockInstance.end();
+    } catch (e) {}
+    sockInstance = null;
+  }
+
   try {
     if (fs.existsSync(PATHS.WA_AUTH_DIR)) {
       fs.rmSync(PATHS.WA_AUTH_DIR, { recursive: true, force: true });
@@ -504,7 +548,13 @@ function clearWhatsAppSession() {
 
 module.exports = {
   startBot,
-  getSocket: () => sockInstance,
+  restartWhatsAppBot,
+  getSocket: () => {
+    if (sockInstance && waState.isLinked && sockInstance.user && sockInstance.user.id) {
+      return sockInstance;
+    }
+    return null;
+  },
   getLatestQR: () => latestQR,
   getPairingStatus: () => pairingStatus,
   getLinkedNumber: () => linkedNumber,

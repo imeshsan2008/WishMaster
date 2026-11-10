@@ -232,18 +232,13 @@ async function importWhatsAppSession(req, res) {
 
     console.log('🔄 WhatsApp session imported successfully. Restarting WhatsApp bot...');
 
-    // Reconnect WhatsApp with new session
-    const { getSocket, startBot } = require('../services/whatsapp.service');
-    const existingSock = getSocket();
-    if (existingSock) {
-      try {
-        existingSock.end(new Error('Reloading imported WhatsApp session'));
-      } catch (e) {}
-    }
-
+    // Reconnect WhatsApp with new session cleanly
+    const { restartWhatsAppBot } = require('../services/whatsapp.service');
     setTimeout(() => {
-      startBot();
-    }, 1500);
+      restartWhatsAppBot().catch(err => {
+        console.error('⚠️ Error restarting WhatsApp after import:', err.message);
+      });
+    }, 500);
 
     res.json({
       success: true,
