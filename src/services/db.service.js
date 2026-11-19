@@ -1,3 +1,4 @@
+const fs = require('fs');
 const crypto = require('crypto');
 const path = require('path');
 const { getSql, isDbConnected } = require('../config/db');
@@ -65,13 +66,73 @@ async function setAdminPassword(password) {
 function normalizeAudioUrl(url) {
   if (!url) return '/assets/voice/voice.ogg';
   let cleaned = String(url).trim();
+  if (!cleaned) return '/assets/voice/voice.ogg';
+
   // Convert GitHub blob web pages to direct raw content URLs
   if (cleaned.includes('github.com/') && cleaned.includes('/blob/')) {
     cleaned = cleaned
       .replace('github.com/', 'raw.githubusercontent.com/')
       .replace('/blob/', '/');
   }
+
+  // Convert Google Drive share links to direct audio download stream URLs
+  const gdriveMatch = cleaned.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (gdriveMatch && gdriveMatch[1]) {
+    cleaned = `https://docs.google.com/uc?export=download&id=${gdriveMatch[1]}`;
+  }
+
+  // Convert Dropbox share links to direct raw stream URLs
+  if (cleaned.includes('dropbox.com/') && cleaned.includes('dl=0')) {
+    cleaned = cleaned.replace('dl=0', 'raw=1');
+  }
+
+  // Normalize relative local assets paths
+  if (cleaned.startsWith('assets/')) {
+    cleaned = '/' + cleaned;
+  }
+
   return cleaned;
+}
+
+function resolveAvailableAudioUrl(url) {
+  const normalized = normalizeAudioUrl(url);
+
+  // If it's a local /assets/voice/... file, verify it exists on disk (in case container restarted or file was removed)
+  if (normalized.startsWith('/assets/')) {
+    const relPath = normalized.replace(/^\/+/, '');
+    const fullPath = path.join(PATHS.ROOT_DIR, relPath);
+    if (fs.existsSync(fullPath)) {
+      return normalized;
+    }
+
+    // Fallback: look for the most recently uploaded song_* file in assets/voice/ or voice.ogg
+    try {
+      const voiceDir = path.join(PATHS.ASSETS_DIR, 'voice');
+      if (fs.existsSync(voiceDir)) {
+        const files = fs.readdirSync(voiceDir)
+          .filter(f => /\.(mp3|ogg|wav|m4a)$/i.test(f))
+          .map(f => ({
+            name: f,
+            mtime: fs.statSync(path.join(voiceDir, f)).mtimeMs
+          }))
+          .sort((a, b) => b.mtime - a.mtime);
+
+        const latestUploaded = files.find(f => f.name.startsWith('song_'));
+        if (latestUploaded) {
+          return `/assets/voice/${latestUploaded.name}`;
+        }
+        if (fs.existsSync(path.join(voiceDir, 'voice.ogg'))) {
+          return '/assets/voice/voice.ogg';
+        }
+        if (files.length > 0) {
+          return `/assets/voice/${files[0].name}`;
+        }
+      }
+    } catch (e) {}
+    return '/assets/voice/voice.ogg';
+  }
+
+  return normalized;
 }
 
 async function getBirthdaySongUrl() {
@@ -80,14 +141,26 @@ async function getBirthdaySongUrl() {
     try {
       const rows = await sql`SELECT value FROM admin_settings WHERE key = 'birthday_song_url'`;
       if (rows && rows.length > 0 && rows[0].value) {
-        return normalizeAudioUrl(rows[0].value);
+        const raw = rows[0].value;
+        const resolved = resolveAvailableAudioUrl(raw);
+        // Auto-heal DB if the old local file path no longer exists on disk
+        if (resolved !== raw && raw.startsWith('/assets/')) {
+          setBirthdaySongUrl(resolved).catch(() => {});
+        }
+        return resolved;
       }
     } catch (err) {
       console.error('⚠️ DB error getBirthdaySongUrl:', err.message);
     }
   }
   const local = getLocalStore().birthday_song_url;
-  return normalizeAudioUrl(local || '/assets/voice/voice.ogg');
+  const resolved = resolveAvailableAudioUrl(local || '/assets/voice/voice.ogg');
+  if (local && resolved !== local && local.startsWith('/assets/')) {
+    const store = getLocalStore();
+    store.birthday_song_url = resolved;
+    saveLocalStore(store);
+  }
+  return resolved;
 }
 
 async function setBirthdaySongUrl(url) {
@@ -348,7 +421,7 @@ async function getNextSecretLetter(contactName) {
 
     let rawText = (selected && typeof selected === 'object' ? selected.text : selected) || '';
     if (typeof rawText !== 'string') rawText = JSON.stringify(rawText);
-    return rawText.replace(/\$\{name\}/g, contactName || 'Friend');
+    return rawText.replace(/\$?\{name\}/gi, contactName || 'Friend');
   } catch (err) {
     console.warn('⚠️ getNextSecretLetter fallback:', err.message);
     return "Wishing you endless health, radiant happiness, prosperity, and success in everything you set out to achieve!";
@@ -372,15 +445,17 @@ async function syncContactsToDb(contactsList) {
 
         const bMonth = c.birthday ? c.birthday.month : null;
         const bDay = c.birthday ? c.birthday.day : null;
+        const labelsArr = Array.isArray(c.labels) ? c.labels : [];
 
         await sql`
-          INSERT INTO contacts (name, phone, birthday_month, birthday_day, photo_url, synced_at)
-          VALUES (${c.name || 'Unknown'}, ${phone}, ${bMonth}, ${bDay}, ${c.photo || null}, CURRENT_TIMESTAMP)
+          INSERT INTO contacts (name, phone, birthday_month, birthday_day, photo_url, labels, synced_at)
+          VALUES (${c.name || 'Unknown'}, ${phone}, ${bMonth}, ${bDay}, ${c.photo || null}, ${labelsArr}, CURRENT_TIMESTAMP)
           ON CONFLICT (phone) DO UPDATE 
             SET name = ${c.name || 'Unknown'},
                 birthday_month = ${bMonth},
                 birthday_day = ${bDay},
                 photo_url = ${c.photo || null},
+                labels = ${labelsArr},
                 synced_at = CURRENT_TIMESTAMP;
         `;
         count++;
@@ -787,6 +862,79 @@ async function getLatestWishByPhone(phone) {
   return list[0] || null;
 }
 
+async function getWishSendHistoryStats() {
+  const sql = getSql();
+  let allWishes = [];
+
+  if (isDbConnected() && sql) {
+    try {
+      allWishes = await sql`
+        SELECT id, unique_code, contact_name, phone, is_opened, open_count, wa_status, sms_status, created_at
+        FROM birthday_wishes
+        ORDER BY created_at DESC;
+      `;
+    } catch (err) {
+      console.warn('⚠️ DB error getWishSendHistoryStats:', err.message);
+    }
+  }
+
+  if (!allWishes || allWishes.length === 0) {
+    const store = getLocalStore();
+    allWishes = (store.birthday_wishes || [])
+      .slice()
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
+  const statsByKey = {};
+  for (const w of allWishes) {
+    const cleanPhone = String(w.phone || '').replace(/\D/g, '').slice(-9);
+    const cleanName = String(w.contact_name || '').toLowerCase().trim();
+    const key = cleanPhone || cleanName;
+    if (!key) continue;
+
+    const year = w.created_at ? new Date(w.created_at).getFullYear() : new Date().getFullYear();
+
+    if (!statsByKey[key]) {
+      statsByKey[key] = {
+        phoneKey: cleanPhone,
+        name: w.contact_name,
+        yearsSet: new Set(),
+        totalSentCount: 0,
+        lastSentAt: w.created_at,
+        history: []
+      };
+    }
+
+    statsByKey[key].yearsSet.add(year);
+    statsByKey[key].totalSentCount += 1;
+    statsByKey[key].history.push({
+      year,
+      unique_code: w.unique_code,
+      created_at: w.created_at,
+      is_opened: Boolean(w.is_opened),
+      open_count: w.open_count || 0,
+      wa_status: w.wa_status || 'sent',
+      sms_status: w.sms_status || 'not_sent'
+    });
+  }
+
+  const formatted = {};
+  for (const [k, val] of Object.entries(statsByKey)) {
+    const years = Array.from(val.yearsSet).sort((a, b) => b - a);
+    formatted[k] = {
+      phoneKey: val.phoneKey,
+      name: val.name,
+      yearsCount: years.length,
+      years,
+      totalSentCount: val.totalSentCount,
+      lastSentAt: val.lastSentAt,
+      history: val.history
+    };
+  }
+
+  return formatted;
+}
+
 // ======================== MESSAGE TEMPLATE & CONTACT PREFERENCES ========================
 
 const DEFAULT_MESSAGE_TEMPLATE = 
@@ -883,13 +1031,15 @@ async function saveContactPreference(phone, prefData) {
   if (!phone) return false;
   const clean = String(phone).replace(/\D/g, '');
   const all = await getContactPreferences();
+  const existing = all[clean] || {};
   all[clean] = {
     phone: clean,
-    name: prefData.name || '',
-    letter_type: prefData.letter_type || 'auto',
-    saved_letter_id: prefData.saved_letter_id || null,
-    custom_letter_text: prefData.custom_letter_text || '',
-    assigned_frame_id: prefData.assigned_frame_id || 'default',
+    name: prefData.name !== undefined ? prefData.name : (existing.name || ''),
+    letter_type: prefData.letter_type !== undefined ? prefData.letter_type : (existing.letter_type || 'auto'),
+    saved_letter_id: prefData.saved_letter_id !== undefined ? prefData.saved_letter_id : (existing.saved_letter_id || null),
+    custom_letter_text: prefData.custom_letter_text !== undefined ? prefData.custom_letter_text : (existing.custom_letter_text || ''),
+    assigned_frame_id: prefData.assigned_frame_id !== undefined ? prefData.assigned_frame_id : (existing.assigned_frame_id || 'default'),
+    labels: Array.isArray(prefData.labels) ? prefData.labels : (Array.isArray(existing.labels) ? existing.labels : []),
     updated_at: new Date().toISOString()
   };
   await saveAllContactPreferences(all);
@@ -928,6 +1078,7 @@ module.exports = {
   saveFestiveCampaign,
   getFestiveCampaigns,
   getActiveWishesLast7Days,
+  getWishSendHistoryStats,
   getLocalStore,
   saveLocalStore
 };

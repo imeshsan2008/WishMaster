@@ -243,6 +243,8 @@ function formatToTextLkPhone(phone) {
 
 // ======================== DISPATCH SMS VIA TEXT.LK ========================
 
+const recentSmsDispatches = new Map(); // Anti-duplication cache for rapid identical SMS requests
+
 async function sendSms({ recipientPhone, recipientName = '', message }) {
   const config = await getTextLkConfig();
   const phone = formatToTextLkPhone(recipientPhone);
@@ -257,6 +259,15 @@ async function sendSms({ recipientPhone, recipientName = '', message }) {
     });
     return { success: false, error: 'Invalid phone number format' };
   }
+
+  // Anti-duplication guard: Prevent sending 2 SMS to the same phone within 15 seconds
+  const dedupKey = phone.slice(-9);
+  const lastSmsTime = recentSmsDispatches.get(dedupKey) || 0;
+  if (Date.now() - lastSmsTime < 15 * 1000) {
+    console.log(`⏭️ [SMS Anti-Duplication] Blocked duplicate SMS to ${phone} (${recipientName}) within 15s.`);
+    return { success: true, deduplicated: true, message: 'Duplicate SMS prevented' };
+  }
+  recentSmsDispatches.set(dedupKey, Date.now());
 
   if (!config.token) {
     const errorMsg = 'Text.lk API Token is not configured in Admin Settings';

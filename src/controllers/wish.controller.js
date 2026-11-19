@@ -230,6 +230,9 @@ async function getWishApi(req, res) {
   const isExpired = new Date().getTime() > new Date(wish.expires_at).getTime();
   const botFooter = await getBotFooter();
   const expiryDays = await getWishExpiryDays();
+  if (wish.message) {
+    wish.message = String(wish.message).replace(/\$?\{name\}/gi, wish.contact_name || 'Friend');
+  }
   res.json({
     ...wish,
     sender_number: getLinkedNumber() || '',
@@ -314,6 +317,16 @@ async function getActiveWishesApi(req, res) {
   }
 }
 
+async function getWishHistoryStatsApi(req, res) {
+  try {
+    const { getWishSendHistoryStats } = require('../services/db.service');
+    const stats = await getWishSendHistoryStats();
+    res.json({ success: true, stats });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+}
+
 async function getSongUrlApi(req, res) {
   const url = await getBirthdaySongUrl();
   res.json({ songUrl: url });
@@ -323,7 +336,8 @@ async function setSongUrlApi(req, res) {
   const { songUrl } = req.body;
   if (!songUrl) return res.status(400).json({ error: 'Missing songUrl' });
   await setBirthdaySongUrl(songUrl);
-  res.json({ ok: true, songUrl });
+  const resolvedUrl = await getBirthdaySongUrl();
+  res.json({ ok: true, songUrl: resolvedUrl });
 }
 
 async function uploadSongApi(req, res) {
@@ -543,7 +557,7 @@ async function getSingleContactPreferenceApi(req, res) {
 
 async function saveContactPreferenceApi(req, res) {
   try {
-    const { phone, name, letter_type, saved_letter_id, custom_letter_text, assigned_frame_id } = req.body;
+    const { phone, name, letter_type, saved_letter_id, custom_letter_text, assigned_frame_id, labels } = req.body;
     if (!phone) {
       return res.status(400).json({ success: false, error: 'Phone number is required' });
     }
@@ -552,7 +566,8 @@ async function saveContactPreferenceApi(req, res) {
       letter_type,
       saved_letter_id,
       custom_letter_text,
-      assigned_frame_id
+      assigned_frame_id,
+      labels
     });
     res.json({ success: true, preference: saved, message: `Preferences saved for ${name || phone}` });
   } catch (err) {
@@ -664,7 +679,18 @@ async function sendWishWithOptionsApi(req, res) {
     }
 
     const selectedChannels = Array.isArray(channels) && channels.length > 0 ? channels : ['whatsapp'];
-    const phoneList = Array.isArray(phones) ? phones : [phones];
+      const rawPhones = Array.isArray(phones) ? phones : [phones];
+    const phoneList = [];
+    const seenPhoneKeys = new Set();
+    for (const rp of rawPhones) {
+      const cp = String(rp || '').replace(/\D/g, '');
+      if (!cp) continue;
+      const pKey = cp.slice(-9);
+      if (!seenPhoneKeys.has(pKey)) {
+        seenPhoneKeys.add(pKey);
+        phoneList.push(cp);
+      }
+    }
     const contactName = name || 'Friend';
 
     const results = {
@@ -697,7 +723,7 @@ async function sendWishWithOptionsApi(req, res) {
           await updateWishDeliveryStatus({ phone: cleanPhone, waStatus: 'failed' });
         } else {
           try {
-            const waResult = await sendForcedBirthdayMessage(sock, cleanPhone, contactName);
+            const waResult = await sendForcedBirthdayMessage(sock, cleanPhone, contactName, { skipAutoSms: true });
             wishUrl = waResult?.wishUrl;
             wishCode = waResult?.unique_code;
             results.whatsapp.push({
@@ -1127,6 +1153,7 @@ module.exports = {
   completeWishApi,
   resetWishApi,
   getActiveWishesApi,
+  getWishHistoryStatsApi,
   getSongUrlApi,
   setSongUrlApi,
   uploadSongApi,

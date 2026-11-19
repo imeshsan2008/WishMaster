@@ -227,10 +227,13 @@ async function handleDirectCardDelivery(sock, sender, message) {
       imageBuffer = await createFramedImage(buf, contactName);
     }
 
+    const interpolatedWishMessage = wish?.message
+      ? String(wish.message).replace(/\$?\{name\}/gi, contactName || 'Friend')
+      : '';
     const caption =
       `🎂✨ *සුභ උපන්දිනයක් වේවා, ${contactName}!* 🎉🎈\n\n` +
       `මෙන්න ඔබ වෙනුවෙන්ම සකස් කළ විශේෂ උපන්දින ඡායාරූප කාඩ්පත! 🎁❤️\n\n` +
-      (wish?.message ? `💌 *හදවතින්ම ලියූ සුබපැතුම:* \n"${wish.message}"\n\n` : '') +
+      (interpolatedWishMessage ? `💌 *හදවතින්ම ලියූ සුබපැතුම:* \n"${interpolatedWishMessage}"\n\n` : '') +
       `> WishMaster`;
 
     if (imageBuffer) {

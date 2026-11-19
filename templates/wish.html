@@ -549,6 +549,7 @@
     // Audio Player State
     const audio = new Audio();
     audio.preload = 'auto';
+    audio.loop = true;
     let isPlaying = false;
     let candleBlown = false;
     let isScratched = false;
@@ -557,10 +558,32 @@
     let totalPixels = 0;
     let currentWishData = null;
 
+    function normalizeWishAudioUrl(rawUrl) {
+      if (!rawUrl) return '/assets/voice/voice.ogg';
+      let cleaned = String(rawUrl).trim();
+      if (!cleaned) return '/assets/voice/voice.ogg';
+      if (cleaned.includes('github.com/') && cleaned.includes('/blob/')) {
+        cleaned = cleaned.replace('github.com/', 'raw.githubusercontent.com/').replace('/blob/', '/');
+      }
+      const gdriveMatch = cleaned.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (gdriveMatch && gdriveMatch[1]) {
+        cleaned = `https://docs.google.com/uc?export=download&id=${gdriveMatch[1]}`;
+      }
+      if (cleaned.includes('dropbox.com/') && cleaned.includes('dl=0')) {
+        cleaned = cleaned.replace('dl=0', 'raw=1');
+      }
+      if (cleaned.startsWith('assets/')) {
+        cleaned = '/' + cleaned;
+      }
+      return cleaned;
+    }
+
     audio.onerror = () => {
       console.warn('⚠️ External audio source failed, switching to local backup audio.');
-      if (audio.src !== window.location.origin + '/assets/voice/voice.ogg') {
+      if (!audio.src.endsWith('/assets/voice/voice.ogg')) {
         audio.src = '/assets/voice/voice.ogg';
+        audio.load();
+        attemptAutoplayOnLoad();
       }
     };
     audio.onplay = () => { updateAudioUI(true); };
@@ -784,17 +807,17 @@
         document.getElementById('scratch-revealed-img').src = frameSource;
         document.getElementById('inpage-revealed-img').src = frameSource;
 
-        // Populate secret message
+        // Populate secret message (ensure ${name} or {name} is replaced with recipient's name)
         if (wishData.message) {
-          document.getElementById('display-message').innerText = wishData.message;
+          const recipientName = (wishData.contact_name || '').trim() || 'Friend';
+          const formattedMessage = String(wishData.message).replace(/\$?\{name\}/gi, recipientName);
+          document.getElementById('display-message').innerText = formattedMessage;
         }
 
-        // Audio Stream URL
-        if (wishData.song_url) {
-          audio.src = wishData.song_url;
-        } else {
-          audio.src = '/assets/voice/voice.ogg';
-        }
+        // Audio Stream URL (prioritize Custom Audio URL if present)
+        const targetSongUrl = normalizeWishAudioUrl(wishData.song_url);
+        audio.src = targetSongUrl;
+        audio.load();
 
         // Automatic Song Play on Load
         attemptAutoplayOnLoad();

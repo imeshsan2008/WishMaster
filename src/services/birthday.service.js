@@ -23,10 +23,12 @@ const {
 const ADMIN_APPROVAL_PHONE = '94768902513';
 const ADMIN_APPROVAL_JID = `${ADMIN_APPROVAL_PHONE}@s.whatsapp.net`;
 
-let pendingAdminApprovalQueue = [];
+const pendingAdminApprovalQueue = [];
 let activeAdminApproval = null;
 let birthdaysSentToday = false;
+let isDispatchingBirthdays = false;
 const birthdayRetryMap = new Map();
+const recentDispatchesMap = new Map(); // Anti-duplication lock for rapid or concurrent dispatch calls
 
 function hasPendingAdminApproval() {
   return !!activeAdminApproval;
@@ -114,7 +116,7 @@ async function handleAdminApprovalReply(sock, senderJid, text) {
 /**
  * Dispatches a birthday wish link to a specific phone number.
  */
-async function dispatchBirthdayWishToNumber(sock, contact, rawPhone, auth, songUrl) {
+async function dispatchBirthdayWishToNumber(sock, contact, rawPhone, auth, songUrl, skipAutoSms = false) {
   let attempts = 0;
   const maxRetries = 3;
   const delay = 2000;
@@ -125,6 +127,16 @@ async function dispatchBirthdayWishToNumber(sock, contact, rawPhone, auth, songU
     console.warn('⚠️ WhatsApp bot not connected or user ID missing. Skipping WhatsApp send to', number);
     return false;
   }
+
+  // Prevent rapid duplicate dispatches to the same number within 60 seconds
+  const dispatchKey = number.slice(-9);
+  const lastDispatchTime = recentDispatchesMap.get(dispatchKey) || 0;
+  if (Date.now() - lastDispatchTime < 60 * 1000) {
+    console.log(`⏭️ [Anti-Duplication] Skipping duplicate WhatsApp/SMS dispatch to ${contact.name} (${number}) within 60s.`);
+    return false;
+  }
+  recentDispatchesMap.set(dispatchKey, Date.now());
+
   const jid = `${number}@s.whatsapp.net`;
 
   // 1. Resolve Contact Photo (Google API -> Contacts.json -> DB -> WhatsApp -> Default)
@@ -205,17 +217,19 @@ async function dispatchBirthdayWishToNumber(sock, contact, rawPhone, auth, songU
 
       console.log(`✅ Sent surprise birthday page link to ${contact.name} (${number})`);
 
-      // Dispatch SMS via Text.lk if enabled
-      try {
-        const { sendBirthdaySms, getTextLkConfig } = require('./sms.service');
-        const smsConfig = await getTextLkConfig();
-        if (smsConfig.autoSend && smsConfig.token) {
-          sendBirthdaySms({ contact: { ...contact, phone: number }, wishUrl }).catch(err => {
-            console.error('⚠️ Birthday SMS error:', err.message);
-          });
+      // Dispatch SMS via Text.lk if enabled (and not skipped by caller)
+      if (!skipAutoSms) {
+        try {
+          const { sendBirthdaySms, getTextLkConfig } = require('./sms.service');
+          const smsConfig = await getTextLkConfig();
+          if (smsConfig.autoSend && smsConfig.token) {
+            sendBirthdaySms({ contact: { ...contact, phone: number }, wishUrl }).catch(err => {
+              console.error('⚠️ Birthday SMS error:', err.message);
+            });
+          }
+        } catch (smsErr) {
+          console.warn('⚠️ SMS dispatch check error:', smsErr.message);
         }
-      } catch (smsErr) {
-        console.warn('⚠️ SMS dispatch check error:', smsErr.message);
       }
 
       return true;
@@ -257,13 +271,13 @@ async function resolvePersonalizedWishContent(contactName, phone) {
     }
 
     if (pref.letter_type === 'custom' && pref.custom_letter_text) {
-      personalMsg = pref.custom_letter_text.replace(/\{name\}/gi, contactName || 'Friend');
+      personalMsg = pref.custom_letter_text.replace(/\$?\{name\}/gi, contactName || 'Friend');
     } else if (pref.letter_type === 'saved' && pref.saved_letter_id) {
       try {
         const lettersData = await getDbSecretLetters();
         const found = (lettersData.letters || []).find(l => l.id === pref.saved_letter_id);
         if (found) {
-          personalMsg = (found.text || '').replace(/\{name\}/gi, contactName || 'Friend');
+          personalMsg = (found.text || '').replace(/\$?\{name\}/gi, contactName || 'Friend');
         }
       } catch (e) {}
     }
@@ -440,6 +454,12 @@ async function sendTodaysBirthdays(sock, senderId = null, forceAll = false) {
     return 'WhatsApp not connected';
   }
 
+  if (isDispatchingBirthdays) {
+    console.log('⏭️ [Today\'s Birthdays] Another birthday check is already in progress, skipping concurrent run.');
+    return 'Birthday check already in progress';
+  }
+
+  isDispatchingBirthdays = true;
   try {
     const auth = await getAuthClient();
     if (!auth) {
@@ -475,8 +495,12 @@ async function sendTodaysBirthdays(sock, senderId = null, forceAll = false) {
       }
 
       if (contact.phones && contact.phones.length > 1) {
-        console.log(`⚠️ Contact ${contact.name} has multiple numbers (${contact.phones.join(', ')}). Queuing for Admin approval via WhatsApp.`);
-        pendingAdminApprovalQueue.push({ contact, auth, songUrl });
+        const isAlreadyQueued = pendingAdminApprovalQueue.some(q => q.contact.name === contact.name) ||
+          (activeAdminApproval && activeAdminApproval.contact.name === contact.name);
+        if (!isAlreadyQueued) {
+          console.log(`⚠️ Contact ${contact.name} has multiple numbers (${contact.phones.join(', ')}). Queuing for Admin approval via WhatsApp.`);
+          pendingAdminApprovalQueue.push({ contact, auth, songUrl });
+        }
       } else {
         if (number) {
           await dispatchBirthdayWishToNumber(sock, contact, number, auth, songUrl);
@@ -494,6 +518,8 @@ async function sendTodaysBirthdays(sock, senderId = null, forceAll = false) {
   } catch (err) {
     console.error('❌ Error sending birthdays:', err.message || err);
     throw err;
+  } finally {
+    isDispatchingBirthdays = false;
   }
 }
 
@@ -519,13 +545,32 @@ async function checkAndCatchUpTodaysBirthdays(sock) {
 /**
  * Manually forces sending a birthday surprise link to a specific number.
  */
-async function sendForcedBirthdayMessage(sock, senderId, contactName = 'there') {
+async function sendForcedBirthdayMessage(sock, senderId, contactName = 'there', options = {}) {
+  const { skipAutoSms = false } = options;
   if (!sock || !sock.user || !sock.user.id) {
     throw new Error('WhatsApp bot is not connected or session not paired yet. Please link WhatsApp in Settings or scan QR.');
   }
 
   const number = senderId.replace(/\D/g, '');
   const jid = `${number}@s.whatsapp.net`;
+
+  // Prevent rapid double-click duplicate dispatches within 15 seconds
+  const dispatchKey = `forced_${number.slice(-9)}`;
+  const lastDispatchTime = recentDispatchesMap.get(dispatchKey) || 0;
+  if (Date.now() - lastDispatchTime < 15 * 1000) {
+    console.log(`⏭️ [Anti-Duplication] Forced birthday wish already sent to ${contactName} (${number}) moments ago, skipping duplicate.`);
+    const { getLatestWishByPhone } = require('./db.service');
+    const existingWish = await getLatestWishByPhone(number);
+    if (existingWish) {
+      return {
+        type: 'web-surprise',
+        wishUrl: `${HOSTNAME}/wish/${existingWish.unique_code}`,
+        unique_code: existingWish.unique_code,
+        deduplicated: true
+      };
+    }
+  }
+  recentDispatchesMap.set(dispatchKey, Date.now());
 
   // 1. Resolve Contact Photo (Google API -> Contacts.json -> DB -> WhatsApp -> Default)
   let auth = null;
@@ -596,14 +641,16 @@ async function sendForcedBirthdayMessage(sock, senderId, contactName = 'there') 
     }
   } catch (e) {}
 
-  // Dispatch SMS via Text.lk if enabled
-  try {
-    const { sendBirthdaySms, getTextLkConfig } = require('./sms.service');
-    const smsConfig = await getTextLkConfig();
-    if (smsConfig.autoSend && smsConfig.token) {
-      sendBirthdaySms({ contact: { name: contactName, phone: number }, wishUrl }).catch(() => {});
-    }
-  } catch (e) {}
+  // Dispatch SMS via Text.lk if enabled (only when not already handled by caller like sendWishWithOptionsApi)
+  if (!skipAutoSms) {
+    try {
+      const { sendBirthdaySms, getTextLkConfig } = require('./sms.service');
+      const smsConfig = await getTextLkConfig();
+      if (smsConfig.autoSend && smsConfig.token) {
+        sendBirthdaySms({ contact: { name: contactName, phone: number }, wishUrl }).catch(() => {});
+      }
+    } catch (e) {}
+  }
 
   console.log(`✅ Sent forced surprise birthday page to ${jid}`);
   return { type: 'web-surprise', wishUrl, unique_code: wishRecord.unique_code };

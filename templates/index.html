@@ -316,6 +316,39 @@
       <!-- Contacts Area: Today's Birthdays (Separated) & Upcoming Birthdays -->
       <div class="p-6 space-y-6">
         
+        <!-- LABEL FILTER & SEARCH BAR -->
+        <div class="p-4 bg-slate-50/80 rounded-2xl border border-slate-100 space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                <i class="fas fa-tags text-pink-500"></i> Filter by Label:
+              </span>
+              <span id="active-filter-indicator" class="hidden px-2 py-0.5 bg-pink-100 text-pink-700 rounded-full text-[10px] font-bold"></span>
+            </div>
+
+            <div class="relative w-full sm:w-64">
+              <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+              <input 
+                type="text" 
+                id="contact-search-input" 
+                oninput="onContactSearchOrLabelChange()" 
+                placeholder="Search name, phone or label..." 
+                class="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400"
+              />
+              <button id="clear-contact-search-btn" onclick="clearContactSearch()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
+                <i class="fas fa-times-circle"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Dynamic Label Filter Chips -->
+          <div id="contact-labels-filter-bar" class="flex items-center gap-1.5 flex-wrap pt-0.5">
+            <button onclick="selectContactLabelFilter('ALL')" class="px-3 py-1 rounded-full text-xs font-bold bg-pink-500 text-white shadow-xs transition">
+              All Contacts
+            </button>
+          </div>
+        </div>
+
         <!-- SECTION 1: TODAY'S BIRTHDAYS (SEPARATE & PROMINENT) -->
         <div id="today-birthdays-section" class="p-5 bg-gradient-to-r from-pink-50 via-rose-50 to-purple-50 rounded-2xl border-2 border-pink-300 shadow-sm space-y-3">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-pink-200/60">
@@ -364,109 +397,117 @@
   </main>
 
   <!-- ======================== SETTINGS MODAL ======================== -->
-  <div id="settings-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 hidden">
-    <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-pink-100 space-y-6">
+  <div id="settings-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl border border-pink-100 overflow-hidden animate-fade-in">
       
-      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+      <!-- Sticky Modal Header -->
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+        <h3 class="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
           <i class="fas fa-sliders-h text-pink-500"></i> Settings & Audio
         </h3>
-        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600">
+        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition">
           <i class="fas fa-times text-lg"></i>
         </button>
       </div>
 
-      <!-- 1. Song URL & Upload Setting -->
-      <div class="space-y-3">
-        <label class="text-xs font-semibold uppercase text-slate-500 tracking-wider flex items-center justify-between">
-          <span>Birthday Celebration Song</span>
-          <span class="text-[10px] text-pink-600 font-bold bg-pink-50 px-2 py-0.5 rounded-full border border-pink-200">🎵 Audio</span>
-        </label>
-        <p class="text-xs text-slate-400">Audio stream played automatically on page load when recipients open their surprise gift page.</p>
-        
-        <!-- Upload Audio Box -->
-        <div class="p-3 bg-pink-50/50 rounded-2xl border border-pink-100 space-y-2">
-          <label class="block text-[11px] font-bold text-slate-700">Upload New Song / Audio File (.mp3, .ogg, .wav, .m4a)</label>
-          <div class="flex items-center gap-2">
-            <input type="file" id="setting-song-file" accept="audio/*,.mp3,.ogg,.wav,.m4a" class="block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-pink-500 file:text-white hover:file:bg-pink-600 cursor-pointer">
-            <button id="btn-upload-song" onclick="uploadBirthdaySongFile()" class="shrink-0 px-3.5 py-1.5 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white text-xs font-bold rounded-xl shadow transition flex items-center gap-1.5">
-              <i class="fas fa-cloud-upload-alt"></i> Upload
-            </button>
+      <!-- Scrollable Modal Body -->
+      <div class="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
+
+        <!-- 1. Song URL & Upload Setting -->
+        <div class="space-y-3">
+          <label class="text-xs font-semibold uppercase text-slate-500 tracking-wider flex items-center justify-between">
+            <span>Birthday Celebration Song</span>
+            <span class="text-[10px] text-pink-600 font-bold bg-pink-50 px-2 py-0.5 rounded-full border border-pink-200">🎵 Audio</span>
+          </label>
+          <p class="text-xs text-slate-400">Audio stream played automatically on page load when recipients open their surprise gift page.</p>
+          
+          <!-- Upload Audio Box -->
+          <div class="p-3 bg-pink-50/50 rounded-2xl border border-pink-100 space-y-2">
+            <label class="block text-[11px] font-bold text-slate-700">Upload New Song / Audio File (.mp3, .ogg, .wav, .m4a)</label>
+            <div class="flex items-center gap-2">
+              <input type="file" id="setting-song-file" accept="audio/*,.mp3,.ogg,.wav,.m4a" class="block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-pink-500 file:text-white hover:file:bg-pink-600 cursor-pointer">
+              <button id="btn-upload-song" onclick="uploadBirthdaySongFile()" class="shrink-0 px-3.5 py-1.5 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white text-xs font-bold rounded-xl shadow transition flex items-center gap-1.5">
+                <i class="fas fa-cloud-upload-alt"></i> Upload
+              </button>
+            </div>
+            <div id="song-upload-progress" class="hidden text-[10px] font-semibold text-pink-600 flex items-center gap-1">
+              <i class="fas fa-spinner fa-spin"></i> Uploading audio file...
+            </div>
           </div>
-          <div id="song-upload-progress" class="hidden text-[10px] font-semibold text-pink-600 flex items-center gap-1">
-            <i class="fas fa-spinner fa-spin"></i> Uploading audio file...
+
+          <!-- URL Input & Manual Save -->
+          <div class="space-y-1">
+            <label class="text-[11px] font-semibold text-slate-600">Or Custom Audio URL:</label>
+            <div class="flex gap-2">
+              <input type="text" id="setting-song-url" oninput="updateSettingSongPreview()" placeholder="https://.../song.mp3 or /assets/voice/..." class="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500">
+              <button onclick="saveSongUrl()" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl shadow transition">Save</button>
+            </div>
+          </div>
+
+          <!-- Audio Live Preview Player -->
+          <div class="pt-1 space-y-1">
+            <div class="flex items-center justify-between">
+              <label class="text-[10px] uppercase font-bold text-slate-400">Audio Preview:</label>
+              <span id="setting-song-status" class="text-[10px] font-semibold text-emerald-600"></span>
+            </div>
+            <audio id="setting-song-preview" controls preload="metadata" class="w-full mt-1 h-9 rounded-lg border border-slate-200 bg-white"></audio>
           </div>
         </div>
 
-        <!-- URL Input & Manual Save -->
-        <div class="space-y-1">
-          <label class="text-[11px] font-semibold text-slate-600">Or Custom Audio URL:</label>
-          <div class="flex gap-2">
-            <input type="text" id="setting-song-url" oninput="updateSettingSongPreview()" placeholder="https://.../song.mp3 or /assets/voice/..." class="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500">
-            <button onclick="saveSongUrl()" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl shadow transition">Save</button>
+        <!-- 2. Bot Footer & Link Expiry Settings -->
+        <div class="space-y-3 pt-4 border-t border-slate-100">
+          <label class="text-xs font-semibold uppercase text-slate-500 tracking-wider">General Bot & Link Settings</label>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="sm:col-span-2 space-y-1">
+              <label class="text-[11px] font-semibold text-slate-600">Bot Footer Tagline</label>
+              <input type="text" id="setting-bot-footer" placeholder="> WishMaster V4.0" class="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500">
+            </div>
+
+            <div class="space-y-1">
+              <label class="text-[11px] font-semibold text-slate-600">Validity (Days)</label>
+              <input type="number" id="setting-expiry-days" min="1" max="365" value="7" class="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500">
+            </div>
           </div>
+
+          <button onclick="saveGeneralSettings()" class="w-full py-2 bg-pink-500 hover:bg-pink-600 text-white text-xs font-semibold rounded-xl shadow transition">Save General Settings</button>
         </div>
 
-        <!-- Audio Live Preview Player -->
-        <div class="pt-1">
-          <label class="text-[10px] uppercase font-bold text-slate-400">Audio Preview:</label>
-          <audio id="setting-song-preview" controls class="w-full mt-1 h-8 rounded-lg border border-slate-200 bg-white"></audio>
+        <!-- 3. Change Admin Password -->
+        <form onsubmit="event.preventDefault(); changeAdminPin();" class="space-y-2 pt-4 border-t border-slate-100">
+          <input type="text" name="username" autocomplete="username" class="hidden" style="display:none;" value="admin" tabindex="-1" aria-hidden="true">
+          <label class="text-xs font-semibold uppercase text-slate-500 tracking-wider">Change Admin PIN</label>
+          <div class="grid grid-cols-2 gap-2">
+            <input type="password" id="current-pin" autocomplete="current-password" placeholder="Current PIN" class="px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none">
+            <input type="password" id="new-pin" autocomplete="new-password" placeholder="New 4-digit PIN" class="px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none">
+          </div>
+          <button type="submit" class="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl transition mt-1">Update PIN</button>
+        </form>
+
+        <!-- 4. Session & Logout Controls -->
+        <div class="pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2">
+          <a href="/api/session/export-whatsapp" download="whatsapp_session.zip" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-xl transition flex items-center gap-1.5 border border-emerald-200" title="Export WhatsApp Baileys Auth Session (.zip)">
+            <i class="fab fa-whatsapp text-emerald-600"></i> Export Session (.zip)
+          </a>
+          <button type="button" onclick="triggerImportWhatsAppSession()" class="px-3 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-semibold rounded-xl transition flex items-center gap-1.5 border border-teal-200" title="Import WhatsApp Session (.zip or creds.json)">
+            <i class="fas fa-file-import text-teal-600"></i> Import Session
+          </button>
+          <input type="file" id="wa-session-import-input" accept=".zip,.json" class="hidden" onchange="handleWhatsAppSessionUpload(event)">
+          <a href="/api/session/export-creds" download="creds.json" class="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl transition flex items-center gap-1.5 border border-slate-200" title="Download creds.json directly">
+            <i class="fas fa-file-code text-slate-500"></i> creds.json
+          </a>
+          <button onclick="logoutWhatsApp()" class="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold rounded-xl transition">
+            <i class="fab fa-whatsapp mr-1"></i> Logout WA
+          </button>
+          <button onclick="logoutGoogle()" class="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold rounded-xl transition">
+            <i class="fab fa-google mr-1"></i> Logout Google
+          </button>
+          <button onclick="adminLogout()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition ml-auto">
+            <i class="fas fa-sign-out-alt mr-1"></i> Lock UI
+          </button>
         </div>
+
       </div>
-
-      <!-- 2. Bot Footer & Link Expiry Settings -->
-      <div class="space-y-3 pt-3 border-t border-slate-100">
-        <label class="text-xs font-semibold uppercase text-slate-500 tracking-wider">General Bot & Link Settings</label>
-        
-        <div class="space-y-1">
-          <label class="text-[11px] font-semibold text-slate-600">Bot Footer Tagline</label>
-          <p class="text-[10px] text-slate-400">Displayed at the bottom of WhatsApp messages and cards.</p>
-          <input type="text" id="setting-bot-footer" placeholder="> WishMaster V4.0" class="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500">
-        </div>
-
-        <div class="space-y-1">
-          <label class="text-[11px] font-semibold text-slate-600">Wish Link Validity Period (Days)</label>
-          <p class="text-[10px] text-slate-400">Number of days before the celebration link expires.</p>
-          <input type="number" id="setting-expiry-days" min="1" max="365" value="7" class="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500">
-        </div>
-
-        <button onclick="saveGeneralSettings()" class="w-full py-2 bg-pink-500 hover:bg-pink-600 text-white text-xs font-semibold rounded-xl shadow transition">Save General Settings</button>
-      </div>
-
-      <!-- 2. Change Admin Password -->
-      <form onsubmit="event.preventDefault(); changeAdminPin();" class="space-y-2 pt-2 border-t border-slate-100">
-        <input type="text" name="username" autocomplete="username" class="hidden" style="display:none;" value="admin" tabindex="-1" aria-hidden="true">
-        <label class="text-xs font-semibold uppercase text-slate-500 tracking-wider">Change Admin PIN</label>
-        <div class="grid grid-cols-2 gap-2">
-          <input type="password" id="current-pin" autocomplete="current-password" placeholder="Current PIN" class="px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none">
-          <input type="password" id="new-pin" autocomplete="new-password" placeholder="New 4-digit PIN" class="px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none">
-        </div>
-        <button type="submit" class="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl transition mt-1">Update PIN</button>
-      </form>
-
-      <!-- 3. Session & Logout Controls -->
-      <div class="pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2">
-        <a href="/api/session/export-whatsapp" download="whatsapp_session.zip" class="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-xl transition flex items-center gap-1.5 border border-emerald-200" title="Export WhatsApp Baileys Auth Session (.zip)">
-          <i class="fab fa-whatsapp text-emerald-600"></i> Export WhatsApp Session (.zip)
-        </a>
-        <button type="button" onclick="triggerImportWhatsAppSession()" class="px-3.5 py-2 bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-semibold rounded-xl transition flex items-center gap-1.5 border border-teal-200" title="Import WhatsApp Session (.zip or creds.json)">
-          <i class="fas fa-file-import text-teal-600"></i> Import WhatsApp Session
-        </button>
-        <input type="file" id="wa-session-import-input" accept=".zip,.json" class="hidden" onchange="handleWhatsAppSessionUpload(event)">
-        <a href="/api/session/export-creds" download="creds.json" class="px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl transition flex items-center gap-1.5 border border-slate-200" title="Download creds.json directly">
-          <i class="fas fa-file-code text-slate-500"></i> creds.json
-        </a>
-        <button onclick="logoutWhatsApp()" class="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold rounded-xl transition">
-          <i class="fab fa-whatsapp mr-1"></i> Logout WhatsApp
-        </button>
-        <button onclick="logoutGoogle()" class="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold rounded-xl transition">
-          <i class="fab fa-google mr-1"></i> Logout Google
-        </button>
-        <button onclick="adminLogout()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition ml-auto">
-          <i class="fas fa-sign-out-alt mr-1"></i> Lock UI
-        </button>
-      </div>
-
     </div>
   </div>
 
@@ -1053,11 +1094,48 @@
             <div class="flex-grow space-y-2">
               <div>
                 <div class="text-xs font-bold text-slate-800">Custom Letter (Only for this person)</div>
-                <div class="text-[11px] text-slate-400">Write an exclusive, dedicated birthday letter just for this friend.</div>
+                <div class="text-[11px] text-slate-400">Write an exclusive, dedicated birthday letter just for this friend. Supports <code>${name}</code> placeholder.</div>
               </div>
-              <textarea id="pref-custom-letter-text" rows="4" placeholder="Write custom secret birthday message here..." class="w-full p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400"></textarea>
+              <textarea id="pref-custom-letter-text" rows="4" placeholder="Write custom secret birthday message here... Use ${name} to insert recipient's name." class="w-full p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400"></textarea>
             </div>
           </label>
+        </div>
+
+        <!-- SECTION 3: CONTACT LABELS / TAGS -->
+        <div class="bg-white p-5 rounded-2xl border border-pink-100 shadow-sm space-y-3">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+            <i class="fas fa-tags text-emerald-500"></i> Contact Labels / Groups
+          </h4>
+          <p class="text-[11px] text-slate-400">Assign custom labels (comma-separated, e.g. <code>Family, Friends, Work, VIP</code>) to filter this contact easily in the dashboard</p>
+          <input 
+            type="text" 
+            id="pref-contact-labels-input" 
+            placeholder="e.g. Family, Friends, VIP, University" 
+            class="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400"
+          />
+          <div class="flex items-center gap-1.5 flex-wrap pt-1">
+            <span class="text-[10px] text-slate-400 font-semibold mr-1">Quick Add:</span>
+            <button type="button" onclick="addQuickLabelToInput('Family')" class="px-2 py-0.5 bg-slate-100 hover:bg-pink-50 text-slate-600 hover:text-pink-600 rounded-md text-[10px] font-semibold border border-slate-200 transition">+ Family</button>
+            <button type="button" onclick="addQuickLabelToInput('Friends')" class="px-2 py-0.5 bg-slate-100 hover:bg-pink-50 text-slate-600 hover:text-pink-600 rounded-md text-[10px] font-semibold border border-slate-200 transition">+ Friends</button>
+            <button type="button" onclick="addQuickLabelToInput('Work')" class="px-2 py-0.5 bg-slate-100 hover:bg-pink-50 text-slate-600 hover:text-pink-600 rounded-md text-[10px] font-semibold border border-slate-200 transition">+ Work</button>
+            <button type="button" onclick="addQuickLabelToInput('School')" class="px-2 py-0.5 bg-slate-100 hover:bg-pink-50 text-slate-600 hover:text-pink-600 rounded-md text-[10px] font-semibold border border-slate-200 transition">+ School</button>
+            <button type="button" onclick="addQuickLabelToInput('VIP')" class="px-2 py-0.5 bg-slate-100 hover:bg-pink-50 text-slate-600 hover:text-pink-600 rounded-md text-[10px] font-semibold border border-slate-200 transition">+ VIP</button>
+          </div>
+        </div>
+
+        <!-- SECTION 4: YEARLY SEND HISTORY FOR THIS CONTACT -->
+        <div class="bg-white p-5 rounded-2xl border border-pink-100 shadow-sm space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+              <i class="fas fa-history text-sky-500"></i> Birthday Wish Send History
+            </h4>
+            <span id="pref-history-years-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200">
+              0 Years Sent
+            </span>
+          </div>
+          <div id="pref-contact-history-list" class="space-y-2 max-h-40 overflow-y-auto text-xs text-slate-600">
+            <div class="text-slate-400 italic text-[11px]">No wishes sent to this contact yet.</div>
+          </div>
         </div>
       </div>
 
@@ -1564,6 +1642,7 @@
           const created = new Date(w.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
           const expires = new Date(w.expires_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
           const isOpened = w.is_opened;
+        loadContacts(false);
           const openBadge = isOpened
             ? `<span class="px-2.5 py-1 bg-green-100 text-green-700 font-bold text-[11px] rounded-full flex items-center gap-1">
                  <i class="fas fa-check-circle"></i> Opened (${w.open_count}x)
@@ -1616,19 +1695,97 @@
       }
     }
 
-    // ======================== CONTACTS LIST ========================
+    // ======================== CONTACTS LIST & LABEL FILTERING ========================
+    const MONTH_NAMES_SHORT = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    let allLoadedContacts = [];
+    let allContactWishStats = {};
+    let activeContactLabelFilter = 'ALL';
+    let activeContactSearchQuery = '';
+
+    function formatBirthdayDisplay(bday, targetYear) {
+      if (!bday || !bday.month || !bday.day) return 'Unknown';
+      const m = Number(bday.month);
+      const d = Number(bday.day);
+      const mName = MONTH_NAMES_SHORT[m] || m;
+      return targetYear ? `${mName} ${d}, ${targetYear} (${m}/${d})` : `${mName} ${d} (${m}/${d})`;
+    }
+
+    function getMergedContactLabels(c, pref) {
+      const set = new Set();
+      if (Array.isArray(c.labels)) {
+        c.labels.forEach(l => {
+          const clean = String(l || '').trim();
+          if (clean) set.add(clean);
+        });
+      }
+      if (pref && Array.isArray(pref.labels)) {
+        pref.labels.forEach(l => {
+          const clean = String(l || '').trim();
+          if (clean) set.add(clean);
+        });
+      }
+      return Array.from(set);
+    }
+
+    function selectContactLabelFilter(label) {
+      activeContactLabelFilter = label || 'ALL';
+      renderContactsWithFilters();
+    }
+
+    function onContactSearchOrLabelChange() {
+      const input = document.getElementById('contact-search-input');
+      const clearBtn = document.getElementById('clear-contact-search-btn');
+      activeContactSearchQuery = (input ? input.value : '').trim();
+      if (clearBtn) {
+        if (activeContactSearchQuery.length > 0) {
+          clearBtn.classList.remove('hidden');
+        } else {
+          clearBtn.classList.add('hidden');
+        }
+      }
+      renderContactsWithFilters();
+    }
+
+    function clearContactSearch() {
+      const input = document.getElementById('contact-search-input');
+      if (input) input.value = '';
+      activeContactSearchQuery = '';
+      const clearBtn = document.getElementById('clear-contact-search-btn');
+      if (clearBtn) clearBtn.classList.add('hidden');
+      renderContactsWithFilters();
+    }
+
     // Helper to render individual contact card
-    function renderContactCard(c, isToday) {
+    function renderContactCard(c, isToday, targetYear = null, daysLeft = null) {
       const phones = Array.isArray(c.phones) ? c.phones : (c.phone ? [c.phone] : []);
       const cleanPhones = phones.map(p => String(p).replace(/\D/g, '')).filter(Boolean);
       const primaryPhone = cleanPhones[0] || '';
       const phoneDisplay = phones.join(' • ') || 'No phone';
-      const bdayText = c.birthday ? `${c.birthday.month}/${c.birthday.day}` : 'Unknown';
+      const bdayText = formatBirthdayDisplay(c.birthday, targetYear);
 
       const pref = allContactPreferences[primaryPhone] || 
         Object.values(allContactPreferences).find(p => primaryPhone && p.phone && primaryPhone.endsWith(p.phone.slice(-9)));
 
+      const contactLabels = getMergedContactLabels(c, pref);
+
       let customBadges = '';
+      if (!isToday && typeof daysLeft === 'number' && daysLeft > 0) {
+        const daysLabel = daysLeft === 1 ? 'Tomorrow!' : `In ${daysLeft} days`;
+        const badgeColor = daysLeft <= 7
+          ? 'bg-rose-100 text-rose-700 border border-rose-200'
+          : 'bg-slate-200/70 text-slate-600';
+        customBadges += `<span class="px-2 py-0.5 ${badgeColor} text-[10px] font-bold rounded-full">${daysLabel}</span>`;
+      }
+
+      // Render Contact Label Badges (clickable to filter)
+      contactLabels.forEach(lbl => {
+        const isCurrentFilter = activeContactLabelFilter === lbl;
+        const lblClass = isCurrentFilter
+          ? 'bg-emerald-600 text-white border-emerald-700'
+          : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100';
+        customBadges += `<button type="button" onclick="selectContactLabelFilter('${escapeHTML(lbl)}')" class="px-2 py-0.5 ${lblClass} border text-[10px] font-bold rounded-full transition flex items-center gap-1" title="Filter by label: ${escapeHTML(lbl)}"><i class="fas fa-tag text-[8px]"></i> ${escapeHTML(lbl)}</button>`;
+      });
+
       if (pref) {
         if (pref.assigned_frame_id && pref.assigned_frame_id !== 'default') {
           customBadges += `<span class="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-md">Frame: Style ${pref.assigned_frame_id}</span>`;
@@ -1640,6 +1797,20 @@
         }
       }
 
+      // Yearly Send History Badge (How many years wishes were sent to this contact)
+      const phoneKey9 = primaryPhone ? primaryPhone.slice(-9) : '';
+      const nameKey = String(c.name || '').toLowerCase().trim();
+      const wishStat = (phoneKey9 && allContactWishStats[phoneKey9]) || (nameKey && allContactWishStats[nameKey]) || null;
+      if (wishStat && wishStat.yearsCount > 0) {
+        const yrLabel = wishStat.yearsCount === 1 ? '1 Yr' : `${wishStat.yearsCount} Yrs`;
+        const yearsListStr = (wishStat.years || []).join(', ');
+        customBadges += `
+          <button type="button" onclick="openPersonalizeContactModal('${escapeHTML(c.name)}', '${primaryPhone}')" class="px-2 py-0.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-[10px] font-bold rounded-full transition flex items-center gap-1" title="Sent in ${wishStat.yearsCount} year(s): ${yearsListStr} (Total ${wishStat.totalSentCount}x)">
+            <i class="fas fa-check-double text-[9px] text-sky-500"></i> Sent: ${yrLabel} (${yearsListStr})
+          </button>
+        `;
+      }
+
       const phonesParam = cleanPhones.join(',');
       const cardBorder = isToday ? 'border-pink-300 bg-white/95 shadow-sm ring-1 ring-pink-200' : 'border-slate-100 bg-slate-50 hover:bg-pink-50/40';
 
@@ -1648,17 +1819,17 @@
           <div class="flex items-center gap-3">
             <img src="${c.photo || '/assets/img/default_avatar.png'}" class="w-11 h-11 rounded-full object-cover border-2 ${isToday ? 'border-pink-400' : 'border-slate-200'} shadow-2xs">
             <div>
-              <div class="flex items-center gap-2 flex-wrap">
+              <div class="flex items-center gap-1.5 flex-wrap">
                 <span class="font-bold text-sm text-slate-800">${escapeHTML(c.name)}</span>
                 ${isToday ? `<span class="px-2.5 py-0.5 bg-gradient-to-r from-rose-500 to-pink-500 text-white font-bold text-[10px] rounded-full shadow-xs animate-pulse flex items-center gap-1">🎉 TODAY</span>` : ''}
                 ${customBadges}
               </div>
-              <div class="text-xs text-slate-400 mt-0.5">Birthday: ${bdayText} • ${phoneDisplay}</div>
+              <div class="text-xs text-slate-500 mt-0.5 font-medium"><i class="fas fa-birthday-cake text-pink-400 mr-1"></i>${bdayText} <span class="text-slate-300 mx-1">•</span> <span class="text-slate-400 font-normal">${phoneDisplay}</span></div>
             </div>
           </div>
 
           <div class="flex items-center gap-1.5 flex-shrink-0">
-            <button onclick="openPersonalizeContactModal('${escapeHTML(c.name)}', '${primaryPhone}')" class="px-3 py-1.5 bg-white hover:bg-pink-50 text-slate-700 hover:text-pink-600 border border-slate-200 hover:border-pink-300 text-xs font-semibold rounded-xl transition flex items-center gap-1 shadow-2xs" title="Assign custom secret letter and frame style">
+            <button onclick="openPersonalizeContactModal('${escapeHTML(c.name)}', '${primaryPhone}')" class="px-3 py-1.5 bg-white hover:bg-pink-50 text-slate-700 hover:text-pink-600 border border-slate-200 hover:border-pink-300 text-xs font-semibold rounded-xl transition flex items-center gap-1 shadow-2xs" title="Assign custom secret letter, frame style, and labels">
               <i class="fas fa-sliders-h text-pink-500"></i>
               <span class="hidden sm:inline">Personalize</span>
             </button>
@@ -1680,82 +1851,293 @@
     async function loadContacts(forceFresh = false) {
       try {
         const url = '/contacts' + (forceFresh ? '?fresh=true' : '');
-        const [contactsRes, prefsRes] = await Promise.all([
+        const [contactsRes, prefsRes, statsRes] = await Promise.all([
           fetch(url),
-          fetch('/api/contact-preferences').catch(() => null)
+          fetch('/api/contact-preferences').catch(() => null),
+          fetch('/api/wish-history-stats').catch(() => null)
         ]);
-        const contacts = await contactsRes.json();
-        const prefsData = prefsRes ? await prefsRes.json() : { preferences: {} };
+        const contacts = contactsRes.ok ? await contactsRes.json().catch(() => []) : [];
+        const prefsData = (prefsRes && prefsRes.ok) ? await prefsRes.json().catch(() => ({ preferences: {} })) : { preferences: {} };
+        const statsData = (statsRes && statsRes.ok) ? await statsRes.json().catch(() => ({ stats: {} })) : { stats: {} };
         allContactPreferences = prefsData?.preferences || {};
+        allContactWishStats = statsData?.stats || {};
+        allLoadedContacts = Array.isArray(contacts) ? contacts : [];
 
-        const today = new Date();
-        const tMonth = today.getMonth() + 1;
-        const tDay = today.getDate();
-
-        const todayStr = today.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-        const dateEl = document.getElementById('today-date-text');
-        if (dateEl) dateEl.textContent = `Today: ${todayStr}`;
-
-        // Separate Today's birthdays from other upcoming birthdays
-        const todayContacts = [];
-        const upcomingContacts = [];
-
-        (contacts || []).forEach(c => {
-          if (c.birthday && Number(c.birthday.month) === tMonth && Number(c.birthday.day) === tDay) {
-            todayContacts.push(c);
-          } else {
-            upcomingContacts.push(c);
-          }
-        });
-
-        // 1. Render Today's Birthdays
-        const todayContainer = document.getElementById('today-birthdays-list');
-        const todayBadge = document.getElementById('today-birthdays-badge');
-        const btnSendAll = document.getElementById('btn-send-all-today');
-
-        if (todayBadge) todayBadge.textContent = `${todayContacts.length} Today`;
-
-        if (todayContainer) {
-          if (todayContacts.length === 0) {
-            todayContainer.innerHTML = `
-              <div class="py-5 text-center text-slate-400 text-xs italic bg-white/60 rounded-xl border border-pink-100">
-                <i class="fas fa-calendar-check text-pink-300 text-xl mb-1.5 block"></i>
-                No birthdays today (${todayStr}). Upcoming birthdays are shown below!
-              </div>
-            `;
-            if (btnSendAll) btnSendAll.classList.add('hidden');
-          } else {
-            todayContainer.innerHTML = todayContacts.map(c => renderContactCard(c, true)).join('');
-            if (btnSendAll) btnSendAll.classList.remove('hidden');
-          }
-        }
-
-        // 2. Render Upcoming Birthdays
-        const upcomingContainer = document.getElementById('upcoming-birthdays-list');
-        const upcomingCount = document.getElementById('upcoming-birthdays-count');
-        if (upcomingCount) upcomingCount.textContent = `(${upcomingContacts.length})`;
-
-        if (upcomingContainer) {
-          if (upcomingContacts.length === 0) {
-            upcomingContainer.innerHTML = `
-              <div class="py-6 text-center text-slate-400 text-xs italic bg-slate-50 rounded-xl">
-                No upcoming birthdays found.
-              </div>
-            `;
-          } else {
-            upcomingContainer.innerHTML = upcomingContacts.map(c => renderContactCard(c, false)).join('');
-          }
-        }
-
-        const heading = document.getElementById('contacts-heading');
-        if (heading) {
-          heading.innerText = `Birthdays (${contacts.length})${todayContacts.length > 0 ? ` • 🎉 ${todayContacts.length} Today!` : ''}`;
-        }
-
+        renderContactsWithFilters();
       } catch (err) {
         console.error('loadContacts error:', err);
         const upEl = document.getElementById('upcoming-birthdays-list');
         if (upEl) upEl.innerHTML = `<div class="text-center py-6 text-red-400 text-xs">Failed to load contacts.</div>`;
+      }
+    }
+
+    function renderContactsWithFilters() {
+      const contacts = allLoadedContacts || [];
+
+      // 1. Collect all unique labels & counts across contacts
+      const labelCounts = {};
+      let unlabeledCount = 0;
+
+      contacts.forEach(c => {
+        const phones = Array.isArray(c.phones) ? c.phones : (c.phone ? [c.phone] : []);
+        const cleanPhones = phones.map(p => String(p).replace(/\D/g, '')).filter(Boolean);
+        const primaryPhone = cleanPhones[0] || '';
+        const pref = allContactPreferences[primaryPhone] || 
+          Object.values(allContactPreferences).find(p => primaryPhone && p.phone && primaryPhone.endsWith(p.phone.slice(-9)));
+
+        const mergedLabels = getMergedContactLabels(c, pref);
+        if (mergedLabels.length === 0) {
+          unlabeledCount++;
+        } else {
+          mergedLabels.forEach(l => {
+            labelCounts[l] = (labelCounts[l] || 0) + 1;
+          });
+        }
+      });
+
+      const sortedLabels = Object.keys(labelCounts).sort((a, b) => a.localeCompare(b));
+
+      // Reset activeContactLabelFilter if the selected label no longer exists
+      if (activeContactLabelFilter !== 'ALL' && activeContactLabelFilter !== 'UNLABELED' && !labelCounts[activeContactLabelFilter]) {
+        activeContactLabelFilter = 'ALL';
+      }
+
+      // Render Label Filter Bar
+      const filterBar = document.getElementById('contact-labels-filter-bar');
+      if (filterBar) {
+        let chipsHtml = `
+          <button type="button" onclick="selectContactLabelFilter('ALL')" class="px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 ${activeContactLabelFilter === 'ALL' ? 'bg-pink-500 text-white shadow-xs' : 'bg-white text-slate-600 border border-slate-200 hover:bg-pink-50'}">
+            <span>All</span>
+            <span class="px-1.5 py-0.2 rounded-full text-[10px] ${activeContactLabelFilter === 'ALL' ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500'}">${contacts.length}</span>
+          </button>
+        `;
+
+        sortedLabels.forEach(lbl => {
+          const isSelected = activeContactLabelFilter === lbl;
+          chipsHtml += `
+            <button type="button" onclick="selectContactLabelFilter('${escapeHTML(lbl)}')" class="px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 ${isSelected ? 'bg-emerald-600 text-white shadow-xs' : 'bg-white text-slate-700 border border-slate-200 hover:bg-emerald-50 hover:border-emerald-200'}">
+              <i class="fas fa-tag text-[10px] ${isSelected ? 'text-white' : 'text-emerald-500'}"></i>
+              <span>${escapeHTML(lbl)}</span>
+              <span class="px-1.5 py-0.2 rounded-full text-[10px] ${isSelected ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500'}">${labelCounts[lbl]}</span>
+            </button>
+          `;
+        });
+
+        if (sortedLabels.length > 0 && unlabeledCount > 0) {
+          const isUnlabeled = activeContactLabelFilter === 'UNLABELED';
+          chipsHtml += `
+            <button type="button" onclick="selectContactLabelFilter('UNLABELED')" class="px-3 py-1 rounded-full text-xs font-semibold transition flex items-center gap-1.5 ${isUnlabeled ? 'bg-slate-700 text-white shadow-xs' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'}">
+              <span>Unlabeled</span>
+              <span class="px-1.5 py-0.2 rounded-full text-[10px] ${isUnlabeled ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500'}">${unlabeledCount}</span>
+            </button>
+          `;
+        }
+
+        if (sortedLabels.length === 0) {
+          chipsHtml += `
+            <span class="text-[11px] text-slate-400 italic ml-2">
+              Tip: Labels from Google Contacts appear here automatically, or click "Personalize" on any contact to add custom labels!
+            </span>
+          `;
+        }
+
+        filterBar.innerHTML = chipsHtml;
+      }
+
+      // Update active filter indicator pill
+      const indicatorEl = document.getElementById('active-filter-indicator');
+      if (indicatorEl) {
+        if (activeContactLabelFilter !== 'ALL' || activeContactSearchQuery) {
+          indicatorEl.classList.remove('hidden');
+          const parts = [];
+          if (activeContactLabelFilter !== 'ALL') parts.push(`Label: ${activeContactLabelFilter}`);
+          if (activeContactSearchQuery) parts.push(`Search: "${activeContactSearchQuery}"`);
+          indicatorEl.textContent = parts.join(' • ');
+        } else {
+          indicatorEl.classList.add('hidden');
+        }
+      }
+
+      // 2. Filter contacts by activeContactLabelFilter & activeContactSearchQuery
+      const searchLower = activeContactSearchQuery.toLowerCase();
+      const filteredContacts = contacts.filter(c => {
+        const phones = Array.isArray(c.phones) ? c.phones : (c.phone ? [c.phone] : []);
+        const cleanPhones = phones.map(p => String(p).replace(/\D/g, '')).filter(Boolean);
+        const primaryPhone = cleanPhones[0] || '';
+        const pref = allContactPreferences[primaryPhone] || 
+          Object.values(allContactPreferences).find(p => primaryPhone && p.phone && primaryPhone.endsWith(p.phone.slice(-9)));
+
+        const mergedLabels = getMergedContactLabels(c, pref);
+
+        // Label filter check
+        if (activeContactLabelFilter === 'UNLABELED') {
+          if (mergedLabels.length > 0) return false;
+        } else if (activeContactLabelFilter !== 'ALL') {
+          if (!mergedLabels.includes(activeContactLabelFilter)) return false;
+        }
+
+        // Search query check
+        if (searchLower) {
+          const nameMatch = String(c.name || '').toLowerCase().includes(searchLower);
+          const phoneMatch = phones.some(p => String(p).toLowerCase().includes(searchLower));
+          const labelMatch = mergedLabels.some(l => l.toLowerCase().includes(searchLower));
+          if (!nameMatch && !phoneMatch && !labelMatch) return false;
+        }
+
+        return true;
+      });
+
+      const today = new Date();
+      const tYear = today.getFullYear();
+      const tMonth = today.getMonth() + 1;
+      const tDay = today.getDate();
+      const todayStartMs = new Date(tYear, tMonth - 1, tDay).getTime();
+
+      const todayStr = today.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      const dateEl = document.getElementById('today-date-text');
+      if (dateEl) dateEl.textContent = `Today: ${todayStr}`;
+
+      // Separate Today's birthdays, remaining This Year birthdays, and Next Year birthdays
+      const todayContacts = [];
+      const thisYearUpcoming = [];
+      const nextYearUpcoming = [];
+      const unknownBirthdays = [];
+
+      filteredContacts.forEach(c => {
+        if (!c.birthday || !c.birthday.month || !c.birthday.day) {
+          unknownBirthdays.push(c);
+          return;
+        }
+        const bMonth = Number(c.birthday.month);
+        const bDay = Number(c.birthday.day);
+
+        if (bMonth === tMonth && bDay === tDay) {
+          todayContacts.push(c);
+        } else if (bMonth > tMonth || (bMonth === tMonth && bDay > tDay)) {
+          // Upcoming later this year
+          const bDateMs = new Date(tYear, bMonth - 1, bDay).getTime();
+          const daysLeft = Math.round((bDateMs - todayStartMs) / (1000 * 60 * 60 * 24));
+          thisYearUpcoming.push({ contact: c, month: bMonth, day: bDay, year: tYear, daysLeft });
+        } else {
+          // Already passed this year -> Upcoming in Next Year (tYear + 1)
+          const nextYear = tYear + 1;
+          const bDateMs = new Date(nextYear, bMonth - 1, bDay).getTime();
+          const daysLeft = Math.round((bDateMs - todayStartMs) / (1000 * 60 * 60 * 24));
+          nextYearUpcoming.push({ contact: c, month: bMonth, day: bDay, year: nextYear, daysLeft });
+        }
+      });
+
+      // Sort chronologically by month, then day, then name
+      const sortByBirthdayOrder = (a, b) => {
+        if (a.month !== b.month) return a.month - b.month;
+        if (a.day !== b.day) return a.day - b.day;
+        return String(a.contact.name || '').localeCompare(String(b.contact.name || ''));
+      };
+
+      thisYearUpcoming.sort(sortByBirthdayOrder);
+      nextYearUpcoming.sort(sortByBirthdayOrder);
+
+      // 1. Render Today's Birthdays
+      const todayContainer = document.getElementById('today-birthdays-list');
+      const todayBadge = document.getElementById('today-birthdays-badge');
+      const btnSendAll = document.getElementById('btn-send-all-today');
+
+      if (todayBadge) todayBadge.textContent = `${todayContacts.length} Today`;
+
+      if (todayContainer) {
+        if (todayContacts.length === 0) {
+          const filterNote = activeContactLabelFilter !== 'ALL' ? ` matching label "${escapeHTML(activeContactLabelFilter)}"` : '';
+          todayContainer.innerHTML = `
+            <div class="py-5 text-center text-slate-400 text-xs italic bg-white/60 rounded-xl border border-pink-100">
+              <i class="fas fa-calendar-check text-pink-300 text-xl mb-1.5 block"></i>
+              No birthdays today (${todayStr})${filterNote}. Upcoming birthdays are shown below!
+            </div>
+          `;
+          if (btnSendAll) btnSendAll.classList.add('hidden');
+        } else {
+          todayContainer.innerHTML = todayContacts.map(c => renderContactCard(c, true, tYear, 0)).join('');
+          if (btnSendAll) btnSendAll.classList.remove('hidden');
+        }
+      }
+
+      // 2. Render Upcoming Birthdays (Ordered by Birthday, grouped by Current Year & Next Year)
+      const upcomingContainer = document.getElementById('upcoming-birthdays-list');
+      const upcomingCount = document.getElementById('upcoming-birthdays-count');
+      const totalUpcoming = thisYearUpcoming.length + nextYearUpcoming.length + unknownBirthdays.length;
+      if (upcomingCount) upcomingCount.textContent = `${totalUpcoming}`;
+
+      if (upcomingContainer) {
+        if (totalUpcoming === 0) {
+          upcomingContainer.innerHTML = `
+            <div class="py-6 text-center text-slate-400 text-xs italic bg-slate-50 rounded-xl">
+              No upcoming birthdays found${activeContactLabelFilter !== 'ALL' ? ` for label "${escapeHTML(activeContactLabelFilter)}"` : ''}.
+            </div>
+          `;
+        } else {
+          let html = '';
+
+          // Group 1: Remaining Birthdays This Year (tYear)
+          if (thisYearUpcoming.length > 0) {
+            html += `
+              <div class="space-y-2.5">
+                <div class="flex items-center gap-2 pt-1 pb-1">
+                  <span class="px-3 py-1 rounded-full bg-pink-100 text-pink-700 text-[11px] font-bold tracking-wide flex items-center gap-1.5 shadow-2xs">
+                    <i class="fas fa-calendar-day"></i> Upcoming in ${tYear} (${thisYearUpcoming.length})
+                  </span>
+                  <div class="h-px bg-pink-100 flex-grow"></div>
+                </div>
+                <div class="space-y-2.5">
+                  ${thisYearUpcoming.map(item => renderContactCard(item.contact, false, item.year, item.daysLeft)).join('')}
+                </div>
+              </div>
+            `;
+          }
+
+          // Group 2: Next Year's Birthdays (tYear + 1) placed underneath with Year Heading
+          if (nextYearUpcoming.length > 0) {
+            const nextYear = tYear + 1;
+            html += `
+              <div class="space-y-2.5 ${thisYearUpcoming.length > 0 ? 'pt-4' : ''}">
+                <div class="flex items-center gap-2 pt-1 pb-1">
+                  <span class="px-3.5 py-1 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-extrabold tracking-wide flex items-center gap-1.5 shadow-2xs">
+                    <i class="fas fa-calendar-plus"></i> ${nextYear} Upcoming Birthdays (${nextYearUpcoming.length})
+                  </span>
+                  <div class="h-px bg-indigo-100 flex-grow"></div>
+                </div>
+                <div class="space-y-2.5">
+                  ${nextYearUpcoming.map(item => renderContactCard(item.contact, false, item.year, item.daysLeft)).join('')}
+                </div>
+              </div>
+            `;
+          }
+
+          // Fallback if any contact has no birthday date
+          if (unknownBirthdays.length > 0) {
+            html += `
+              <div class="space-y-2.5 pt-4">
+                <div class="flex items-center gap-2 pt-1 pb-1">
+                  <span class="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-[11px] font-bold tracking-wide">
+                    Other Contacts (${unknownBirthdays.length})
+                  </span>
+                  <div class="h-px bg-slate-100 flex-grow"></div>
+                </div>
+                <div class="space-y-2.5">
+                  ${unknownBirthdays.map(c => renderContactCard(c, false, null, null)).join('')}
+                </div>
+              </div>
+            `;
+          }
+
+          upcomingContainer.innerHTML = html;
+        }
+      }
+
+      const heading = document.getElementById('contacts-heading');
+      if (heading) {
+        const countText = filteredContacts.length !== contacts.length
+          ? `${filteredContacts.length} / ${contacts.length}`
+          : `${contacts.length}`;
+        heading.innerText = `Birthdays (${countText})${todayContacts.length > 0 ? ` • 🎉 ${todayContacts.length} Today!` : ''}`;
       }
     }
 
@@ -1882,11 +2264,60 @@
       }
     }
 
-    function updateSettingSongPreview() {
-      const url = document.getElementById('setting-song-url')?.value?.trim();
+    function normalizeClientAudioUrl(rawUrl) {
+      if (!rawUrl) return '';
+      let cleaned = String(rawUrl).trim();
+      if (cleaned.includes('github.com/') && cleaned.includes('/blob/')) {
+        cleaned = cleaned.replace('github.com/', 'raw.githubusercontent.com/').replace('/blob/', '/');
+      }
+      const gdriveMatch = cleaned.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (gdriveMatch && gdriveMatch[1]) {
+        cleaned = `https://docs.google.com/uc?export=download&id=${gdriveMatch[1]}`;
+      }
+      if (cleaned.includes('dropbox.com/') && cleaned.includes('dl=0')) {
+        cleaned = cleaned.replace('dl=0', 'raw=1');
+      }
+      if (cleaned.startsWith('assets/')) {
+        cleaned = '/' + cleaned;
+      }
+      return cleaned;
+    }
+
+    function updateSettingSongPreview(autoPlay = false) {
+      const rawVal = document.getElementById('setting-song-url')?.value?.trim();
+      const url = normalizeClientAudioUrl(rawVal);
       const audio = document.getElementById('setting-song-preview');
-      if (audio && url) {
-        audio.src = url;
+      const statusEl = document.getElementById('setting-song-status');
+      if (!audio) return;
+
+      if (!url) {
+        audio.removeAttribute('src');
+        if (statusEl) statusEl.textContent = '';
+        return;
+      }
+
+      audio.onloadedmetadata = () => {
+        if (statusEl) {
+          statusEl.className = 'text-[10px] font-semibold text-emerald-600';
+          statusEl.textContent = '✓ Audio loaded & ready';
+        }
+      };
+
+      audio.onerror = () => {
+        if (statusEl) {
+          statusEl.className = 'text-[10px] font-semibold text-amber-600';
+          statusEl.textContent = '⚠️ File not found on server, using default song';
+        }
+        if (!audio.src.endsWith('/assets/voice/voice.ogg')) {
+          audio.src = '/assets/voice/voice.ogg';
+          audio.load();
+        }
+      };
+
+      audio.src = url;
+      audio.load();
+      if (autoPlay) {
+        audio.play().catch(() => {});
       }
     }
 
@@ -1920,7 +2351,7 @@
         if (data.ok || data.success) {
           if (data.songUrl) {
             document.getElementById('setting-song-url').value = data.songUrl;
-            updateSettingSongPreview();
+            updateSettingSongPreview(true);
           }
           fileInput.value = '';
           Swal.fire('Uploaded!', data.message || 'Birthday celebration song uploaded and set successfully.', 'success');
@@ -1945,8 +2376,11 @@
         });
         const data = await res.json();
         if (data.ok) {
-          updateSettingSongPreview();
-          Swal.fire("Saved!", "Birthday song URL updated.", "success");
+          if (data.songUrl) {
+            document.getElementById('setting-song-url').value = data.songUrl;
+          }
+          updateSettingSongPreview(true);
+          Swal.fire("Saved!", "Birthday song URL updated and playing preview.", "success");
         }
       } catch (err) {
         Swal.fire("Error", "Failed to save song URL", "error");
@@ -2644,7 +3078,12 @@
           </div>
 
           <div>
-            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Letter Content (Supports \${name} placeholder)</label>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Letter Content (Supports <code>\${name}</code> variable)</label>
+              <button type="button" onclick="insertNameIntoSecretLetter(${index})" class="px-2 py-0.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-md text-[10px] font-bold transition flex items-center gap-1" title="Insert \${name} placeholder at cursor">
+                <i class="fas fa-user-plus text-[9px]"></i> Insert <code>\${name}</code>
+              </button>
+            </div>
             <textarea 
               id="letter-text-${index}" 
               rows="3" 
@@ -2654,6 +3093,18 @@
         `;
         container.appendChild(card);
       });
+    }
+
+    function insertNameIntoSecretLetter(index) {
+      const area = document.getElementById(`letter-text-${index}`);
+      if (!area) return;
+      const tag = '${name}';
+      const start = area.selectionStart || 0;
+      const end = area.selectionEnd || 0;
+      const text = area.value || '';
+      area.value = text.substring(0, start) + tag + text.substring(end);
+      area.focus();
+      area.selectionStart = area.selectionEnd = start + tag.length;
     }
 
     function toggleJsonImportBox() {
@@ -2973,15 +3424,63 @@
           document.getElementById('pref-type-auto').checked = true;
         }
         document.getElementById('pref-custom-letter-text').value = pref.custom_letter_text || '';
+        const labelsEl = document.getElementById('pref-contact-labels-input');
+        if (labelsEl) {
+          labelsEl.value = Array.isArray(pref.labels) ? pref.labels.join(', ') : '';
+        }
       } else {
         frameSelect.value = 'default';
         document.getElementById('pref-type-auto').checked = true;
         document.getElementById('pref-custom-letter-text').value = '';
+        const labelsEl = document.getElementById('pref-contact-labels-input');
+        if (labelsEl) labelsEl.value = '';
       }
 
       onPrefLetterTypeChange();
       onPrefFrameSelectChange();
+      renderPersonalizeContactHistory(name, phone);
       document.getElementById('personalize-contact-modal').classList.remove('hidden');
+    }
+
+    function renderPersonalizeContactHistory(name, phone) {
+      const badgeEl = document.getElementById('pref-history-years-badge');
+      const listEl = document.getElementById('pref-contact-history-list');
+      if (!badgeEl || !listEl) return;
+
+      const phoneKey9 = String(phone || '').replace(/\D/g, '').slice(-9);
+      const nameKey = String(name || '').toLowerCase().trim();
+      const stat = (phoneKey9 && allContactWishStats[phoneKey9]) || (nameKey && allContactWishStats[nameKey]) || null;
+
+      if (!stat || !stat.yearsCount) {
+        badgeEl.textContent = '0 Years Sent';
+        listEl.innerHTML = `<div class="text-slate-400 italic text-[11px]">No wishes sent to this contact yet.</div>`;
+        return;
+      }
+
+      const yrWord = stat.yearsCount === 1 ? '1 Year Sent' : `${stat.yearsCount} Years Sent`;
+      badgeEl.textContent = `${yrWord} (${(stat.years || []).join(', ')})`;
+
+      listEl.innerHTML = (stat.history || []).map(item => {
+        const sentDate = item.created_at
+          ? new Date(item.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+          : item.year;
+        const openedBadge = item.is_opened
+          ? `<span class="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 font-bold text-[10px] rounded">Opened (${item.open_count}x)</span>`
+          : `<span class="px-1.5 py-0.5 bg-amber-100 text-amber-700 font-semibold text-[10px] rounded">Not Opened</span>`;
+        const wishUrl = `${window.location.origin}/wish/${item.unique_code}?preview=admin`;
+        return `
+          <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
+            <div>
+              <div class="font-bold text-slate-800 text-xs">Year ${item.year} <span class="text-[10px] font-normal text-slate-400">• ${sentDate}</span></div>
+              <div class="text-[10px] text-slate-500 mt-0.5">WA: ${item.wa_status || 'sent'} • SMS: ${item.sms_status || 'not_sent'}</div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              ${openedBadge}
+              <a href="${wishUrl}" target="_blank" class="px-2 py-0.5 bg-pink-50 hover:bg-pink-100 text-pink-600 font-semibold text-[10px] rounded border border-pink-200">View</a>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     function closePersonalizeContactModal() {
@@ -2993,6 +3492,16 @@
       const isCustom = document.getElementById('pref-type-custom').checked;
       document.getElementById('pref-saved-letter-select').disabled = !isSaved;
       document.getElementById('pref-custom-letter-text').disabled = !isCustom;
+    }
+
+    function addQuickLabelToInput(labelName) {
+      const input = document.getElementById('pref-contact-labels-input');
+      if (!input) return;
+      const current = input.value.split(',').map(s => s.trim()).filter(Boolean);
+      if (!current.includes(labelName)) {
+        current.push(labelName);
+      }
+      input.value = current.join(', ');
     }
 
     async function saveContactPersonalization() {
@@ -3009,6 +3518,10 @@
       const savedLetterId = document.getElementById('pref-saved-letter-select').value;
       const customLetterText = document.getElementById('pref-custom-letter-text').value.trim();
       const assignedFrameId = document.getElementById('pref-frame-select').value;
+      const labelsInput = document.getElementById('pref-contact-labels-input');
+      const customLabels = labelsInput
+        ? Array.from(new Set(labelsInput.value.split(',').map(s => s.trim()).filter(Boolean)))
+        : [];
 
       Swal.fire({
         title: 'Saving Preferences...',
@@ -3026,7 +3539,8 @@
             letter_type: letterType,
             saved_letter_id: savedLetterId,
             custom_letter_text: customLetterText,
-            assigned_frame_id: assignedFrameId
+            assigned_frame_id: assignedFrameId,
+            labels: customLabels
           })
         });
 

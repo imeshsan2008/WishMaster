@@ -67,8 +67,12 @@ async function initDatabase() {
         birthday_month INT,
         birthday_day INT,
         photo_url TEXT,
+        labels TEXT[],
         synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+    `;
+    await sql`
+      ALTER TABLE contacts ADD COLUMN IF NOT EXISTS labels TEXT[];
     `;
 
     // 3. Birthday Wishes Table (7-Day valid links & tracking)

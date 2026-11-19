@@ -14,9 +14,10 @@ async function getContacts(req, res) {
       if (Array.isArray(dbContacts) && dbContacts.length > 0) {
         const formatted = dbContacts.map(c => ({
           name: c.name,
-          phones: [c.phone],
-          birthday: (c.birthday_month && c.birthday_day) ? { month: c.birthday_month, day: c.birthday_day } : null,
-          photo: c.photo_url
+          phones: c.phones || (c.phone ? [c.phone] : []),
+          birthday: c.birthday || ((c.birthday_month && c.birthday_day) ? { month: c.birthday_month, day: c.birthday_day } : null),
+          photo: c.photo_url || c.photo,
+          labels: Array.isArray(c.labels) ? c.labels : []
         }));
         return res.json(formatted);
       }
@@ -33,9 +34,10 @@ async function getContacts(req, res) {
       if (Array.isArray(dbContacts) && dbContacts.length > 0) {
         const formatted = dbContacts.map(c => ({
           name: c.name,
-          phones: [c.phone],
-          birthday: (c.birthday_month && c.birthday_day) ? { month: c.birthday_month, day: c.birthday_day } : null,
-          photo: c.photo_url
+          phones: c.phones || (c.phone ? [c.phone] : []),
+          birthday: c.birthday || ((c.birthday_month && c.birthday_day) ? { month: c.birthday_month, day: c.birthday_day } : null),
+          photo: c.photo_url || c.photo,
+          labels: Array.isArray(c.labels) ? c.labels : []
         }));
         return res.json(formatted);
       }

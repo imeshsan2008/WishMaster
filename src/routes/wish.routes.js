@@ -68,6 +68,7 @@ router.post('/api/wish/:code/open', wishController.openWishApi);
 router.post('/api/wish/:code/complete', wishController.completeWishApi);
 router.post('/api/wish/:code/reset', wishController.resetWishApi);
 router.get('/api/active-wishes', wishController.getActiveWishesApi);
+router.get('/api/wish-history-stats', wishController.getWishHistoryStatsApi);
 
 // Admin & Settings Endpoints
 router.get('/api/settings/song', wishController.getSongUrlApi);

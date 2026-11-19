@@ -6,6 +6,47 @@ const { safeReadJson, safeWriteJson } = require('../utils/file.util');
 let lastSyncSignature = '';
 
 /**
+ * Helper to fetch Google Contact Groups (Labels) map: resourceName -> formattedName.
+ */
+async function fetchContactGroupsMap(service) {
+  const groupMap = {};
+  try {
+    const groupsRes = await service.contactGroups.list({ pageSize: 1000 });
+    const groups = groupsRes.data.contactGroups || [];
+    for (const g of groups) {
+      if (!g.resourceName) continue;
+      // Include user-created contact groups and starred
+      if (g.groupType === 'USER_CONTACT_GROUP' || g.name === 'starred') {
+        const labelName = g.formattedName || g.name;
+        if (labelName && labelName.toLowerCase() !== 'mycontacts') {
+          groupMap[g.resourceName] = labelName;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('⚠️ Could not fetch Google contactGroups (labels):', err.message);
+  }
+  return groupMap;
+}
+
+/**
+ * Extracts human-readable labels for a person from their memberships.
+ */
+function extractPersonLabels(person, groupMap) {
+  if (!person.memberships || !Array.isArray(person.memberships)) return [];
+  const labels = [];
+  for (const m of person.memberships) {
+    const resName = m.contactGroupMembership?.contactGroupResourceName;
+    if (resName && groupMap[resName]) {
+      if (!labels.includes(groupMap[resName])) {
+        labels.push(groupMap[resName]);
+      }
+    }
+  }
+  return labels;
+}
+
+/**
  * Fetches contacts with birthdays directly from Google People API in real-time.
  * If offline or rate-limited, safely falls back to local cache.
  */
@@ -17,7 +58,7 @@ async function listContacts(auth, forceFresh = false) {
       const isVeryRecent = (Date.now() - stats.mtimeMs) < 30 * 1000; // 30 seconds debounce
       if (isVeryRecent) {
         const cached = safeReadJson(PATHS.CONTACTS_CACHE, null);
-        if (cached && cached.length > 0) return cached;
+        if (cached && cached.length > 0 && cached[0].labels !== undefined) return cached;
       }
     } catch (e) {}
   }
@@ -25,11 +66,14 @@ async function listContacts(auth, forceFresh = false) {
   // Fetch live from Google People API
   try {
     const service = google.people({ version: 'v1', auth });
-    const res = await service.people.connections.list({
-      resourceName: 'people/me',
-      pageSize: 2000,
-      personFields: 'names,emailAddresses,phoneNumbers,birthdays,photos'
-    });
+    const [res, groupMap] = await Promise.all([
+      service.people.connections.list({
+        resourceName: 'people/me',
+        pageSize: 2000,
+        personFields: 'names,emailAddresses,phoneNumbers,birthdays,photos,memberships'
+      }),
+      fetchContactGroupsMap(service)
+    ]);
 
     const connections = res.data.connections || [];
     console.log(`✅ Live Google Contacts fetched (${connections.length} total connections)`);
@@ -41,7 +85,8 @@ async function listContacts(auth, forceFresh = false) {
         emails: p.emailAddresses ? p.emailAddresses.map(e => e.value) : [],
         phones: p.phoneNumbers ? p.phoneNumbers.map(ph => ph.value) : [],
         birthday: p.birthdays ? p.birthdays[0].date : null,
-        photo: p.photos && p.photos.length > 0 ? p.photos[0].url : null
+        photo: p.photos && p.photos.length > 0 ? p.photos[0].url : null,
+        labels: extractPersonLabels(p, groupMap)
       }));
 
     safeWriteJson(PATHS.CONTACTS_CACHE, contacts);
@@ -58,16 +103,20 @@ async function listContacts(auth, forceFresh = false) {
 async function listContactsFestive(auth) {
   try {
     const service = google.people({ version: 'v1', auth });
-    const res = await service.people.connections.list({
-      resourceName: 'people/me',
-      pageSize: 2000,
-      personFields: 'names,emailAddresses,phoneNumbers,birthdays,photos'
-    });
+    const [res, groupMap] = await Promise.all([
+      service.people.connections.list({
+        resourceName: 'people/me',
+        pageSize: 2000,
+        personFields: 'names,emailAddresses,phoneNumbers,birthdays,photos,memberships'
+      }),
+      fetchContactGroupsMap(service)
+    ]);
 
     return (res.data.connections || []).map(p => ({
       name: p.names ? p.names[0].displayName : '',
       phones: p.phoneNumbers ? p.phoneNumbers.map(ph => ph.value) : [],
-      photo: p.photos && p.photos.length > 0 ? p.photos[0].url : null
+      photo: p.photos && p.photos.length > 0 ? p.photos[0].url : null,
+      labels: extractPersonLabels(p, groupMap)
     }));
   } catch (err) {
     console.warn('⚠️ listContactsFestive error, falling back to cache:', err.message);
@@ -141,7 +190,7 @@ async function syncGoogleContactsRealtime(io = null) {
 
     // Detect if contacts changed
     const currentSignature = contacts.map(c => 
-      `${c.name}:${(c.phones || []).join(',')}:${c.birthday ? c.birthday.month + '/' + c.birthday.day : ''}:${c.photo || ''}`
+      `${c.name}:${(c.phones || []).join(',')}:${c.birthday ? c.birthday.month + '/' + c.birthday.day : ''}:${c.photo || ''}:${(c.labels || []).join(',')}`
     ).join('|');
 
     if (currentSignature !== lastSyncSignature) {
