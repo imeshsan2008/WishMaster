@@ -600,7 +600,8 @@ const {
   getSmsCreditsStats,
   getSmsHistoryList,
   sendSms,
-  sendBirthdaySms
+  sendBirthdaySms,
+  isSriLankanPhone
 } = require('../services/sms.service');
 
 async function getSmsConfigApi(req, res) {
@@ -717,8 +718,6 @@ async function sendWishWithOptionsApi(req, res) {
 
     const sock = getSocket();
     const { sendForcedBirthdayMessage } = require('../services/birthday.service');
-    const { sendBirthdaySms, getTextLkConfig } = require('../services/sms.service');
-    const { sendBirthdaySms, getTextLkConfig, isSriLankanPhone } = require('../services/sms.service');
     const { getLatestWishByPhone, createBirthdayWishRecord, updateWishDeliveryStatus } = require('../services/db.service');
     const { HOSTNAME } = require('../config/env.config');
     const smsConfig = await getTextLkConfig();
@@ -762,10 +761,8 @@ async function sendWishWithOptionsApi(req, res) {
         }
       }
 
-      // 2. Text.lk SMS Dispatch
       // 2. Text.lk SMS Dispatch (Only for Sri Lankan +94 numbers)
       if (selectedChannels.includes('sms')) {
-        if (!smsConfig.token) {
         if (!isSriLankanPhone(cleanPhone)) {
           results.sms.push({
             phone: cleanPhone,
@@ -1115,10 +1112,7 @@ async function broadcastFestiveCampaignApi(req, res) {
         await new Promise(r => setTimeout(r, 1200));
       }
 
-      // 2. SMS Dispatch
-      if (selectedChannels.includes('sms') && smsConfig.token) {
       // 2. SMS Dispatch (Only for Sri Lankan +94 numbers)
-      const { isSriLankanPhone } = require('../services/sms.service');
       if (selectedChannels.includes('sms') && smsConfig.token && isSriLankanPhone(cleanPhone)) {
         try {
           const smsRes = await sendSms({
