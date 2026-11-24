@@ -3,6 +3,17 @@ const { google } = require('googleapis');
 const { PATHS } = require('../config/env.config');
 const { safeReadJson, safeWriteJson } = require('../utils/file.util');
 
+/**
+ * Helper to upgrade Google User Content contact photos to high resolution (1024px instead of default 100px).
+ */
+function upgradeGooglePhotoQuality(photoUrl) {
+  if (!photoUrl || typeof photoUrl !== 'string') return photoUrl;
+  if (photoUrl.includes('googleusercontent.com')) {
+    return photoUrl.replace(/=s\d+[^=]*$/, '=s1024');
+  }
+  return photoUrl;
+}
+
 let lastSyncSignature = '';
 
 /**
@@ -85,7 +96,7 @@ async function listContacts(auth, forceFresh = false) {
         emails: p.emailAddresses ? p.emailAddresses.map(e => e.value) : [],
         phones: p.phoneNumbers ? p.phoneNumbers.map(ph => ph.value) : [],
         birthday: p.birthdays ? p.birthdays[0].date : null,
-        photo: p.photos && p.photos.length > 0 ? p.photos[0].url : null,
+        photo: p.photos && p.photos.length > 0 ? upgradeGooglePhotoQuality(p.photos[0].url) : null,
         labels: extractPersonLabels(p, groupMap)
       }));
 
@@ -115,7 +126,7 @@ async function listContactsFestive(auth) {
     return (res.data.connections || []).map(p => ({
       name: p.names ? p.names[0].displayName : '',
       phones: p.phoneNumbers ? p.phoneNumbers.map(ph => ph.value) : [],
-      photo: p.photos && p.photos.length > 0 ? p.photos[0].url : null,
+      photo: p.photos && p.photos.length > 0 ? upgradeGooglePhotoQuality(p.photos[0].url) : null,
       labels: extractPersonLabels(p, groupMap)
     }));
   } catch (err) {
@@ -242,7 +253,7 @@ async function getGoogleProfilePhoto(auth, number) {
           return {
             name: person.names ? person.names[0].displayName : null,
             phone: phone.value,
-            photo: photo ? photo.replace(/=s\d+/, '=s10000') : null
+            photo: photo ? upgradeGooglePhotoQuality(photo) : null
           };
         }
       }
@@ -259,6 +270,7 @@ module.exports = {
   listContactsFestive,
   getTodayBirthdays,
   getGoogleProfilePhoto,
+  upgradeGooglePhotoQuality,
   syncGoogleContactsRealtime
 };
 

@@ -65,6 +65,7 @@ router.get('/birthdaysclear', wishController.clearBirthdaysSentTodayStatus);
 router.get('/wish/:code', wishController.renderWishPage);
 router.get('/api/wish/:code', wishController.getWishApi);
 router.post('/api/wish/:code/open', wishController.openWishApi);
+router.post('/api/wish/:code/lang', wishController.updateWishLangApi);
 router.post('/api/wish/:code/complete', wishController.completeWishApi);
 router.post('/api/wish/:code/reset', wishController.resetWishApi);
 router.get('/api/active-wishes', wishController.getActiveWishesApi);

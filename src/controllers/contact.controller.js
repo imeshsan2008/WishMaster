@@ -1,5 +1,5 @@
 const { getAuthClient } = require('../config/google.config');
-const { listContacts, listContactsFestive } = require('../services/google.service');
+const { listContacts, listContactsFestive, upgradeGooglePhotoQuality } = require('../services/google.service');
 const { getSyncedContacts } = require('../services/db.service');
 
 async function getContacts(req, res) {
@@ -16,7 +16,7 @@ async function getContacts(req, res) {
           name: c.name,
           phones: c.phones || (c.phone ? [c.phone] : []),
           birthday: c.birthday || ((c.birthday_month && c.birthday_day) ? { month: c.birthday_month, day: c.birthday_day } : null),
-          photo: c.photo_url || c.photo,
+          photo: upgradeGooglePhotoQuality(c.photo_url || c.photo),
           labels: Array.isArray(c.labels) ? c.labels : []
         }));
         return res.json(formatted);
@@ -36,7 +36,7 @@ async function getContacts(req, res) {
           name: c.name,
           phones: c.phones || (c.phone ? [c.phone] : []),
           birthday: c.birthday || ((c.birthday_month && c.birthday_day) ? { month: c.birthday_month, day: c.birthday_day } : null),
-          photo: c.photo_url || c.photo,
+          photo: upgradeGooglePhotoQuality(c.photo_url || c.photo),
           labels: Array.isArray(c.labels) ? c.labels : []
         }));
         return res.json(formatted);

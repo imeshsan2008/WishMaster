@@ -533,6 +533,8 @@ async function createBirthdayWishRecord({ contactName, phone, photoUrl, framedIm
     steps_completed: false,
     wa_status: waStatus,
     sms_status: smsStatus,
+    selected_lang: null,
+    open_history: [],
     created_at: now.toISOString(),
     expires_at: expiresAt.toISOString()
   };
@@ -626,10 +628,14 @@ async function markWishCardDelivered(code, phone) {
   }
 }
 
-async function markWishOpened(code) {
+async function markWishOpened(code, lang = null) {
   if (!code) return null;
 
   const now = new Date();
+  const nowIso = now.toISOString();
+  const cleanLang = (lang === 'si' || lang === 'en') ? lang : null;
+  const logEntry = { time: nowIso, lang: cleanLang };
+
   const sql = getSql();
   if (isDbConnected() && sql) {
     try {
@@ -637,7 +643,9 @@ async function markWishOpened(code) {
         UPDATE birthday_wishes
         SET is_opened = TRUE,
             opened_at = COALESCE(opened_at, CURRENT_TIMESTAMP),
-            open_count = open_count + 1
+            open_count = open_count + 1,
+            selected_lang = COALESCE(${cleanLang}, selected_lang),
+            open_history = COALESCE(open_history, '[]'::jsonb) || ${sql.json([logEntry])}::jsonb
         WHERE unique_code = ${code}
         RETURNING *;
       `;
@@ -651,8 +659,47 @@ async function markWishOpened(code) {
   const wish = (store.birthday_wishes || []).find(w => w.unique_code === code);
   if (wish) {
     wish.is_opened = true;
-    if (!wish.opened_at) wish.opened_at = now.toISOString();
+    if (!wish.opened_at) wish.opened_at = nowIso;
     wish.open_count = (wish.open_count || 0) + 1;
+    if (cleanLang) wish.selected_lang = cleanLang;
+    if (!Array.isArray(wish.open_history)) wish.open_history = [];
+    wish.open_history.push(logEntry);
+    saveLocalStore(store);
+  }
+  return wish;
+}
+
+async function updateWishLanguage(code, lang) {
+  if (!code || (lang !== 'si' && lang !== 'en')) return null;
+
+  const sql = getSql();
+  if (isDbConnected() && sql) {
+    try {
+      const rows = await sql`SELECT open_history FROM birthday_wishes WHERE unique_code = ${code} LIMIT 1`;
+      let history = (rows && rows[0] && Array.isArray(rows[0].open_history)) ? rows[0].open_history : [];
+      if (history.length > 0) {
+        history[history.length - 1].lang = lang;
+      }
+      const updated = await sql`
+        UPDATE birthday_wishes
+        SET selected_lang = ${lang},
+            open_history = ${sql.json(history)}::jsonb
+        WHERE unique_code = ${code}
+        RETURNING *;
+      `;
+      if (updated && updated.length > 0) return updated[0];
+    } catch (err) {
+      console.error('⚠️ DB error updateWishLanguage:', err.message);
+    }
+  }
+
+  const store = getLocalStore();
+  const wish = (store.birthday_wishes || []).find(w => w.unique_code === code);
+  if (wish) {
+    wish.selected_lang = lang;
+    if (Array.isArray(wish.open_history) && wish.open_history.length > 0) {
+      wish.open_history[wish.open_history.length - 1].lang = lang;
+    }
     saveLocalStore(store);
   }
   return wish;
@@ -869,7 +916,7 @@ async function getWishSendHistoryStats() {
   if (isDbConnected() && sql) {
     try {
       allWishes = await sql`
-        SELECT id, unique_code, contact_name, phone, is_opened, open_count, wa_status, sms_status, created_at
+        SELECT id, unique_code, contact_name, phone, is_opened, opened_at, open_count, selected_lang, open_history, wa_status, sms_status, created_at
         FROM birthday_wishes
         ORDER BY created_at DESC;
       `;
@@ -912,7 +959,10 @@ async function getWishSendHistoryStats() {
       unique_code: w.unique_code,
       created_at: w.created_at,
       is_opened: Boolean(w.is_opened),
+      opened_at: w.opened_at || null,
       open_count: w.open_count || 0,
+      selected_lang: w.selected_lang || null,
+      open_history: Array.isArray(w.open_history) ? w.open_history : [],
       wa_status: w.wa_status || 'sent',
       sms_status: w.sms_status || 'not_sent'
     });
@@ -1072,6 +1122,7 @@ module.exports = {
   getWishByCode,
   getLatestWishByPhone,
   markWishOpened,
+  updateWishLanguage,
   markWishStepsCompleted,
   markWishCardDelivered,
   updateWishDeliveryStatus,

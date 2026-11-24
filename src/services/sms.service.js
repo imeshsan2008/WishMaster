@@ -233,12 +233,22 @@ async function getSmsHistoryList(limit = 100) {
 function formatToTextLkPhone(phone) {
   let clean = String(phone || '').replace(/\D/g, '');
   if (!clean) return '';
+  if (clean.startsWith('00')) {
+    clean = clean.slice(2);
+  }
   if (clean.startsWith('0') && clean.length === 10) {
     clean = '94' + clean.slice(1);
   } else if (!clean.startsWith('94') && clean.length === 9) {
+  } else if (!clean.startsWith('94') && clean.length === 9 && clean.startsWith('7')) {
     clean = '94' + clean;
   }
   return clean;
+}
+
+function isSriLankanPhone(phone) {
+  const formatted = formatToTextLkPhone(phone);
+  // Valid Sri Lankan numbers in international format start with 94 and have 11 digits (e.g. 947XXXXXXXX)
+  return /^94\d{9}$/.test(formatted);
 }
 
 // ======================== DISPATCH SMS VIA TEXT.LK ========================
@@ -258,6 +268,13 @@ async function sendSms({ recipientPhone, recipientName = '', message }) {
       responseMessage: 'Invalid phone number format'
     });
     return { success: false, error: 'Invalid phone number format' };
+  }
+
+  // Restrict SMS to Sri Lankan (+94) numbers only; international numbers use WhatsApp only
+  if (!isSriLankanPhone(phone)) {
+    const skipMsg = `Non-Sri Lankan number (+${phone}) — SMS skipped (WhatsApp only)`;
+    console.log(`⏭️ [SMS Guard] ${skipMsg}`);
+    return { success: false, skipped: true, error: skipMsg };
   }
 
   // Anti-duplication guard: Prevent sending 2 SMS to the same phone within 15 seconds
@@ -373,6 +390,7 @@ module.exports = {
   recordSmsHistory,
   getSmsHistoryList,
   formatToTextLkPhone,
+  isSriLankanPhone,
   sendSms,
   sendBirthdaySms
 };

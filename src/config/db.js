@@ -110,6 +110,12 @@ async function initDatabase() {
     await sql`
       ALTER TABLE birthday_wishes ADD COLUMN IF NOT EXISTS sms_status VARCHAR(20) DEFAULT 'not_sent';
     `;
+    await sql`
+      ALTER TABLE birthday_wishes ADD COLUMN IF NOT EXISTS selected_lang VARCHAR(10);
+    `;
+    await sql`
+      ALTER TABLE birthday_wishes ADD COLUMN IF NOT EXISTS open_history JSONB DEFAULT '[]'::jsonb;
+    `;
 
     // 4. SMS History Table
     await sql`

@@ -301,11 +301,28 @@ async function openWishApi(req, res) {
     return res.json({ ok: true, preview: true, message: 'Admin preview - view not counted' });
   }
 
-  const wish = await markWishOpened(code);
+  const lang = req.body?.lang || req.query?.lang || null;
+  const wish = await markWishOpened(code, lang);
   if (!wish) {
     return res.status(404).json({ error: 'Wish not found' });
   }
   res.json({ ok: true, wish });
+}
+
+async function updateWishLangApi(req, res) {
+  try {
+    const { code } = req.params;
+    const isPreview = req.query.preview === 'admin' || req.headers['x-admin-preview'] === 'true';
+    if (isPreview) {
+      return res.json({ ok: true, preview: true });
+    }
+    const { lang } = req.body || {};
+    const { updateWishLanguage } = require('../services/db.service');
+    const wish = await updateWishLanguage(code, lang);
+    res.json({ ok: true, wish });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
 }
 
 async function getActiveWishesApi(req, res) {
@@ -701,6 +718,7 @@ async function sendWishWithOptionsApi(req, res) {
     const sock = getSocket();
     const { sendForcedBirthdayMessage } = require('../services/birthday.service');
     const { sendBirthdaySms, getTextLkConfig } = require('../services/sms.service');
+    const { sendBirthdaySms, getTextLkConfig, isSriLankanPhone } = require('../services/sms.service');
     const { getLatestWishByPhone, createBirthdayWishRecord, updateWishDeliveryStatus } = require('../services/db.service');
     const { HOSTNAME } = require('../config/env.config');
     const smsConfig = await getTextLkConfig();
@@ -745,8 +763,22 @@ async function sendWishWithOptionsApi(req, res) {
       }
 
       // 2. Text.lk SMS Dispatch
+      // 2. Text.lk SMS Dispatch (Only for Sri Lankan +94 numbers)
       if (selectedChannels.includes('sms')) {
         if (!smsConfig.token) {
+        if (!isSriLankanPhone(cleanPhone)) {
+          results.sms.push({
+            phone: cleanPhone,
+            success: false,
+            skipped: true,
+            error: 'Non-Sri Lankan number (WhatsApp only — SMS skipped)'
+          });
+          await updateWishDeliveryStatus({
+            uniqueCode: wishCode,
+            phone: cleanPhone,
+            smsStatus: 'not_sent'
+          });
+        } else if (!smsConfig.token) {
           results.sms.push({
             phone: cleanPhone,
             success: false,
@@ -1085,6 +1117,9 @@ async function broadcastFestiveCampaignApi(req, res) {
 
       // 2. SMS Dispatch
       if (selectedChannels.includes('sms') && smsConfig.token) {
+      // 2. SMS Dispatch (Only for Sri Lankan +94 numbers)
+      const { isSriLankanPhone } = require('../services/sms.service');
+      if (selectedChannels.includes('sms') && smsConfig.token && isSriLankanPhone(cleanPhone)) {
         try {
           const smsRes = await sendSms({
             phone: cleanPhone,
@@ -1150,6 +1185,7 @@ module.exports = {
   renderWishPage,
   getWishApi,
   openWishApi,
+  updateWishLangApi,
   completeWishApi,
   resetWishApi,
   getActiveWishesApi,

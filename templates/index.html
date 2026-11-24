@@ -617,7 +617,7 @@
 
       <!-- Studio Toolbar -->
       <div class="px-6 py-3 border-b border-slate-100 bg-white flex flex-wrap items-center justify-between gap-3">
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
           <label class="text-xs font-bold text-slate-600 uppercase tracking-wider">Template:</label>
           <select id="studio-style-select" onchange="onStudioSelectChange()" class="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-pink-500">
             <!-- Populated dynamically -->
@@ -626,6 +626,19 @@
           <button onclick="setStudioActiveStyle()" class="px-3.5 py-1.5 bg-pink-500 hover:bg-pink-600 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-1.5" title="Use this frame for birthday wishes">
             <i class="fas fa-check"></i>
             <span>Set as Active</span>
+          </button>
+        </div>
+
+        <!-- Example Contact Preview Dropdown -->
+        <div class="flex items-center gap-2 bg-pink-50/80 border border-pink-200 px-3 py-1.5 rounded-xl shadow-xs">
+          <label class="text-xs font-bold text-[#831843] uppercase tracking-wider flex items-center gap-1.5">
+            <i class="fas fa-user-circle text-pink-600"></i> Example Contact:
+          </label>
+          <select id="studio-contact-select" onchange="onStudioContactSelectChange()" class="px-2.5 py-1 bg-white border border-pink-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-pink-500 max-w-[180px] sm:max-w-[210px] truncate" title="Select contact to preview on this frame template">
+            <option value="">-- Choose Example Contact --</option>
+          </select>
+          <button type="button" onclick="resetStudioContactPreview()" class="px-2 py-1 bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 rounded-lg text-xs border border-slate-200 transition shadow-xs" title="Reset Example Preview">
+            <i class="fas fa-undo text-[10px]"></i>
           </button>
         </div>
 
@@ -673,10 +686,17 @@
               <!-- Profile Area Guide Box -->
               <div 
                 id="studio-profile-guide" 
-                class="absolute border-2 border-dashed border-pink-400/80 bg-pink-400/20 cursor-move select-none rounded-xl flex items-center justify-center z-20 hover:border-pink-500 transition-colors"
+                class="absolute border-2 border-dashed border-pink-400/80 bg-pink-400/20 cursor-move select-none rounded-xl flex items-center justify-center z-20 hover:border-pink-500 transition-colors overflow-hidden group"
                 title="Drag to position Profile Photo"
               >
-                <span class="text-[9px] font-bold text-pink-600 bg-white/90 px-1 rounded shadow-xs uppercase">Photo</span>
+                <img 
+                  id="studio-preview-avatar" 
+                  src="/assets/img/default_avatar.png" 
+                  alt="Contact Preview" 
+                  class="w-full h-full object-cover hidden pointer-events-none rounded-lg"
+                  onerror="this.src='/assets/img/default_avatar.png';" 
+                />
+                <span id="studio-profile-label" class="text-[9px] font-bold text-pink-600 bg-white/90 px-1 rounded shadow-xs uppercase pointer-events-none">Photo</span>
               </div>
 
               <!-- Interactive Draggable Name Badge -->
@@ -1123,8 +1143,8 @@
           </div>
         </div>
 
-        <!-- SECTION 4: YEARLY SEND HISTORY FOR THIS CONTACT -->
-        <div class="bg-white p-5 rounded-2xl border border-pink-100 shadow-sm space-y-3">
+        <!-- SECTION 4: YEARLY SEND HISTORY FOR THIS CONTACT (ONLY VISIBLE WITH ?wht=) -->
+        <div id="pref-history-section" class="hidden bg-white p-5 rounded-2xl border border-pink-100 shadow-sm space-y-3">
           <div class="flex items-center justify-between">
             <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
               <i class="fas fa-history text-sky-500"></i> Birthday Wish Send History
@@ -1133,7 +1153,7 @@
               0 Years Sent
             </span>
           </div>
-          <div id="pref-contact-history-list" class="space-y-2 max-h-40 overflow-y-auto text-xs text-slate-600">
+          <div id="pref-contact-history-list" class="space-y-2 max-h-56 overflow-y-auto text-xs text-slate-600">
             <div class="text-slate-400 italic text-[11px]">No wishes sent to this contact yet.</div>
           </div>
         </div>
@@ -1612,11 +1632,26 @@
     }
 
     // ======================== ACTIVE 7-DAY WISHES ========================
+    function isWhtParamEnabled() {
+      try {
+        return new URLSearchParams(window.location.search).has('wht');
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function formatLangLabel(lang) {
+      if (lang === 'si') return '🇱🇰 සිංහල (Sinhala)';
+      if (lang === 'en') return '🇬🇧 English';
+      return 'Not Selected';
+    }
+
     async function loadActiveWishes() {
       const container = document.getElementById('active-wishes-list');
       try {
         const res = await fetch('/api/active-wishes');
         const wishes = await res.json();
+        const showWht = isWhtParamEnabled();
 
         // Deduplicate wishes per contact: 1 entry per contact only (no repeats)
         const seenRecipients = new Set();
@@ -1642,7 +1677,6 @@
           const created = new Date(w.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
           const expires = new Date(w.expires_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
           const isOpened = w.is_opened;
-        loadContacts(false);
           const openBadge = isOpened
             ? `<span class="px-2.5 py-1 bg-green-100 text-green-700 font-bold text-[11px] rounded-full flex items-center gap-1">
                  <i class="fas fa-check-circle"></i> Opened (${w.open_count}x)
@@ -1650,6 +1684,36 @@
             : `<span class="px-2.5 py-1 bg-amber-100 text-amber-700 font-semibold text-[11px] rounded-full flex items-center gap-1">
                  <i class="fas fa-clock"></i> Not Opened Yet
                </span>`;
+
+          let whtDetailsHtml = '';
+          if (showWht) {
+            const langBadge = w.selected_lang
+              ? `<span class="px-2 py-0.5 bg-purple-100 text-purple-700 font-bold text-[10px] rounded-md border border-purple-200">Lang: ${formatLangLabel(w.selected_lang)}</span>`
+              : '';
+            const openHistoryArr = Array.isArray(w.open_history) ? w.open_history : [];
+            let openTimesText = '';
+            if (openHistoryArr.length > 0) {
+              openTimesText = openHistoryArr.map((entry, idx) => {
+                const tStr = entry.time ? new Date(entry.time).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+                const lStr = entry.lang ? ` [${entry.lang === 'si' ? 'සිංහල' : 'English'}]` : '';
+                return `#${idx + 1}: ${tStr}${lStr}`;
+              }).join(' • ');
+            } else if (w.opened_at) {
+              openTimesText = `1st Open: ${new Date(w.opened_at).toLocaleString()}`;
+            }
+
+            if (langBadge || openTimesText) {
+              whtDetailsHtml = `
+                <div class="mt-1.5 p-2 bg-purple-50/70 border border-purple-100 rounded-xl text-[10px] text-slate-600 space-y-1">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-bold text-purple-800"><i class="fas fa-user-secret mr-1"></i>?wht Details:</span>
+                    ${langBadge}
+                  </div>
+                  ${openTimesText ? `<div class="text-slate-500 font-mono text-[10px] leading-relaxed">🕒 Opened Times: ${escapeHTML(openTimesText)}</div>` : ''}
+                </div>
+              `;
+            }
+          }
 
           const waBadge = (w.wa_status === 'sent')
             ? `<span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 font-bold text-[10px] rounded-md flex items-center gap-1"><i class="fab fa-whatsapp"></i> WA: Sent</span>`
@@ -1672,6 +1736,7 @@
                 <div>
                   <div class="font-bold text-sm text-slate-800">${escapeHTML(w.contact_name)}</div>
                   <div class="text-[11px] text-slate-400">Phone: ${w.phone} • Sent: ${created}</div>
+                  ${whtDetailsHtml}
                 </div>
               </div>
 
@@ -1755,11 +1820,21 @@
       renderContactsWithFilters();
     }
 
+    function isSriLankanNumberClient(phone) {
+      let clean = String(phone || '').replace(/\D/g, '');
+      if (!clean) return false;
+      if (clean.startsWith('00')) clean = clean.slice(2);
+      if (clean.startsWith('0') && clean.length === 10) clean = '94' + clean.slice(1);
+      else if (!clean.startsWith('94') && clean.length === 9 && clean.startsWith('7')) clean = '94' + clean;
+      return /^94\d{9}$/.test(clean);
+    }
+
     // Helper to render individual contact card
     function renderContactCard(c, isToday, targetYear = null, daysLeft = null) {
       const phones = Array.isArray(c.phones) ? c.phones : (c.phone ? [c.phone] : []);
       const cleanPhones = phones.map(p => String(p).replace(/\D/g, '')).filter(Boolean);
       const primaryPhone = cleanPhones[0] || '';
+      const hasAnySriLankanPhone = cleanPhones.some(p => isSriLankanNumberClient(p));
       const phoneDisplay = phones.join(' • ') || 'No phone';
       const bdayText = formatBirthdayDisplay(c.birthday, targetYear);
 
@@ -1797,16 +1872,18 @@
         }
       }
 
-      // Yearly Send History Badge (How many years wishes were sent to this contact)
+      // Yearly Send History Badge (ONLY shown when ?wht= query param is present in URL)
       const phoneKey9 = primaryPhone ? primaryPhone.slice(-9) : '';
       const nameKey = String(c.name || '').toLowerCase().trim();
       const wishStat = (phoneKey9 && allContactWishStats[phoneKey9]) || (nameKey && allContactWishStats[nameKey]) || null;
-      if (wishStat && wishStat.yearsCount > 0) {
+      if (isWhtParamEnabled() && wishStat && wishStat.yearsCount > 0) {
         const yrLabel = wishStat.yearsCount === 1 ? '1 Yr' : `${wishStat.yearsCount} Yrs`;
         const yearsListStr = (wishStat.years || []).join(', ');
+        const latestHist = (wishStat.history && wishStat.history[0]) || null;
+        const latestLang = latestHist?.selected_lang ? ` • ${latestHist.selected_lang === 'si' ? 'සිංහල' : 'EN'}` : '';
         customBadges += `
           <button type="button" onclick="openPersonalizeContactModal('${escapeHTML(c.name)}', '${primaryPhone}')" class="px-2 py-0.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-[10px] font-bold rounded-full transition flex items-center gap-1" title="Sent in ${wishStat.yearsCount} year(s): ${yearsListStr} (Total ${wishStat.totalSentCount}x)">
-            <i class="fas fa-check-double text-[9px] text-sky-500"></i> Sent: ${yrLabel} (${yearsListStr})
+            <i class="fas fa-check-double text-[9px] text-sky-500"></i> Sent: ${yrLabel} (${yearsListStr})${latestLang}
           </button>
         `;
       }
@@ -1834,10 +1911,17 @@
               <span class="hidden sm:inline">Personalize</span>
             </button>
 
+            ${hasAnySriLankanPhone ? `
             <button onclick="sendDirectContactSms('${primaryPhone}', '${escapeHTML(c.name)}')" class="px-2.5 py-1.5 bg-white hover:bg-sky-50 text-slate-700 hover:text-sky-600 border border-slate-200 hover:border-sky-300 text-xs font-semibold rounded-xl transition flex items-center gap-1 shadow-2xs" title="Send birthday SMS via Text.lk">
               <i class="fas fa-sms text-sky-500"></i>
               <span class="hidden sm:inline">SMS</span>
             </button>
+            ` : `
+            <span class="px-2.5 py-1.5 bg-slate-100 text-slate-400 border border-slate-200 text-[10px] font-semibold rounded-xl flex items-center gap-1 cursor-not-allowed" title="International number — WhatsApp only (SMS disabled)">
+              <i class="fab fa-whatsapp text-emerald-500"></i>
+              <span class="hidden sm:inline">WA Only</span>
+            </span>
+            `}
 
             <button onclick="openSendWishModal('${escapeHTML(c.name)}', '${phonesParam}')" class="px-3.5 py-1.5 ${isToday ? 'bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600' : 'bg-pink-500 hover:bg-pink-600'} text-white text-xs font-semibold rounded-xl shadow transition flex items-center gap-1.5">
               <i class="fas fa-gift"></i>
@@ -1873,6 +1957,7 @@
 
     function renderContactsWithFilters() {
       const contacts = allLoadedContacts || [];
+      populateStudioContactSelect();
 
       // 1. Collect all unique labels & counts across contacts
       const labelCounts = {};
@@ -2517,10 +2602,100 @@
       document.getElementById('frame-studio-modal').classList.remove('hidden');
       loadStudioStyles();
       setupStudioDragEvents();
+      if (!allLoadedContacts || allLoadedContacts.length === 0) {
+        loadContacts(false).then(() => populateStudioContactSelect());
+      } else {
+        populateStudioContactSelect();
+      }
     }
 
     function closeFrameStudioModal() {
       document.getElementById('frame-studio-modal').classList.add('hidden');
+    }
+
+    function populateStudioContactSelect() {
+      const select = document.getElementById('studio-contact-select');
+      if (!select) return;
+      const currentVal = select.value;
+      select.innerHTML = '<option value="">-- Choose Example Contact --</option>';
+
+      const contacts = Array.isArray(allLoadedContacts) && allLoadedContacts.length > 0
+        ? allLoadedContacts
+        : [];
+
+      contacts.forEach((c, index) => {
+        const opt = document.createElement('option');
+        opt.value = String(index);
+        const hasPhoto = Boolean(c.photo || c.photo_url);
+        opt.textContent = `${c.name || 'Unnamed'}${hasPhoto ? ' 📸' : ''}`;
+        select.appendChild(opt);
+      });
+
+      if (currentVal && select.querySelector(`option[value="${currentVal}"]`)) {
+        select.value = currentVal;
+      }
+    }
+
+    function onStudioContactSelectChange() {
+      const select = document.getElementById('studio-contact-select');
+      const avatarImg = document.getElementById('studio-preview-avatar');
+      const labelSpan = document.getElementById('studio-profile-label');
+      const badgeText = document.getElementById('studio-badge-text');
+
+      if (!select || !select.value) {
+        resetStudioContactPreview();
+        return;
+      }
+
+      const idx = parseInt(select.value, 10);
+      const contact = allLoadedContacts?.[idx];
+      if (!contact) return;
+
+      // Update name badge to show the contact's real name
+      if (badgeText) {
+        badgeText.textContent = (contact.name || 'RECIPIENT NAME').toUpperCase();
+      }
+
+      // Update profile picture guide with the contact's high-res photo
+      let photo = contact.photo || contact.photo_url;
+      if (photo && typeof photo === 'string') {
+        // Upgrade Google Contact photo URL to high resolution
+        if (photo.includes('googleusercontent.com')) {
+          photo = photo.replace(/=s\d+[^=]*$/, '=s1024');
+        }
+        if (avatarImg) {
+          avatarImg.src = photo;
+          avatarImg.classList.remove('hidden');
+        }
+        if (labelSpan) {
+          labelSpan.classList.add('hidden');
+        }
+      } else {
+        if (avatarImg) {
+          avatarImg.src = '/assets/img/default_avatar.png';
+          avatarImg.classList.remove('hidden');
+        }
+        if (labelSpan) {
+          labelSpan.classList.add('hidden');
+        }
+      }
+    }
+
+    function resetStudioContactPreview() {
+      const select = document.getElementById('studio-contact-select');
+      if (select) select.value = '';
+
+      const avatarImg = document.getElementById('studio-preview-avatar');
+      if (avatarImg) {
+        avatarImg.classList.add('hidden');
+        avatarImg.src = '/assets/img/default_avatar.png';
+      }
+
+      const labelSpan = document.getElementById('studio-profile-label');
+      if (labelSpan) labelSpan.classList.remove('hidden');
+
+      const badgeText = document.getElementById('studio-badge-text');
+      if (badgeText) badgeText.textContent = '[ RECIPIENT NAME ]';
     }
 
     async function loadStudioStyles() {
@@ -2617,6 +2792,12 @@
       setElemText('studio-profile-size-label', `${pSize} px`);
       setElemVal('studio-profile-x', prof.left || 100);
       setElemVal('studio-profile-y', prof.top || 100);
+
+      // Re-apply preview contact if one is chosen
+      const contactSelect = document.getElementById('studio-contact-select');
+      if (contactSelect && contactSelect.value) {
+        onStudioContactSelectChange();
+      }
     }
 
     function onStudioImageLoaded() {
@@ -2655,6 +2836,12 @@
 
       updateBadgePositionFromCoords(actualX, actualY);
       applyTypographyStyles();
+
+      // Keep selected example contact in badge and photo box
+      const contactSelect = document.getElementById('studio-contact-select');
+      if (contactSelect && contactSelect.value) {
+        onStudioContactSelectChange();
+      }
     }
 
     function updateBadgePositionFromCoords(actualX, actualY) {
@@ -3443,9 +3630,16 @@
     }
 
     function renderPersonalizeContactHistory(name, phone) {
+      const secEl = document.getElementById('pref-history-section');
       const badgeEl = document.getElementById('pref-history-years-badge');
       const listEl = document.getElementById('pref-contact-history-list');
-      if (!badgeEl || !listEl) return;
+      if (!secEl || !badgeEl || !listEl) return;
+
+      if (!isWhtParamEnabled()) {
+        secEl.classList.add('hidden');
+        return;
+      }
+      secEl.classList.remove('hidden');
 
       const phoneKey9 = String(phone || '').replace(/\D/g, '').slice(-9);
       const nameKey = String(name || '').toLowerCase().trim();
@@ -3467,17 +3661,46 @@
         const openedBadge = item.is_opened
           ? `<span class="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 font-bold text-[10px] rounded">Opened (${item.open_count}x)</span>`
           : `<span class="px-1.5 py-0.5 bg-amber-100 text-amber-700 font-semibold text-[10px] rounded">Not Opened</span>`;
+        const langBadge = item.selected_lang
+          ? `<span class="px-1.5 py-0.5 bg-purple-100 text-purple-700 font-bold text-[10px] rounded border border-purple-200">${formatLangLabel(item.selected_lang)}</span>`
+          : `<span class="px-1.5 py-0.5 bg-slate-100 text-slate-500 text-[10px] rounded">Lang: —</span>`;
+
+        const openLogs = Array.isArray(item.open_history) ? item.open_history : [];
+        let openLogsHtml = '';
+        if (openLogs.length > 0) {
+          openLogsHtml = `
+            <div class="mt-1.5 pt-1.5 border-t border-slate-200/70 space-y-0.5 text-[10px] font-mono text-slate-500">
+              <div class="font-sans font-bold text-slate-600 text-[10px]">🕒 Opened Timestamps & Language:</div>
+              ${openLogs.map((log, i) => {
+                const tStr = log.time ? new Date(log.time).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
+                const lStr = log.lang ? (log.lang === 'si' ? '🇱🇰 සිංහල' : '🇬🇧 English') : '—';
+                return `<div>#${i + 1}: ${escapeHTML(tStr)} • <span class="font-bold text-purple-700">${lStr}</span></div>`;
+              }).join('')}
+            </div>
+          `;
+        } else if (item.opened_at) {
+          openLogsHtml = `
+            <div class="mt-1 pt-1 border-t border-slate-200/70 text-[10px] font-mono text-slate-500">
+              🕒 Opened at: ${new Date(item.opened_at).toLocaleString()}
+            </div>
+          `;
+        }
+
         const wishUrl = `${window.location.origin}/wish/${item.unique_code}?preview=admin`;
         return `
-          <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
-            <div>
-              <div class="font-bold text-slate-800 text-xs">Year ${item.year} <span class="text-[10px] font-normal text-slate-400">• ${sentDate}</span></div>
-              <div class="text-[10px] text-slate-500 mt-0.5">WA: ${item.wa_status || 'sent'} • SMS: ${item.sms_status || 'not_sent'}</div>
+          <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+            <div class="flex items-center justify-between gap-2">
+              <div>
+                <div class="font-bold text-slate-800 text-xs">Year ${item.year} <span class="text-[10px] font-normal text-slate-400">• Sent: ${sentDate}</span></div>
+                <div class="text-[10px] text-slate-500 mt-0.5">WA: ${item.wa_status || 'sent'} • SMS: ${item.sms_status || 'not_sent'}</div>
+              </div>
+              <div class="flex items-center gap-1.5 flex-wrap justify-end">
+                ${langBadge}
+                ${openedBadge}
+                <a href="${wishUrl}" target="_blank" class="px-2 py-0.5 bg-pink-50 hover:bg-pink-100 text-pink-600 font-semibold text-[10px] rounded border border-pink-200">View</a>
+              </div>
             </div>
-            <div class="flex items-center gap-1.5">
-              ${openedBadge}
-              <a href="${wishUrl}" target="_blank" class="px-2 py-0.5 bg-pink-50 hover:bg-pink-100 text-pink-600 font-semibold text-[10px] rounded border border-pink-200">View</a>
-            </div>
+            ${openLogsHtml}
           </div>
         `;
       }).join('');
@@ -3845,6 +4068,24 @@
       }
 
       // Reset results box
+      // Reset results box & configure SMS channel checkbox based on Sri Lankan (+94) number check
+      const hasSriLankan = phones.some(p => isSriLankanNumberClient(p));
+      const smsCheckbox = document.getElementById('send-channel-sms');
+      if (smsCheckbox) {
+        smsCheckbox.checked = hasSriLankan;
+        smsCheckbox.disabled = !hasSriLankan;
+        const smsLabelBox = smsCheckbox.closest('label');
+        if (smsLabelBox) {
+          if (!hasSriLankan) {
+            smsLabelBox.classList.add('opacity-50', 'cursor-not-allowed');
+            smsLabelBox.title = 'Non-Sri Lankan number: Only WhatsApp is supported (SMS disabled)';
+          } else {
+            smsLabelBox.classList.remove('opacity-50', 'cursor-not-allowed');
+            smsLabelBox.title = '';
+          }
+        }
+      }
+
       document.getElementById('send-modal-results').classList.add('hidden');
       document.getElementById('send-modal-results-list').innerHTML = '';
       document.getElementById('send-wish-modal').classList.remove('hidden');

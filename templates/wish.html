@@ -660,12 +660,22 @@
       }
     }
 
+    function syncLanguageToBackend(lang) {
+      if (isAdminPreview || !wishCode) return;
+      fetch(`/api/wish/${wishCode}/lang`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lang })
+      }).catch(() => {});
+    }
+
     function selectInitialLanguage(lang) {
       currentLang = (lang === 'si') ? 'si' : 'en';
       localStorage.setItem('wish_lang_' + wishCode, currentLang);
       localStorage.setItem('wish_lang', currentLang);
       document.getElementById('lang-picker-modal').classList.add('hidden');
       applyLanguage(currentLang);
+      syncLanguageToBackend(currentLang);
       attemptAutoplayOnLoad();
     }
 
@@ -674,6 +684,7 @@
       localStorage.setItem('wish_lang_' + wishCode, currentLang);
       localStorage.setItem('wish_lang', currentLang);
       applyLanguage(currentLang);
+      syncLanguageToBackend(currentLang);
     }
 
     function applyLanguage(lang) {
@@ -757,8 +768,8 @@
       const isNeverExpiring = currentWishData && (currentWishData.expires_at && new Date(currentWishData.expires_at).getFullYear() > 2090);
       if (isNeverExpiring) {
         document.getElementById('footer-credit').textContent = (lang === 'si') 
-          ? 'ආදරයෙන් නිර්මාණය කරන ලදී ❤️ • වලංගු කාලය: සදාකාලිකයි (Never)' 
-          : 'Crafted with ❤️ • Validity: Never Expiring';
+          ? 'ආදරයෙන් නිර්මාණය කරන ලදී ❤️ ' 
+          : 'Crafted with ❤️ ';
       } else {
         const days = (currentWishData && currentWishData.expiry_days) ? currentWishData.expiry_days : 7;
         document.getElementById('footer-credit').textContent = t.footerCredit.replace('{days}', days);
@@ -831,9 +842,14 @@
           applyCompletedState();
         }
 
-        // Notify backend of open event (ONLY if NOT in admin preview mode)
+        // Notify backend of open event with current language (ONLY if NOT in admin preview mode)
         if (!isAdminPreview) {
-          fetch(`/api/wish/${wishCode}/open`, { method: 'POST' }).catch(() => {});
+          const initLang = localStorage.getItem('wish_lang_' + wishCode) || localStorage.getItem('wish_lang') || null;
+          fetch(`/api/wish/${wishCode}/open`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lang: initLang })
+          }).catch(() => {});
         }
 
       } catch (err) {

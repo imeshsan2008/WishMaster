@@ -4,7 +4,7 @@ const { PATHS, ADMIN_GROUP_JID, HOSTNAME } = require('../config/env.config');
 const { safeReadJson, safeWriteJson } = require('../utils/file.util');
 const { getCustomMessage, interpolateMessage } = require('../utils/text.util');
 const { getAuthClient } = require('../config/google.config');
-const { getTodayBirthdays, getGoogleProfilePhoto } = require('./google.service');
+const { getTodayBirthdays, getGoogleProfilePhoto, upgradeGooglePhotoQuality } = require('./google.service');
 const { sendVoiceNote } = require('./voice.service');
 const { fetchProfilePicBuffer, createFramedImage } = require('./image.service');
 const {
@@ -140,10 +140,11 @@ async function dispatchBirthdayWishToNumber(sock, contact, rawPhone, auth, songU
   const jid = `${number}@s.whatsapp.net`;
 
   // 1. Resolve Contact Photo (Google API -> Contacts.json -> DB -> WhatsApp -> Default)
-  let photoUrl = contact.photo || null;
+  let photoUrl = upgradeGooglePhotoQuality(contact.photo || null);
   if (!photoUrl || photoUrl.includes('/cm/')) {
     photoUrl = await resolveContactPhoto(auth, number, jid, sock);
   }
+  photoUrl = upgradeGooglePhotoQuality(photoUrl);
 
   // 2. Resolve Personalized Secret Letter & Frame Style
   const { personalMsg, assignedFrameStyle } = await resolvePersonalizedWishContent(contact.name, number);
@@ -217,15 +218,19 @@ async function dispatchBirthdayWishToNumber(sock, contact, rawPhone, auth, songU
 
       console.log(`✅ Sent surprise birthday page link to ${contact.name} (${number})`);
 
-      // Dispatch SMS via Text.lk if enabled (and not skipped by caller)
+      // Dispatch SMS via Text.lk if enabled (only for Sri Lankan +94 numbers, and not skipped by caller)
       if (!skipAutoSms) {
         try {
-          const { sendBirthdaySms, getTextLkConfig } = require('./sms.service');
-          const smsConfig = await getTextLkConfig();
-          if (smsConfig.autoSend && smsConfig.token) {
-            sendBirthdaySms({ contact: { ...contact, phone: number }, wishUrl }).catch(err => {
-              console.error('⚠️ Birthday SMS error:', err.message);
-            });
+          const { sendBirthdaySms, getTextLkConfig, isSriLankanPhone } = require('./sms.service');
+          if (isSriLankanPhone(number)) {
+            const smsConfig = await getTextLkConfig();
+            if (smsConfig.autoSend && smsConfig.token) {
+              sendBirthdaySms({ contact: { ...contact, phone: number }, wishUrl }).catch(err => {
+                console.error('⚠️ Birthday SMS error:', err.message);
+              });
+            }
+          } else {
+            console.log(`ℹ️ [WhatsApp Only] Non-Sri Lankan number (+${number}) for ${contact.name} — skipping SMS.`);
           }
         } catch (smsErr) {
           console.warn('⚠️ SMS dispatch check error:', smsErr.message);
@@ -242,13 +247,15 @@ async function dispatchBirthdayWishToNumber(sock, contact, rawPhone, auth, songU
       } else {
         logBirthdayEvent(jid, contact.name, 'failed', attempts);
         
-        // WhatsApp failed: Dispatch SMS fallback
+        // WhatsApp failed: Dispatch SMS fallback (only for Sri Lankan +94 numbers)
         try {
-          const { sendBirthdaySms, getTextLkConfig } = require('./sms.service');
-          const smsConfig = await getTextLkConfig();
-          if (smsConfig.token) {
-            console.log(`📲 WhatsApp failed, dispatching Text.lk SMS fallback to ${number}`);
-            await sendBirthdaySms({ contact: { ...contact, phone: number }, wishUrl });
+          const { sendBirthdaySms, getTextLkConfig, isSriLankanPhone } = require('./sms.service');
+          if (isSriLankanPhone(number)) {
+            const smsConfig = await getTextLkConfig();
+            if (smsConfig.token) {
+              console.log(`📲 WhatsApp failed, dispatching Text.lk SMS fallback to ${number}`);
+              await sendBirthdaySms({ contact: { ...contact, phone: number }, wishUrl });
+            }
           }
         } catch (smsErr) {}
       }
@@ -306,7 +313,7 @@ async function resolveContactPhoto(auth, number, jid, sock) {
     try {
       const googleData = await getGoogleProfilePhoto(auth, cleanNumber);
       if (googleData?.photo && !googleData.photo.includes('/cm/')) {
-        return googleData.photo;
+        return upgradeGooglePhotoQuality(googleData.photo);
       }
     } catch (e) {}
   }
@@ -323,7 +330,7 @@ async function resolveContactPhoto(auth, number, jid, sock) {
         });
       });
       if (found?.photo && !found.photo.includes('/cm/')) {
-        return found.photo;
+        return upgradeGooglePhotoQuality(found.photo);
       }
     }
   } catch (e) {}
@@ -338,7 +345,7 @@ async function resolveContactPhoto(auth, number, jid, sock) {
       });
       const dbPhoto = found?.photo_url || found?.photo;
       if (dbPhoto && !dbPhoto.includes('/cm/')) {
-        return dbPhoto;
+        return upgradeGooglePhotoQuality(dbPhoto);
       }
     }
   } catch (e) {}
@@ -641,13 +648,17 @@ async function sendForcedBirthdayMessage(sock, senderId, contactName = 'there', 
     }
   } catch (e) {}
 
-  // Dispatch SMS via Text.lk if enabled (only when not already handled by caller like sendWishWithOptionsApi)
+  // Dispatch SMS via Text.lk if enabled (only for Sri Lankan +94 numbers and when not handled by caller)
   if (!skipAutoSms) {
     try {
-      const { sendBirthdaySms, getTextLkConfig } = require('./sms.service');
-      const smsConfig = await getTextLkConfig();
-      if (smsConfig.autoSend && smsConfig.token) {
-        sendBirthdaySms({ contact: { name: contactName, phone: number }, wishUrl }).catch(() => {});
+      const { sendBirthdaySms, getTextLkConfig, isSriLankanPhone } = require('./sms.service');
+      if (isSriLankanPhone(number)) {
+        const smsConfig = await getTextLkConfig();
+        if (smsConfig.autoSend && smsConfig.token) {
+          sendBirthdaySms({ contact: { name: contactName, phone: number }, wishUrl }).catch(() => {});
+        }
+      } else {
+        console.log(`ℹ️ [WhatsApp Only] Non-Sri Lankan number (+${number}) — skipping auto SMS.`);
       }
     } catch (e) {}
   }

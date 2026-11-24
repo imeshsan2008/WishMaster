@@ -144,31 +144,38 @@ async function fetchProfilePicBuffer(profilePicUrl, contactName, maxRetries = 3,
   const defaultAvatarPath = path.join(PATHS.ASSETS_DIR, 'img', 'default_avatar.png');
 
   if (profilePicUrl && typeof profilePicUrl === 'string' && profilePicUrl.startsWith('http')) {
+    // Upgrade Google Contact photo URL to high resolution (1024px instead of default 100px)
+    let cleanUrl = profilePicUrl;
+    if (cleanUrl.includes('googleusercontent.com')) {
+      cleanUrl = cleanUrl.replace(/=s\d+[^=]*$/, '=s1024');
+    }
+
     const headers = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       Accept: 'image/*'
     };
-    if (profilePicUrl.includes('whatsapp.net')) {
+    if (cleanUrl.includes('whatsapp.net')) {
       headers['Referer'] = 'https://web.whatsapp.com/';
     }
 
     let attempt = 0;
     while (attempt < maxRetries) {
       try {
-        const res = await axios.get(profilePicUrl, {
+        const res = await axios.get(cleanUrl, {
           responseType: 'arraybuffer',
           headers,
           timeout: 8000
         });
 
         if (res.status === 200 && res.headers['content-type']?.startsWith('image/')) {
+          // Keep crisp high-res buffer (up to 1024x1024 with high quality without downscaling to 300x300)
           const buffer = await sharp(res.data)
-            .resize(300, 300, { fit: 'cover' })
+            .resize(1024, 1024, { fit: 'inside', withoutEnlargement: true })
             .ensureAlpha()
-            .png()
+            .png({ quality: 100 })
             .toBuffer();
 
-          console.log(`✅ Profile picture fetched for ${contactName} (attempt ${attempt + 1})`);
+          console.log(`✅ Profile picture fetched for ${contactName} in high quality (attempt ${attempt + 1})`);
           return buffer;
         }
       } catch (err) {
@@ -186,9 +193,9 @@ async function fetchProfilePicBuffer(profilePicUrl, contactName, maxRetries = 3,
     try {
       console.log(`ℹ️ Using default avatar for framed card: ${contactName}`);
       return await sharp(defaultAvatarPath)
-        .resize(300, 300, { fit: 'cover' })
+        .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
         .ensureAlpha()
-        .png()
+        .png({ quality: 100 })
         .toBuffer();
     } catch (e) {
       console.warn('⚠️ Could not load default avatar:', e.message);
@@ -259,7 +266,11 @@ async function createFramedImage(profileBuffer, contactName, styleKey = null) {
     const fontBase64 = await getFontBase64(style.text?.fonturl);
 
     const profileResized = await sharp(profileBuffer)
-      .resize(style.profile.width, style.profile.height, { fit: 'cover' })
+      .resize(style.profile.width, style.profile.height, {
+        fit: 'cover',
+        position: 'center',
+        kernel: sharp.kernel.lanczos3
+      })
       .toBuffer();
 
     const frameMeta = await sharp(framePath).metadata();
@@ -313,7 +324,7 @@ async function createFramedImage(profileBuffer, contactName, styleKey = null) {
         { input: framePath, top: 0, left: 0 },
         { input: Buffer.from(svgText), top: 0, left: 0 }
       ])
-      .png()
+      .png({ quality: 100 })
       .toBuffer();
 
     return finalImage;
